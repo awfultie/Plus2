@@ -1,0 +1,111 @@
+/* General container setup */
+#highlightedMessageContainer.plus2-in-popout {
+    flex-grow: 1;
+    font-family: var(--font-base, Inter, Roobert, "Helvetica Neue", Helvetica, Arial, sans-serif);
+}
+
+#messageTarget {
+    width: 100%;
+    align-items: flex-start; /* Align messages to the top in column-reverse */
+    overflow-x: hidden;
+    padding: 2px;
+}
+
+/* This targets the div created in renderHighlightedMessage */
+#messageTarget > div {
+    box-sizing: border-box;
+}
+
+/* This targets the .plus2-popout-message-entry div inside the above div */
+.plus2-popout-message-entry {
+    padding: 10px;
+    margin-bottom: 5px; /* Space between appended messages */
+    border-radius: 4px;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.plus2-popout-reply-block {
+    font-size: 0.9em;
+    opacity: 0.8;
+    border-left: 2px solid #888;
+    padding-left: 8px;
+    margin-bottom: 5px;
+    color: var(--plus2-paragraph-text-color); /* Inherit text color */
+}
+
+.plus2-popout-username {
+    color: var(--plus2-username-color);
+    font-weight: bold;
+    margin-right: 0.3em;
+}
+
+.plus2-popout-message-body {
+    color: var(--plus2-paragraph-text-color);
+    display: inline-flex; /* Treat as an inline-level flex container */
+    flex-wrap: wrap;      /* Allow contents to wrap to the next line */
+    align-items: center;  /* Vertically align text and emotes within the message */
+    vertical-align: middle; /* Align this container with adjacent text (username) and badges. */
+}
+
+/* Styling for elements inside the message body */
+.plus2-popout-message-body .text-fragment,
+.plus2-popout-message-body .mention-fragment {
+    vertical-align: middle;
+}
+
+.plus2-popout-message-body .link-fragment {
+    color: #bf94ff; /* Twitch's link color */
+    text-decoration: none;
+}
+.plus2-popout-message-body .link-fragment:hover {
+    text-decoration: underline;
+}
+
+/* Styling for Badges and Emotes */
+.plus2-popout-message-line .chat-badge,
+.plus2-popout-message-line .seventv-chat-badge {
+    margin-right: 0.3em;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1; /* Prevent extra space */
+}
+
+.plus2-popout-message-line .chat-badge img,
+.plus2-popout-message-line .seventv-chat-badge img {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+}
+
+/* This also covers the button wrapper for badges */
+.plus2-popout-message-line button[data-a-target="chat-badge"] {
+    background-color: transparent;
+    padding: 0;
+    margin: 0;
+    border: none;
+    line-height: 1;
+}
+
+.plus2-popout-message-body .chat-image,
+.plus2-popout-message-body .seventv-chat-emote,
+.plus2-popout-message-body .emoji  {
+    margin: -0.2rem 0.1rem; /* Negative margin to pull them in line with text */
+    vertical-align: middle;
+    max-height: 1.5rem; /* Increased size for better visibility */
+    width: auto;
+}
+
+/* --- Styling for Mod-Posted Messages --- */
+/* Apply the base paragraph text color to the entire mod-posted block and its children */
+.plus2-mod-post, .plus2-mod-post * {
+    color: var(--plus2-paragraph-text-color);
+}
+
+/* Specifically target the username inside a mod-posted reply to apply the username color */
+.plus2-mod-post .chat-author__display-name {
+    color: var(--plus2-username-color);
+    font-weight: bold;
+}

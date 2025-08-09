@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Plus 2 Options</title>
+  <style>
+    :root {
+      --bg-color: #f4f4f9;
+      --nav-bg-color: #ffffff;
+      --content-bg-color: #ffffff;
+      --border-color: #e0e0e0;
+      --text-color: #333;
+      --nav-link-hover-bg: #e9e9f3;
+      --nav-link-active-bg: #d8d8e8;
+      --nav-link-active-text: #000;
+      --header-color: #4a4a4a;
+      --button-save-bg: #4CAF50;
+      --button-reset-bg: #f44336;
+      --button-action-bg: #2196F3;
+      --button-text-color: #ffffff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden; /* Prevent body scroll */
+    }
+
+    h2 {
+      font-size: 1.5em;
+      color: var(--header-color);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-top: 0;
+    }
+
+    h3 {
+      font-size: 1.2em;
+      color: var(--header-color);
+      margin-top: 25px;
+    }
+
+    .options-container {
+      display: flex;
+      flex-grow: 1;
+      overflow: hidden;
+    }
+
+    /* --- Navigation Sidebar --- */
+    .options-nav {
+      width: 240px;
+      flex-shrink: 0;
+      background-color: var(--nav-bg-color);
+      border-right: 1px solid var(--border-color);
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .options-nav h1 {
+      font-size: 1.5em;
+      margin: 0 0 20px 0;
+      color: var(--header-color);
+    }
+
+    .options-nav nav {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .options-nav .nav-link {
+      text-decoration: none;
+      color: var(--text-color);
+      padding: 12px 15px;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      font-weight: 500;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .options-nav .nav-link:hover {
+      background-color: var(--nav-link-hover-bg);
+    }
+
+    .options-nav .nav-link.active {
+      background-color: var(--nav-link-active-bg);
+      color: var(--nav-link-active-text);
+      font-weight: 600;
+    }
+
+    /* --- Main Content Area --- */
+    .options-content {
+      flex-grow: 1;
+      padding: 30px;
+      overflow-y: auto; /* Allow content to scroll */
+    }
+
+    .options-panel {
+      display: none;
+    }
+
+    .options-panel.active {
+      display: block;
+    }
+
+    .options-panel > p {
+      margin-top: -5px;
+      margin-bottom: 20px;
+      font-size: 0.9em;
+      color: #555;
+      max-width: 600px;
+    }
+
+    /* --- Form Elements --- */
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    input[type="number"], input[type="text"], textarea, select {
+      margin-bottom: 15px;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      width: 100%;
+      max-width: 400px;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .form-inline-group {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+    }
+
+    .form-inline-group label {
+      display: inline;
+      margin-bottom: 0;
+      margin-left: 8px;
+      font-weight: normal;
+    }
+
+    .form-inline-group input[type="checkbox"] {
+      width: auto;
+      height: 1.2em;
+      width: 1.2em;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .input-group label {
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+    .input-group input, .input-group select {
+      margin-bottom: 0;
+      flex-grow: 1;
+    }
+
+    .input-group input[type="color"] {
+      flex-grow: 0; /* Prevent the color picker from expanding to fill space */
+      padding: 2px; /* Small padding to frame the color swatch */
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      height: 34px; /* Consistent height with other input fields */
+      width: 50px;
+      background-color: var(--content-bg-color);
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+
+    /* --- Footer --- */
+    .options-footer {
+      flex-shrink: 0;
+      position: relative; /* For absolute positioning of status */
+      padding: 15px 30px;
+      background-color: var(--nav-bg-color);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between; /* Puts left and right items at the ends */
+      align-items: center;
+    }
+
+    button {
+      padding: 10px 15px;
+      color: var(--button-text-color);
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 1em;
+      font-weight: 500;
+    }
+
+    button#save {
+      background-color: var(--button-save-bg);
+    }
+
+    input#importSettingsFile { display: none; }
+
+    details {
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+    details summary {
+      font-weight: bold;
+      cursor: pointer;
+      list-style-position: inside;
+    }
+    details > div {
+      margin-top: 15px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .preview-section {
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px dashed #ccc;
+      max-width: 500px;
+      margin-top: 10px;
+    }
+    .preview-section h4 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .footer-left {
+      display: flex;
+      gap: 15px;
+    }
+    #status {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--button-save-bg);
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      pointer-events: none; /* So it doesn't block clicks */
+    }
+
+    /* --- Tooltip Styles --- */
+    .label-with-tooltip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px; /* Match original label margin */
+    }
+    .label-with-tooltip label {
+      margin-bottom: 0; /* Container handles margin */
+    }
+    .tooltip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: help;
+      background-color: #a0a0a0;
+      color: white;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: bold;
+      user-select: none;
+    }
+    .tooltip-icon::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 130%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #2a2a2d;
+      color: #efeff1;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: normal;
+      width: max-content;
+      max-width: 280px;
+      text-align: left;
+      z-index: 20;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      pointer-events: none;
+    }
+    .tooltip-icon:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+    .form-inline-group .tooltip-icon {
+      margin-left: 4px; /* Add a small space between the label and the icon */
+    }
+
+    /* --- Footer Menu --- */
+    .footer-menu-container {
+      position: relative;
+    }
+
+    .footer-menu {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 5px); /* Position above the footer with a 5px gap */
+      left: 0;
+      background-color: var(--nav-bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      z-index: 10;
+      padding: 8px;
+      width: 200px;
+    }
+
+    .footer-menu.show {
+      display: block;
+    }
+
+    .footer-menu button, .footer-menu label {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-bottom: 5px;
+      box-sizing: border-box;
+      color: var(--button-text-color); /* White text for all */
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 4px; /* Add some rounding */
+      transition: background-color 0.2s ease;
+    }
+
+    /* Specific colors for each button in the menu */
+    .footer-menu #exportSettings {
+      background-color: #2196F3; /* Blue for action */
+    }
+    .footer-menu #exportSettings:hover {
+      background-color: #1976D2; /* Darker Blue */
+    }
+
+    .footer-menu #importSettingsLabel {
+      background-color: #FF9800; /* Orange for import */
+    }
+    .footer-menu #importSettingsLabel:hover {
+      background-color: #F57C00; /* Darker Orange */
+    }
+
+    .footer-menu #resetToDefaults {
+      background-color: #f44336; /* Red for destructive action */
+    }
+    .footer-menu #resetToDefaults:hover {
+      background-color: #d32f2f; /* Darker Red */
+    }
+
+    .footer-menu button:last-child {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="options-container">
+    <aside class="options-nav">
+      <h1>Plus 2 Options</h1>
+      <nav id="options-nav-menu">
+        <a href="#" class="nav-link" data-target="panel-general">General</a>
+        <a href="#" class="nav-link" data-target="panel-popout">Popout Window</a>
+        <a href="#" class="nav-link" data-target="panel-message-counter">Message Counter</a>
+        <a href="#" class="nav-link" data-target="panel-polling">Yes/No Polling</a>
+        <a href="#" class="nav-link" data-target="panel-tracking">Tracking & Leaderboard</a>
+      </nav>
+    </aside>
+
+    <main class="options-content">
+      <!-- General Panel -->
+      <div id="panel-general" class="options-panel">
+        <h2>General Settings</h2>
+        <div class="label-with-tooltip">
+          <label for="requiredUrlSubstring">URL Substring Filter (Twitch)</label>
+          <span class="tooltip-icon" data-tooltip="Only run on pages containing this text in the URL. Leave blank to run on all pages.">?</span>
+        </div>
+        <input type="text" id="requiredUrlSubstring" placeholder="e.g., yourchannelname">
+        
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableReplyTooltip">
+          <label for="enableReplyTooltip">Enable Reply Tooltip</label>
+          <span class="tooltip-icon" data-tooltip="Show the full text of a replied-to message when you hover over the reply context in Twitch chat.">?</span>
+        </div>
+        
+        <div class="label-with-tooltip">
+          <label for="inactivityTimeoutDuration">Auto-Resume Scroll Timeout (ms)</label>
+          <span class="tooltip-icon" data-tooltip="After scrolling up in chat, the page waits for you to be idle for this amount of time before it auto-resumes scrolling to the bottom.">?</span>
+        </div>
+        <input type="number" id="inactivityTimeoutDuration" min="1000">
+        
+        <div class="label-with-tooltip">
+          <label for="maxPrunedCacheSize">Chat Search History Size (Twitch)</label>
+          <span class="tooltip-icon" data-tooltip="Number of old messages to keep in memory for searching (Ctrl+F). Higher values may use more memory but allow searching further back.">?</span>
+        </div>
+        <input type="number" id="maxPrunedCacheSize" min="0">
+        
+        <h3>YouTube Support</h3>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableYouTube">
+          <label for="enableYouTube">Enable on YouTube</label>
+          <span class="tooltip-icon" data-tooltip="Enable all extension features on YouTube Live pages.">?</span>
+        </div>
+
+        <h3>Moderator Posting</h3>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableModPostReplyHighlight" value="true">
+          <label for="enableModPostReplyHighlight">Enable highlighting when a Moderator replies "post" to a message.</label>
+        </div>
+
+        <h3>Compatibility</h3>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enable7TVCompat" value="false">
+          <label for="enable7TVCompat">Enable 7TV compatibility if you have the 7TV Plugin installed.</label>
+        </div>
+        <div id="ffzDisabledNote" style="display: none; font-size: 0.9em; color: #666; margin-left: 20px; margin-bottom: 10px; max-width: 400px;">
+          FrankerFaceZ compatibility is disabled because 7TV compatibility is enabled. These settings are mutually exclusive.
+        </div>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableFrankerFaceZCompat" value="false">
+          <label for="enableFrankerFaceZCompat">Enable FrankerFaceZ compatibility if you have the FFZ Plugin installed.</label>
+        </div>
+      </div>
+
+      <!-- Popout Window Panel -->
+      <div id="panel-popout" class="options-panel">
+        <h2>Popout Window Settings</h2>
+        <h3>Behavior & Sizing</h3>
+        <label for="displayTime">Message Display Time (ms)</label>
+        <input type="number" id="displayTime" value="5000">
+
+        <div class="form-inline-group">
+          <input type="checkbox" id="appendMessages">
+          <label for="appendMessages">Append New Messages</label>
+          <span class="tooltip-icon" data-tooltip="When enabled, new highlighted messages are added to the popout instead of replacing the current one.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="popoutBaseFontSize">Base Font Size (px)</label>
+          <select id="popoutBaseFontSize" name="popoutBaseFontSize" style="width: auto;">
+            <option value="12">12px</option>
+            <option value="14">14px</option>
+            <option value="16">16px</option>
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+            <option value="22">22px</option>
+            <option value="24">24px</option>
+            <option value="26">26px</option>
+          </select>
+        </div>
+        
+        <label for="popoutDefaultWidth">Default Popout Width (px)</label>
+        <input type="number" id="popoutDefaultWidth" min="100">
+        
+        <label for="popoutDefaultHeight">Default Popout Height (px)</label>
+        <input type="number" id="popoutDefaultHeight" min="100">
+
+        <h3>Docking Behavior</h3>
+        <div class="form-inline-group">
+          <input type="checkbox" id="autoOpenPopout">
+          <label for="autoOpenPopout">Automatically open popout when a chat page loads</label>
+          <span class="tooltip-icon" data-tooltip="When enabled, the Plus 2 popout window will launch automatically when you open a Twitch or YouTube popout chat window.">?</span>
+        </div>
+
+        <div class="label-with-tooltip">
+          <label for="dockedViewHeight">Docked View Height (px)</label>
+          <span class="tooltip-icon" data-tooltip="Sets the height of the popout view when it is docked directly into the chat column.">?</span>
+        </div>
+        <input type="number" id="dockedViewHeight" min="50">
+
+        <div class="label-with-tooltip">
+          <label>Auto-Dock Popout View</label>
+          <span class="tooltip-icon" data-tooltip="Automatically dock the popout view inside the main chat window. This only applies to popped-out chat windows (e.g., twitch.tv/popout/... or youtube.com/.../live_chat).">?</span>
+        </div>
+        <div id="dockingBehaviorOptions">
+          <div class="form-inline-group">
+            <input type="radio" id="dockingBehavior_none" name="dockingBehavior" value="none">
+            <label for="dockingBehavior_none">Don't Dock (Default)</label>
+          </div>
+          <div class="form-inline-group">
+            <input type="radio" id="dockingBehavior_twitch" name="dockingBehavior" value="twitch">
+            <label for="dockingBehavior_twitch">Dock in Twitch Popout Chat</label>
+          </div>
+          <div class="form-inline-group">
+            <input type="radio" id="dockingBehavior_youtube" name="dockingBehavior" value="youtube">
+            <label for="dockingBehavior_youtube">Dock in YouTube Popout Chat</label>
+          </div>
+        </div>
+
+        <h3>Appearance</h3>
+        <div class="input-group">
+          <label for="chromaKeyColor">Chroma Key Color</label>
+          <input type="color" id="chromaKeyColor" value="#b9e6b7">
+        </div>
+        <div class="input-group">
+          <label for="messageBGColor">Message Background Color</label>
+          <input type="color" id="messageBGColor" value="#111111">
+        </div>
+        <div class="input-group">
+          <label for="paragraphTextColor">Message Text Color</label>
+          <input type="color" id="paragraphTextColor" value="#FFFFFF">
+        </div>
+
+        <h4>Username Colors</h4>
+        <div class="input-group" id="usernameColoringOptionsContainer">
+          <label for="usernameDefaultColor">Username Color</label>
+          <input type="color" id="usernameDefaultColor" value="#FFFFFF">
+        </div>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableUsernameColoring">
+          <label for="enableUsernameColoring">Use Uniform Username Color</label>
+        </div>
+      </div>
+
+      <!-- Message Counter Panel -->
+      <div id="panel-message-counter" class="options-panel">
+        <h2>Chat Message Counting Bar</h2>
+        <p>This feature displays a dynamic gauge in the popout window that tracks the frequency of specified keywords or emotes in chat.</p>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableCounting">
+          <label for="enableCounting">Enable Message Counting Bar</label>
+        </div>
+        <div id="countingOptionsContainer" style="display: none;">
+          <div class="label-with-tooltip">
+            <label for="stringToCount">Words/emotes to count</label>
+            <span class="tooltip-icon" data-tooltip="A comma-separated list of words or emotes to count. This is case-insensitive unless 'Exact Match' is enabled.">?</span>
+          </div>
+          <textarea rows="3" id="stringToCount">+2, lol, lmao, lul, lmfao</textarea>
+          <div class="form-inline-group">
+            <input type="checkbox" id="exactMatchCounting">
+            <div class="label-with-tooltip">
+              <label for="exactMatchCounting">Enable Exact Match</label>
+              <span class="tooltip-icon" data-tooltip="If enabled, counting will be case-sensitive and match the whole word only.">?</span>
+            </div>
+          </div>
+          <div class="label-with-tooltip">
+            <label for="gaugeMaxValue">Gauge Max Value</label>
+            <span class="tooltip-icon" data-tooltip="The highest value on the gauge. A larger value makes the gauge fill up slower.">?</span>
+          </div>
+          <input type="number" id="gaugeMaxValue" value="30">
+          <div class="label-with-tooltip">
+            <label for="decayInterval">Decay Interval (ms)</label>
+            <span class="tooltip-icon" data-tooltip="If a new matching word isn't seen in this amount of time, the count will start to decrease.">?</span>
+          </div>
+          <input type="number" id="decayInterval" value="500">
+          <div class="label-with-tooltip">
+            <label for="decayAmount">Decay Amount</label>
+            <span class="tooltip-icon" data-tooltip="How much to reduce the count by at each decay step. A larger value makes the gauge empty faster.">?</span>
+          </div>
+          <input type="number" id="decayAmount" value="1">
+          <div class="label-with-tooltip">
+            <label for="recentMaxResetDelay">Peak Label Visibility (ms)</label>
+            <span class="tooltip-icon" data-tooltip="How long the peak level label (e.g., 'Hilarious!!') stays visible after the gauge has reset to zero.">?</span>
+          </div>
+          <input type="number" id="recentMaxResetDelay" value="2000">
+
+          <details>
+            <summary>Gauge Preview &amp; Customization</summary>
+            <div>
+              <div id="gaugePreviewSectionBackground" class="preview-section">
+                <div id="previewGaugeContainer" style="position: relative; width: 250px; height: 25px; border: 2px solid silver; background-color: rgba(0,0,0,0.3); margin-bottom: 5px; box-sizing: border-box;">
+                  <div id="previewGaugeFill" style="height: 100%; width: 60%; background: linear-gradient(to right, gold, red); border-radius: 2px;"></div>
+                  <div id="previewRecentMaxIndicator" style="position: absolute; top: 0; bottom: 0; left: 80%; width: 2px; background-color: red;"></div>
+                </div>
+                <h4>Peak Label Preview:</h4>
+                <div id="previewPeakLabelLow" style="color: white; font-size: 16px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview Low Peak (15%)</div>
+                <div id="previewPeakLabelMid" style="color: yellow; font-size: 18px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview Mid Peak (45%)</div>
+                <div id="previewPeakLabelHigh" style="color: orange; font-size: 20px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview High Peak (75%)</div>
+                <div id="previewPeakLabelMax" style="color: red; font-size: 20px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview Max Peak (100%)</div>
+              </div>
+              
+              <h3 style="margin-top: 20px;">Gauge Colors</h3>
+              <div class="input-group"><label for="gaugeTrackColor">Background:</label><input type="color" id="gaugeTrackColor"><input type="range" id="gaugeTrackAlpha" min="0" max="1" step="0.01"><span id="gaugeTrackAlphaValue">1.00</span></div>
+              <div class="input-group"><label for="gaugeTrackBorderColor">Border:</label><input type="color" id="gaugeTrackBorderColor"><input type="range" id="gaugeTrackBorderAlpha" min="0" max="1" step="0.01"><span id="gaugeTrackBorderAlphaValue">1.00</span></div>
+              <div class="input-group"><label for="gaugeFillGradientStartColor">Fill Start:</label><input type="color" id="gaugeFillGradientStartColor"><label for="gaugeFillGradientEndColor">Fill End:</label><input type="color" id="gaugeFillGradientEndColor"></div>
+              <div class="input-group"><label for="recentMaxIndicatorColor">Highmark:</label><input type="color" id="recentMaxIndicatorColor"></div>
+
+              <h3>Peak Labels &amp; Animation</h3>
+              <div class="input-group"><label for="peakLabelLow">Low (15%):</label><input type="color" id="peakLabelLowColor"><input type="text" id="peakLabelLow"></div>
+              <div class="input-group"><label for="peakLabelMid">Mid (45%):</label><input type="color" id="peakLabelMidColor"><input type="text" id="peakLabelMid"></div>
+              <div class="input-group"><label for="peakLabelHigh">High (75%):</label><input type="color" id="peakLabelHighColor"><input type="text" id="peakLabelHigh"></div>
+              <div class="input-group"><label for="peakLabelMax">Max (100%):</label><input type="color" id="peakLabelMaxColor"><input type="text" id="peakLabelMax"></div>
+              <div class="form-inline-group"><input type="checkbox" id="enablePeakLabelAnimation"><label for="enablePeakLabelAnimation">Enable Max Peak Label Animation</label></div>
+              <div class="input-group"><label for="peakLabelAnimationDuration">Animation Speed:</label><input type="range" id="peakLabelAnimationDuration" min="0.1" max="2" step="0.1"><span id="peakLabelAnimationDurationValue">0.6s</span></div>
+              <div class="input-group"><label for="peakLabelAnimationIntensity">Animation Intensity:</label><input type="range" id="peakLabelAnimationIntensity" min="2" max="12" step="1"><span id="peakLabelAnimationIntensityValue">-2px</span></div>
+            </div>
+          </details>
+        </div>
+      </div>
+      <!-- Polling Panel -->
+      <div id="panel-polling" class="options-panel">
+        <h2>Yes/No Polling</h2>
+        <p>This feature automatically detects and visualizes simple Yes/No polls based on chat messages, displaying the results in the popout window.</p>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableYesNoPolling">
+          <label for="enableYesNoPolling">Enable Yes/No Polling</label>
+        </div>
+        <div id="yesNoPollingOptionsContainer" style="display: none;">
+          <div class="label-with-tooltip">
+            <label for="pollClearTime">Poll Clear Time (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Duration results are shown after the poll ends.">?</span>
+          </div>
+          <input type="number" id="pollClearTime" min="1000">
+          <div class="label-with-tooltip">
+            <label for="pollDisplayThreshold">Poll Display Threshold</label>
+            <span class="tooltip-icon" data-tooltip="Minimum total Yes/No responses required before displaying the poll bar.">?</span>
+          </div>
+          <input type="number" id="pollDisplayThreshold" min="1">
+          <div class="label-with-tooltip">
+            <label for="pollActivityThreshold">Poll Activity Threshold</label>
+            <span class="tooltip-icon" data-tooltip="Minimum new votes needed during a check interval to keep the poll active. A higher value makes the poll end more quickly.">?</span>
+          </div>
+          <input type="number" id="pollActivityThreshold" min="1">
+          <div class="label-with-tooltip">
+            <label for="pollActivityCheckInterval">Poll Activity Check Interval (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Frequency to check if an active poll should end due to low activity. Lower values check more often.">?</span>
+          </div>
+          <input type="number" id="pollActivityCheckInterval" min="250">
+          <div class="label-with-tooltip">
+            <label for="pollCooldownDuration">Poll Cooldown (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Time after a poll ends before a new one can start.">?</span>
+          </div>
+          <input type="number" id="pollCooldownDuration" min="0">
+          
+          <details>
+            <summary>Poll Preview &amp; Customization</summary>
+            <div>
+              <div class="preview-section">
+                <h4>Poll Preview:</h4>
+                <div id="combinedPollPreviewContainer" style="position: relative; width: 200px; height: 25px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center;">
+                  <div id="previewYesPollSegment" style="width: 65%; height: 100%; background-color: green;"></div>
+                  <div id="previewNoPollSegment" style="width: 35%; height: 100%; background-color: red;"></div>
+                  <span id="previewPollTextColor" style="position: absolute; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Yes 65% | No 35%</span>
+                </div>
+              </div>
+              <div class="input-group" style="margin-top: 20px;"><label for="yesPollBarColor">"Yes" Bar Color:</label><input type="color" id="yesPollBarColor"></div>
+              <div class="input-group"><label for="noPollBarColor">"No" Bar Color:</label><input type="color" id="noPollBarColor"></div>
+              <div class="input-group"><label for="pollTextColor">Label Color:</label><input type="color" id="pollTextColor"></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- Tracking Panel -->
+      <div id="panel-tracking" class="options-panel">
+        <h2>Highlight Tracking &amp; Leaderboard</h2>
+        <p>This feature logs every highlighted message locally and can display a leaderboard of top commenters in the popout window.</p>
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableHighlightTracking">
+          <label for="enableHighlightTracking">Enable tracking of highlighted messages.</label>
+        </div>
+        <div id="highlightTrackingOptionsContainer" style="display: none;">
+          
+          <h3>Highlight Log Management</h3>
+          <p>Download your tracked highlight data as a CSV file or clear all logged data.</p>
+          <div class="button-group">
+              <button id="downloadHighlightLog" style="background-color: #008CBA;">Download Highlight Log</button>
+              <button id="clearHighlightLog" style="background-color: #e57373;">Clear Highlight Log</button>
+          </div>
+
+          <h3>Leaderboard Options</h3>
+          <div class="form-inline-group">
+            <input type="checkbox" id="enableLeaderboard">
+            <label for="enableLeaderboard">Display leaderboard of top 3 commenters.</label>
+          </div>
+          <div id="leaderboardOptionsContainer" style="display: none;">
+            <div class="input-group">
+              <label for="leaderboardTimeWindowDays">Lookback (days):</label>
+              <input type="number" id="leaderboardTimeWindowDays" min="1">
+            </div>
+            <div class="input-group">
+              <label for="leaderboardHighlightValue">Highlight Base Value:</label>
+              <input type="number" id="leaderboardHighlightValue" min="0">
+            </div>
+          </div>
+          <details>
+            <summary>Leaderboard Preview &amp; Customization</summary>
+            <div>
+              <div id="leaderboardPreviewSectionBackground" class="preview-section">
+                <div id="previewLeaderboardContainer" style="position: relative; min-width: 150px; padding: 5px 8px; border-radius: 3px; background-color: rgba(0, 0, 0, 0); color: white;">
+                  <h4 id="previewLeaderboardHeader" style="margin: 0 0 4px; padding: 0; font-size: 13px; text-align: left; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">Leaderboard</h4>
+                  <ol id="previewLeaderboardList" style="margin: 0; padding: 0; list-style-type: none; display: flex; flex-direction: column; align-items: center;">
+                    <li style="display: flex; justify-content: space-between; width: 90%; margin-bottom: 3px;"><span style="margin-right: 1em; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">UserOne</span><span style="font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">150</span></li>
+                    <li style="display: flex; justify-content: space-between; width: 90%; margin-bottom: 3px;"><span style="margin-right: 1em; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">AnotherUser</span><span style="font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">95</span></li>
+                  </ol>
+                </div>
+              </div>
+              <div class="input-group" style="margin-top: 20px;"><label for="leaderboardHeaderText">Header Text:</label><input type="text" id="leaderboardHeaderText" placeholder="Leaderboard"></div>
+              <div class="input-group"><label for="leaderboardBackgroundColor">Background:</label><input type="color" id="leaderboardBackgroundColor"><input type="range" id="leaderboardBackgroundAlpha" min="0" max="1" step="0.01"><span id="leaderboardBackgroundAlphaValue">0.00</span></div>
+              <div class="input-group"><label for="leaderboardTextColor">Text Color:</label><input type="color" id="leaderboardTextColor"></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <footer class="options-footer">
+    <div class="footer-left">
+      <div class="footer-menu-container">
+        <button id="actionsMenuButton" style="background-color: #6c757d;">Manage</button>
+        <div id="actionsMenu" class="footer-menu">
+            <button id="exportSettings">Export Settings</button>
+            <label for="importSettingsFile" id="importSettingsLabel">Import Settings</label>
+            <input type="file" id="importSettingsFile" accept=".json">
+            <button id="resetToDefaults">Reset to Defaults</button>
+        </div>
+      </div>
+    </div>
+    <div id="status"></div>
+    <button id="save">Save Options</button>
+  </footer>
+
+  <script src="../lib/browser-polyfill.min.js"></script>
+  <script src="../scripts/options.js"></script>
+</body>
+</html>

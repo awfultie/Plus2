@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Plus 2",
+  "version": "3.0",
+  "description": "Enhances Twitch and YouTube chat with message highlighting, activity gauges, polls, and more for streamers.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "alarms",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.twitch.tv/*",
+    "*://*.youtube.com/*",
+    "*://studio.youtube.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.twitch.tv/*",
+        "*://*.youtube.com/*",
+        "*://studio.youtube.com/*"
+      ],
+      "js": ["lib/browser-polyfill.min.js", "scripts/app.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "ui/popup.html",
+    "default_icon": {
+      "128": "icons/Plus2_128.png"
+    }
+  },
+  "options_ui": {
+    "page": "ui/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "128": "icons/Plus2_128.png"
+  },
+  "web_accessible_resources": [{
+    "resources": ["icons/Plus2_128.png", "ui/popout.html"],
+    "matches": ["*://*.twitch.tv/*", "*://*.youtube.com/*", "*://studio.youtube.com/*"]
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self' data:; connect-src 'self';"
+  }
+}
