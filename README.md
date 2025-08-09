@@ -20,7 +20,7 @@ Follow these instructions to get a local development version of the extension ru
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/tyler-h/Plus2.git
+    git clone https://github.com/awfultie/Plus2.git
     cd Plus2
     ```
 
