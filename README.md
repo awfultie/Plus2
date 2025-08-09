@@ -19,23 +19,26 @@ Follow these instructions to get a local development version of the extension ru
 ### Installation & Building
 
 1.  **Clone the repository:**
-    ```git clone https://github.com/tyler-h/Plus2.git
+    ```sh
+    git clone https://github.com/tyler-h/Plus2.git
     cd Plus2
     ```
 
 2.  **Install dependencies:**
-    ```npm install
+    ```sh
+    npm install
     ```
 
 3.  **Build the extension:**
     The project uses a build script to create browser-specific packages from the `src` directory. The output is placed in the `dist/` folder.
 
     *   **To build for both Chrome and Firefox:**
-        ```npm run build
+        ```sh
+        npm run build
         ```
     *   **To build for a specific browser:**
-        ```npm run build:chrome
-        OR
+        ```sh
+        npm run build:chrome
         npm run build:firefox
         ```
 
