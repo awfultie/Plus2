@@ -77,13 +77,13 @@ async function build(browser) {
 
         console.log(`✅ Successfully built for ${browser}`);
 
-        // After the build is complete, zip the Firefox directory if applicable
-        if (browser === 'firefox') {
+        // After the build is complete, zip the directory for distribution
+        if (browser === 'firefox' || browser === 'chrome') {
             const version = packageJson.version;
-            const zipName = `plus2-firefox-v${version}.zip`;
+            const zipName = `plus2-${browser}-v${version}.zip`;
             const zipPath = path.join(distDir, zipName);
 
-            console.log(`\nZipping for Firefox...`);
+            console.log(`\nZipping for ${browser}...`);
             await zipDirectory(browserDistDir, zipPath);
             console.log(`📦 Successfully created ${zipPath}`);
         }

@@ -165,3 +165,7 @@ The page is organized with a sidebar for easy navigation and includes live previ
 ## Contributing
 
 Contributions are welcome! If you have a feature request, bug report, or want to contribute code, please feel free to open an issue or submit a pull request.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0. See the [COPYING.md](COPYING.md) file for the full license text.

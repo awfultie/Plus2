@@ -282,8 +282,8 @@
     }
 
     function showReplyTooltip(chatLineHoverTarget, event) {
-        // Add a guard to ensure the target element still exists and the feature is enabled.
-        if (!chatLineHoverTarget || !settings.enableReplyTooltip) return;
+        // Add guards to ensure the feature is enabled and the target element still exists in the DOM.
+        if (!settings.enableReplyTooltip || !chatLineHoverTarget || !chatLineHoverTarget.isConnected) return;
 
         hideReplyTooltip(); // Hide any existing tooltip first
 
