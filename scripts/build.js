@@ -57,7 +57,7 @@ async function build(browser) {
             manifest.browser_specific_settings = {
                 "gecko": {
                     // This ID is required for storage.sync to work during development.
-                    "id": "plus2@tyler.dev"
+                    "id": "plus2@awful.fun"
                 }
             };
 
