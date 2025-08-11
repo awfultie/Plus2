@@ -28,7 +28,7 @@ function injectAnimationStyles() {
 
     style = document.createElement('style');
     style.id = styleId;
-    style.innerHTML = `
+    style.textContent = `
     @keyframes plus2-vertical-shaking {
       0% { transform: translateY(-1px); }
       25% { transform: translateY(-${Math.max(1, settings.peakLabelAnimationIntensity || 2)}px); }
@@ -289,12 +289,24 @@ function updateLeaderboardDisplay(leaderboardData) {
         const listElement = leaderboardContainerElement.querySelector('#plus2LeaderboardList');
         listElement.innerHTML = '';
         if (topUsers.length === 0) {
-            listElement.innerHTML = `<li style="font-style: italic;">No data yet.</li>`;
+            const li = document.createElement('li');
+            li.style.fontStyle = 'italic';
+            li.textContent = 'No data yet.';
+            listElement.appendChild(li);
         } else {
             topUsers.forEach(user => {
                 const li = document.createElement('li');
                 li.style.cssText = 'display: flex; justify-content: space-between; width: 90%; margin-bottom: 3px;';
-                li.innerHTML = `<span style="margin-right: 1em; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">${user.username}</span><span style="font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">${user.score}</span>`;
+
+                const userSpan = document.createElement('span');
+                userSpan.style.cssText = 'margin-right: 1em; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;';
+                userSpan.textContent = user.username;
+
+                const scoreSpan = document.createElement('span');
+                scoreSpan.style.cssText = 'font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;';
+                scoreSpan.textContent = user.score;
+
+                li.append(userSpan, scoreSpan);
                 listElement.appendChild(li);
             });
         }
@@ -367,7 +379,13 @@ function renderHighlightedMessage(messageData) {
     const { html, id, isAppend, displayTime, platform } = messageData;
 
     const messageElement = document.createElement('div');
-    messageElement.innerHTML = html;
+    // Use DOMParser to safely parse the HTML string. This prevents script execution.
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    // Move the parsed nodes from the temporary document into our message element.
+    while (doc.body.firstChild) {
+        messageElement.appendChild(doc.body.firstChild);
+    }
     messageElement.dataset.messageId = id;
 
     // If the message is from YouTube, we always apply the custom color directly,

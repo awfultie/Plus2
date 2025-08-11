@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const duration = options.peakLabelAnimationDuration || 0.6;
 
     // Use a different class name to avoid any potential conflict with popout styles.
-    style.innerHTML = `
+    style.textContent = `
     @keyframes plus2-options-vertical-shaking {
       0% { transform: translateY(-1px); }
       25% { transform: translateY(-${intensity}px); }
