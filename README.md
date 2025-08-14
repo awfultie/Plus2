@@ -156,12 +156,6 @@ The page is organized with a sidebar for easy navigation and includes live previ
 ### Compatibility Mode:
 *   Check this if you use the 7TV browser extension.
 
-## Known Issues
-
-*   **Firefox Docked Popout:**
-    *   When the popout view is docked into the chat column in Firefox, it currently does not display highlighted messages, the activity gauge, or polls.
-    *   **Workaround:** For Firefox users, please keep the popout as a separate, undocked window for all features to function correctly. This issue is under investigation.
-
 ## Contributing
 
 Contributions are welcome! If you have a feature request, bug report, or want to contribute code, please feel free to open an issue or submit a pull request.

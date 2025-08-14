@@ -99,12 +99,30 @@ function getChannelNameFromUrl(url) {
 
 // --- Broadcasting ---
 function broadcastToPopouts(message) {
+    // Send to extension pages (popout windows)
     browser.runtime.sendMessage(message).catch(error => {
         // This callback is used to check for an error.
         // The "Receiving end does not exist" error is expected and harmless if the popout window is not open.
         // We can safely ignore it by checking for chrome.runtime.lastError.
         if (error.message.includes("Receiving end does not exist")) { /* Silently ignore */ }
         else { console.error("Broadcast failed:", error); }
+    });
+
+    // Also send to content scripts in all tabs (for docked iframe support)
+    browser.tabs.query({}).then(tabs => {
+        tabs.forEach(tab => {
+            if (tab.url && (tab.url.includes('twitch.tv') || tab.url.includes('youtube.com'))) {
+                browser.tabs.sendMessage(tab.id, message).catch(error => {
+                    // Silently ignore errors for tabs that don't have our content script
+                    if (!error.message.includes("Receiving end does not exist") && 
+                        !error.message.includes("Could not establish connection")) {
+                        console.error("Tab broadcast failed:", error);
+                    }
+                });
+            }
+        });
+    }).catch(error => {
+        console.error("Failed to query tabs for broadcast:", error);
     });
 }
 
