@@ -106,9 +106,27 @@
                 const username = usernameElement ? usernameElement.querySelector('span.chat-author__display-name')?.textContent.trim() : null;
                 const usernameHTML = usernameElement ? usernameElement.outerHTML : '';
 
-                const badgesHTML = Array.from(chatLine.querySelectorAll('.ffz-badge'))
-                    .map(badge => badge.outerHTML)
-                    .join('');
+                // FFZ uses CSS background-images for badges, which don't transfer to the popout.
+                // We must find the badges and manually reconstruct them as <img> tags.
+                const badgesContainer = chatLine.querySelector('span.chat-line__message--badges');
+                let badgesHTML = '';
+                if (badgesContainer) {
+                    const badgeSpans = badgesContainer.querySelectorAll('.ffz-badge');
+                    badgesHTML = Array.from(badgeSpans).map(badgeSpan => {
+                        const badgeId = badgeSpan.dataset.badge;
+                        const badgeVersion = badgeSpan.dataset.version;
+                        const provider = badgeSpan.dataset.provider;
+
+                        // Only reconstruct standard Twitch badges provided by FFZ.
+                        if (provider === 'twitch' && badgeId && badgeVersion) {
+                            const badgeUrl = `https://static-cdn.jtvnw.net/badges/v1/${badgeId}/${badgeVersion}/1`;
+                            // Use the same structure as native Twitch badges for consistent styling in the popout.
+                            return `<span class="chat-badge" title="${badgeId}"><img src="${badgeUrl}" alt="${badgeId}" /></span>`;
+                        }
+                        // For other badges (e.g., custom FFZ badges), we can't know the URL, so we pass their HTML through. They likely won't render.
+                        return badgeSpan.outerHTML;
+                    }).join('');
+                }
 
                 const messageBodyElement = chatLine.querySelector('span.message');
                 const messageBodyHTML = messageBodyElement ? messageBodyElement.innerHTML : '';
@@ -363,6 +381,11 @@
 
             // We use a small timeout to allow the browser to calculate the initial position.
             setTimeout(() => {
+                // Add a guard: The tooltip might have been hidden (and nulled) by a fast mouseleave event
+                // before this timeout executed.
+                if (!replyTooltipElement) {
+                    return;
+                }
                 const tooltipRect = replyTooltipElement.getBoundingClientRect();
                 if (tooltipRect.top < 5) { // Check if it's too close to the top edge
                     // If so, reposition it below the message instead.
