@@ -97,6 +97,35 @@ class SearchFeature {
         const messageText = messageContentElement ? messageContentElement.textContent.toLowerCase() : '';
 
         this.prunedMessageCacheData.push({ username: usernameText, message: messageText });
+
+        // If filtering is active and this message matches the current filter,
+        // immediately re-add it to maintain visibility
+        if (this.isSearchActive && this.searchInput) {
+            const currentQuery = this.searchInput.value.toLowerCase().trim();
+            if (currentQuery && (usernameText.includes(currentQuery) || messageText.includes(currentQuery))) {
+                this._reAddMatchingMessage(node, currentQuery);
+            }
+        }
+    }
+
+    _reAddMatchingMessage(originalNode, query) {
+        const chatContainer = document.querySelector(this.adapter.selectors.chatScrollableArea);
+        if (!chatContainer) return;
+
+        // Clone the node and mark it as re-added
+        const clonedNode = originalNode.cloneNode(true);
+        clonedNode.setAttribute('data-plus2-readded', 'true');
+        clonedNode.style.display = '';
+
+        // Find the correct insertion point (after existing re-added messages but before live messages)
+        let insertionPoint = chatContainer.firstChild;
+        
+        // Skip past any existing re-added messages to maintain chronological order
+        while (insertionPoint && insertionPoint.hasAttribute && insertionPoint.hasAttribute('data-plus2-readded')) {
+            insertionPoint = insertionPoint.nextSibling;
+        }
+
+        chatContainer.insertBefore(clonedNode, insertionPoint);
     }
 
     filterChatMessages(query) {
@@ -141,8 +170,10 @@ class SearchFeature {
         });
 
         // Insert matches at the top of the chat, oldest first
+        let insertionPoint = chatContainer.firstChild;
         matchingCachedNodes.forEach(node => {
-            chatContainer.insertBefore(node, chatContainer.firstChild);
+            chatContainer.insertBefore(node, insertionPoint);
+            insertionPoint = node.nextSibling; // Move insertion point down for next message
         });
     }
 
