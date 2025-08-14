@@ -49,7 +49,8 @@ const defaultOptions = {
     enableUsernameColoring: true, usernameDefaultColor: '#FF0000', paragraphTextColor: '#FFFFFF',
     popoutDefaultWidth: 600, popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableReplyTooltip: true,
     enableHighlightTracking: false, enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7,
-    leaderboardHeaderText: 'Leaderboard', leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF'
+    leaderboardHeaderText: 'Leaderboard', leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
+    gaugeMinDisplayThreshold: 3
 };
 
 function openPopout() {

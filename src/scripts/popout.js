@@ -251,7 +251,8 @@ function updateRecentMaxIndicator(gaugeData) {
 function updateGaugeContainerVisibility(gaugeData) {
     if (!gaugeContainerElement) return;
     const { occurrenceCount, recentMaxValue } = gaugeData;
-    const isGaugeVisible = occurrenceCount > 0 || recentMaxValue > 0;
+    const threshold = settings.gaugeMinDisplayThreshold || 3;
+    const isGaugeVisible = (occurrenceCount >= threshold || recentMaxValue >= threshold);
     const isPollVisible = pollState.shouldDisplay; // Check if the poll should be displayed
 
     if (isGaugeVisible || isPollVisible) {

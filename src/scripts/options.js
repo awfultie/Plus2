@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const decayIntervalInput = document.getElementById('decayInterval');
   const decayAmountInput = document.getElementById('decayAmount');
   const gaugeMaxValueInput = document.getElementById('gaugeMaxValue');
+  const gaugeMinDisplayThresholdInput = document.getElementById('gaugeMinDisplayThreshold');
   const exactMatchCountingInput = document.getElementById('exactMatchCounting');
   const enableCountingInput = document.getElementById('enableCounting');
   const peakLabelLowInput = document.getElementById('peakLabelLow');
@@ -145,7 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
     usernameDefaultColor: '#FF0000', enableReplyTooltip: true, paragraphTextColor: '#FFFFFF', popoutDefaultWidth: 600,
     popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableHighlightTracking: false,
     enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7, leaderboardHeaderText: 'Leaderboard',
-    leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF'
+    leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
+    gaugeMinDisplayThreshold: 3
   };
 
   function hexToRgb(hex) {
