@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableHighlightTracking: false,
     enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7, leaderboardHeaderText: 'Leaderboard',
     leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
-    gaugeMinDisplayThreshold: 3
+    gaugeMinDisplayThreshold: 4
   };
 
   function hexToRgb(hex) {
