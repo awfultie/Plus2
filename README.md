@@ -1,6 +1,6 @@
 # Plus 2 - Twitch Chat Enhancement Suite
 
-**Version:** 3.0 | **Status:** Actively Developed
+**Version:** 3.2.2 | **Status:** Actively Developed
 
 ## Overview
 
@@ -69,6 +69,8 @@ After building, you can load the extension directly into your browser for testin
 *   `scripts/`: Contains the Node.js build script (`build.js`).
 *   `manifest.json`: The base manifest file for the extension. The build script modifies it for each browser's specific requirements.
 
+For detailed information about the modular architecture and code organization, see [MODULAR-STRUCTURE.md](MODULAR-STRUCTURE.md).
+
 ## Features
 
 Here's a breakdown of the key features offered by Plus 2:
@@ -125,6 +127,8 @@ Here's a breakdown of the key features offered by Plus 2:
 To configure Plus 2, click its icon in your browser's toolbar and select "Options", or use the in-chat menu. The options page allows for deep customization of every feature.
 
 The page is organized with a sidebar for easy navigation and includes live previews for the Gauge and Leaderboard to help you style them perfectly.
+
+For a complete reference of all available options, see the [OPTIONS.md](OPTIONS.md) documentation.
 
 ### General Settings:
 *   **URL Filtering (Twitch):** Limit where the extension is active on Twitch.

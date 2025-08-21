@@ -98,7 +98,6 @@ app.js (main)
 
 ## Migration Notes
 
-- Original `app.js` saved as `app-original.js`
 - All functionality preserved in modular form
 - Build system updated to include all modules
 - No breaking changes to extension API
