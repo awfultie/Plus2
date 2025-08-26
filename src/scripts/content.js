@@ -35,7 +35,6 @@
         try {
             browser.runtime.sendMessage({ type, data });
         } catch (e) {
-            console.error("Plus2: Could not send message to background script. The extension may have been reloaded.", e);
         }
     }
 
@@ -102,7 +101,6 @@
     function startObserver() {
         const targetNode = document.querySelector(currentSelectors.chatContainer);
         if (targetNode) {
-            console.log("Plus2: Chat container found. Starting observer.");
             observer.observe(targetNode, { childList: true, subtree: platform.isTwitch });
             targetNode.querySelectorAll(currentSelectors.chatMessage).forEach(processChatMessage);
         } else {

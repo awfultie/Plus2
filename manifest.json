@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Plus 2",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "Enhances Twitch and YouTube chat with message highlighting, activity gauges, polls, and more for streamers.",
   "permissions": [
     "storage",
@@ -11,7 +11,9 @@
   ],
   "host_permissions": [
     "*://*.twitch.tv/*",
-    "*://*.youtube.com/*"
+    "*://*.youtube.com/*",
+    "https://awfulstreamview--streamview-ba878.us-central1.hosted.app/*",
+    "http://localhost:*/*"
   ],
   "content_scripts": [
     {
@@ -51,6 +53,6 @@
     "matches": ["*://*.twitch.tv/*", "*://*.youtube.com/*"]
   }],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self' data:; connect-src 'self';"
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self' data:; connect-src 'self' https: http://localhost:*;"
   }
 }

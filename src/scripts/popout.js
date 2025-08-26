@@ -12,6 +12,71 @@ let activeMessageTimeouts = new Map(); // To manage timeouts for individual mess
 
 // --- Helper Functions ---
 
+function getDefaultSettings() {
+    // This function provides a default configuration that matches the nested structure
+    // expected by the streamview.
+    return {
+        display: {
+            chromaKeyColor: '#b9e6b7',
+            popoutBaseFontSize: 18,
+            popoutDefaultWidth: 600,
+            popoutDefaultHeight: 300,
+            displayTime: 10000
+        },
+        features: {
+            enableCounting: true,
+            enableYesNoPolling: true,
+            enableLeaderboard: true,
+            enableHighlightTracking: true,
+            appendMessages: false
+        },
+        styling: {
+            messageBGColor: '#111111',
+            paragraphTextColor: '#FFFFFF',
+            enableUsernameColoring: true,
+            usernameDefaultColor: '#FF0000',
+            gauge: {
+                gaugeMaxValue: 30,
+                gaugeMinDisplayThreshold: 3,
+                gaugeTrackColor: '#e0e0e0',
+                gaugeTrackAlpha: 0,
+                gaugeTrackBorderColor: '#505050',
+                gaugeTrackBorderAlpha: 1,
+                gaugeFillGradientStartColor: '#ffd700',
+                gaugeFillGradientEndColor: '#ff0000',
+                recentMaxIndicatorColor: '#ff0000',
+                peakLabels: getDefaultPeakLabels(),
+                enablePeakLabelAnimation: true,
+                peakLabelAnimationDuration: 0.6,
+                peakLabelAnimationIntensity: 2
+            },
+            polling: {
+                yesPollBarColor: '#ff0000',
+                noPollBarColor: '#0000ff',
+                pollTextColor: '#ffffff'
+            },
+            leaderboard: {
+                leaderboardHeaderText: 'Leaderboard',
+                leaderboardBackgroundColor: '#000000',
+                leaderboardBackgroundAlpha: 0,
+                leaderboardTextColor: '#FFFFFF'
+            }
+        },
+        behavior: {
+            // Behavior settings are primarily used by the background script
+        }
+    };
+}
+
+function getDefaultPeakLabels() {
+    return {
+        low: { text: 'Heh', color: '#ffffff' },
+        mid: { text: 'Funny!', color: '#ffff00' },
+        high: { text: 'Hilarious!!', color: '#ffa500' },
+        max: { text: 'OFF THE CHARTS!!!', color: '#ff0000' }
+    };
+}
+
 function hexToRgba(hex, alpha) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     if (!result) return `rgba(0,0,0,${alpha})`;
@@ -30,15 +95,12 @@ function injectAnimationStyles() {
     style.id = styleId;
     style.textContent = `
     @keyframes plus2-vertical-shaking {
-      0% { transform: translateY(-1px); }
-      25% { transform: translateY(-${Math.max(1, settings.peakLabelAnimationIntensity || 2)}px); }
-      50% { transform: translateY(-1px); }
-      75% { transform: translateY(-${Math.max(1, settings.peakLabelAnimationIntensity || 2)}px); }
-      100% { transform: translateY(-1px); }
+      0%, 50%, 100% { transform: translateY(-1px); }
+      25%, 75% { transform: translateY(-${Math.max(1, settings.styling?.gauge?.peakLabelAnimationIntensity || 2)}px); }
     }
     .plus2-shake-animation {
       animation-name: plus2-vertical-shaking;
-      animation-duration: ${settings.peakLabelAnimationDuration || 0.6}s;
+      animation-duration: ${settings.styling?.gauge?.peakLabelAnimationDuration || 0.6}s;
       animation-iteration-count: infinite;
       animation-timing-function: ease-in-out;
     }
@@ -53,18 +115,19 @@ function buildHighlightContainerStructure() {
     document.body.innerHTML = '';
 
     // Set CSS variables on the root for easier styling from popout.css
-    document.documentElement.style.setProperty('--plus2-paragraph-text-color', settings.paragraphTextColor || '#FFFFFF');
+    document.documentElement.style.setProperty('--plus2-paragraph-text-color', settings.styling?.paragraphTextColor || '#FFFFFF');
     // At this point, settings might be empty. Default to 'unset' to show native colors
     // until the full settings are loaded and applied by applyAllStyles.
-    if (settings.enableUsernameColoring) {
-        document.documentElement.style.setProperty('--plus2-username-color', settings.usernameDefaultColor || '#FFFFFF');
+    if (settings.styling?.enableUsernameColoring) {
+        document.documentElement.style.setProperty('--plus2-username-color', settings.styling?.usernameDefaultColor || '#FFFFFF');
     } else {
         document.documentElement.style.setProperty('--plus2-username-color', 'unset');
     }
-    document.documentElement.style.fontSize = `${settings.popoutBaseFontSize || 14}px`;
-    document.body.style.backgroundColor = settings.chromaKeyColor;
+    document.documentElement.style.fontSize = `${settings.display?.popoutBaseFontSize || 14}px`;
+    document.body.style.backgroundColor = settings.display?.chromaKeyColor;
     document.body.style.margin = '0';
     document.body.style.overflow = 'hidden';
+    document.body.style.fontFamily = 'Inter, Roobert, "Helvetica Neue", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiOne"';
 
     // Main container
     highlightedMessageContainer = document.createElement('div');
@@ -74,7 +137,7 @@ function buildHighlightContainerStructure() {
         position: 'relative',
         width: '100vw',
         height: '100vh',
-        backgroundColor: settings.chromaKeyColor,
+        backgroundColor: settings.display?.chromaKeyColor,
         padding: '10px',
         boxSizing: 'border-box',
         zIndex: '1000',
@@ -231,7 +294,7 @@ function updateRecentMaxIndicator(gaugeData) {
         maxLevelReachedLabelElement.style.display = 'flex';
         if (newLabelText === peakLabels.max.text && settings.enablePeakLabelAnimation) {
             maxLevelReachedLabelElement.classList.add('plus2-shake-animation');
-        } else {
+        } else if (settings.styling?.gauge?.enablePeakLabelAnimation) {
             maxLevelReachedLabelElement.classList.remove('plus2-shake-animation');
         }
     } else {
@@ -251,7 +314,7 @@ function updateRecentMaxIndicator(gaugeData) {
 function updateGaugeContainerVisibility(gaugeData) {
     if (!gaugeContainerElement) return;
     const { occurrenceCount, recentMaxValue } = gaugeData;
-    const threshold = settings.gaugeMinDisplayThreshold || 3;
+    const threshold = settings.styling?.gauge?.gaugeMinDisplayThreshold || 3;
     const isGaugeVisible = (occurrenceCount >= threshold || recentMaxValue >= threshold);
     const isPollVisible = pollState.shouldDisplay; // Check if the poll should be displayed
 
@@ -281,7 +344,7 @@ function updateYesNoPollDisplay(pollData) {
 
 function updateLeaderboardDisplay(leaderboardData) {
     if (!leaderboardContainerElement) return;
-    const { topUsers, isVisible, mode, headerText } = leaderboardData;
+    const { topUsers, isVisible, headerText } = leaderboardData;
 
     leaderboardContainerElement.style.display = isVisible ? 'block' : 'none';
 
@@ -316,7 +379,7 @@ function updateLeaderboardDisplay(leaderboardData) {
 
 function adjustFontSizeToFit(messageElement) {
     // This feature only makes sense in non-append mode where one message fills the screen.
-    if (settings.appendMessages || !messageElement || !messageTarget) return;
+    if (settings.features?.appendMessages || !messageElement || !messageTarget) return;
 
     const content = messageElement.querySelector('.plus2-popout-message-entry');
     if (!content) return;
@@ -324,12 +387,12 @@ function adjustFontSizeToFit(messageElement) {
     // Use a timeout of 0 to allow the browser to render the element with the new base font size
     // before we start checking its dimensions. This avoids race conditions.
     setTimeout(() => {
-        const containerWidth = messageTarget.clientWidth;
+        const containerWidth = messageTarget.clientWidth - 10; // -10 for padding
         let availableHeight = messageTarget.clientHeight;
 
         // If either the counter or poll features are enabled, the gauge might appear.
         // We need to reserve space for it if it's not currently visible.
-        if (settings.enableCounting || settings.enableYesNoPolling) {
+        if (settings.features?.enableCounting || settings.features?.enableYesNoPolling) {
             // If the gauge is currently hidden, its space is being occupied by messageTarget.
             // We must manually subtract its height to get the true available space for the message.
             if (gaugeContainerElement && gaugeContainerElement.style.display === 'none') {
@@ -340,7 +403,7 @@ function adjustFontSizeToFit(messageElement) {
 
         if (containerWidth <= 0 || availableHeight <= 0) return;
 
-        let maxFontSize = settings.popoutBaseFontSize || 18;
+        let maxFontSize = settings.display?.popoutBaseFontSize || 18;
         let minFontSize = 8; // Don't shrink smaller than this
         const precision = 0.5; // How close we need to be
         let safety = 20; // Prevent potential infinite loops
@@ -397,7 +460,7 @@ function renderHighlightedMessage(messageData) {
         // which actually contains the color style.
         const usernameSpan = messageElement.querySelector('.plus2-popout-username > span');
         if (usernameSpan) {
-            usernameSpan.style.color = settings.usernameDefaultColor;
+            usernameSpan.style.color = settings.styling?.usernameDefaultColor;
         }
     }
 
@@ -429,31 +492,33 @@ function renderHighlightedMessage(messageData) {
 
 function applyAllStyles(newSettings) {
     settings = newSettings;
-    document.documentElement.style.setProperty('--plus2-paragraph-text-color', settings.paragraphTextColor);
+    if (!settings) return;
+
+    document.documentElement.style.setProperty('--plus2-paragraph-text-color', settings.styling?.paragraphTextColor);
     // If uniform username coloring is enabled, apply the user's chosen color.
     // Otherwise, 'unset' the variable so that the original color from Twitch (via inline style) can be used.
-    if (settings.enableUsernameColoring) {
-        document.documentElement.style.setProperty('--plus2-username-color', settings.usernameDefaultColor);
+    if (settings.styling?.enableUsernameColoring) {
+        document.documentElement.style.setProperty('--plus2-username-color', settings.styling?.usernameDefaultColor);
     } else {
         document.documentElement.style.setProperty('--plus2-username-color', 'unset');
     }
 
-    document.documentElement.style.fontSize = `${settings.popoutBaseFontSize}px`;
-    document.body.style.backgroundColor = settings.chromaKeyColor;
+    document.documentElement.style.fontSize = `${settings.display?.popoutBaseFontSize}px`;
+    document.body.style.backgroundColor = settings.display?.chromaKeyColor;
     if (gaugeContainerElement) {
-        gaugeContainerElement.style.backgroundColor = hexToRgba(settings.gaugeTrackColor, settings.gaugeTrackAlpha);
-        gaugeContainerElement.style.border = `2px solid ${hexToRgba(settings.gaugeTrackBorderColor, settings.gaugeTrackBorderAlpha)}`;
+        gaugeContainerElement.style.backgroundColor = hexToRgba(settings.styling?.gauge?.gaugeTrackColor, settings.styling?.gauge?.gaugeTrackAlpha);
+        gaugeContainerElement.style.border = `2px solid ${hexToRgba(settings.styling?.gauge?.gaugeTrackBorderColor, settings.styling?.gauge?.gaugeTrackBorderAlpha)}`;
     }
-    if (gaugeFillElement) gaugeFillElement.style.background = `linear-gradient(to right, ${settings.gaugeFillGradientStartColor}, ${settings.gaugeFillGradientEndColor})`;
-    if (recentMaxIndicatorElement) recentMaxIndicatorElement.style.backgroundColor = settings.recentMaxIndicatorColor;
-    if (yesBarElement) yesBarElement.style.backgroundColor = settings.yesPollBarColor;
-    if (noBarElement) noBarElement.style.backgroundColor = settings.noPollBarColor;
-    if (yesPollLabelElement) yesPollLabelElement.style.color = settings.pollTextColor;
-    if (noPollLabelElement) noPollLabelElement.style.color = settings.pollTextColor;
-    if (pollWinnerTextElement) pollWinnerTextElement.style.color = settings.pollTextColor;
+    if (gaugeFillElement) gaugeFillElement.style.background = `linear-gradient(to right, ${settings.styling?.gauge?.gaugeFillGradientStartColor}, ${settings.styling?.gauge?.gaugeFillGradientEndColor})`;
+    if (recentMaxIndicatorElement) recentMaxIndicatorElement.style.backgroundColor = settings.styling?.gauge?.recentMaxIndicatorColor;
+    if (yesBarElement) yesBarElement.style.backgroundColor = settings.styling?.polling?.yesPollBarColor;
+    if (noBarElement) noBarElement.style.backgroundColor = settings.styling?.polling?.noPollBarColor;
+    if (yesPollLabelElement) yesPollLabelElement.style.color = settings.styling?.polling?.pollTextColor;
+    if (noPollLabelElement) noPollLabelElement.style.color = settings.styling?.polling?.pollTextColor;
+    if (pollWinnerTextElement) pollWinnerTextElement.style.color = settings.styling?.polling?.pollTextColor;
     if (leaderboardContainerElement) {
-        leaderboardContainerElement.style.backgroundColor = hexToRgba(settings.leaderboardBackgroundColor, settings.leaderboardBackgroundAlpha);
-        leaderboardContainerElement.style.color = settings.leaderboardTextColor;
+        leaderboardContainerElement.style.backgroundColor = hexToRgba(settings.styling?.leaderboard?.leaderboardBackgroundColor, settings.styling?.leaderboard?.leaderboardBackgroundAlpha);
+        leaderboardContainerElement.style.color = settings.styling?.leaderboard?.leaderboardTextColor;
     }
     injectAnimationStyles();
 }
@@ -514,51 +579,47 @@ document.addEventListener('DOMContentLoaded', () => {
     // `messageTarget` exist and are ready to receive messages, preventing a race condition.
     buildHighlightContainerStructure();
 
-    // --- Keep-Alive Audio Workaround ---
-    // This plays a tiny, silent audio clip on a loop. This signals to the browser
-    // that the page is "active" and can help prevent it from aggressively
-    // throttling JavaScript timers and rendering updates when the window is not visible
-    // (e.g., when it's a backgrounded OBS browser source).
-    const keepAliveAudio = document.createElement('audio');
-    // A tiny, silent WAV file encoded as a Data URI.
-    keepAliveAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-    keepAliveAudio.loop = true;
-    keepAliveAudio.setAttribute('playsinline', ''); // Good practice for mobile, no harm here.
-    document.body.appendChild(keepAliveAudio);
 
-    // Attempt to play the audio. We'll wrap it in a try-catch block
-    // and handle the promise to avoid unhandled rejection errors if autoplay fails.
-    try {
-        const playPromise = keepAliveAudio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.log("[Plus2] Keep-alive audio failed to play. This can happen if the browser blocks autoplay. The popout may need to be interacted with once to enable it.", error);
-                // For an OBS source, it's better to just let it fail silently if the browser blocks it.
-                // The user might need to interact with the popout once to enable it.
-            });
-        }
-    } catch (error) {
-        console.error("[Plus2] Error attempting to play keep-alive audio:", error);
+    // Check if we're running in a browser extension context or standalone (streamview)
+    const isExtensionContext = typeof browser !== 'undefined' && browser.runtime && browser.runtime.sendMessage;
+    
+    if (isExtensionContext) {
+        // Request the initial full state from the background script
+        browser.runtime.sendMessage({ type: 'REQUEST_INITIAL_STATE' }).then(response => {
+            if (response && response.settings) {
+                settings = response.settings;
+                pollState = response.poll; // Store initial poll state
+                // The UI structure is already built, now apply all the styles and data.
+                applyAllStyles(response.settings);
+                updateGaugeDisplay(response.gauge);
+                updateRecentMaxIndicator(response.gauge);
+                updateYesNoPollDisplay(response.poll);
+                updateLeaderboardDisplay(response.leaderboard);
+            } else {
+                 if (messageTarget) messageTarget.innerHTML = `<div style="color: red; padding: 20px;">Received invalid data from the extension. Please try reloading.</div>`;
+            }
+        }).catch(error => {
+                // Maybe display an error message in the popout
+                if (messageTarget) messageTarget.innerHTML = `<div style="color: red; padding: 20px;">Could not connect to the extension's background service. Please try reloading the extension.</div>`;
+        });
+    } else {
+        // Running in standalone mode (streamview) - use default settings
+        settings = getDefaultSettings();
+        pollState = { shouldDisplay: false, yesCount: 0, noCount: 0, total: 0, isConcluded: false, winnerMessage: '' };
+        
+        // Add CSS to remove background colors for streamview
+        const streamviewStyle = document.createElement('style');
+        streamviewStyle.textContent = `
+            .plus2-popout-message-entry {
+                background-color: transparent !important;
+            }
+        `;
+        document.head.appendChild(streamviewStyle);
+        
+        applyAllStyles(settings);
+        updateGaugeDisplay({ occurrenceCount: 0, gaugeMaxValue: settings.styling.gauge.gaugeMaxValue, recentMaxValue: 0, peakLabels: getDefaultPeakLabels() });
+        updateRecentMaxIndicator({ occurrenceCount: 0, gaugeMaxValue: settings.styling.gauge.gaugeMaxValue, recentMaxValue: 0, peakLabels: getDefaultPeakLabels() });
+        updateYesNoPollDisplay(pollState);
+        updateLeaderboardDisplay({ topUsers: [], isVisible: false, mode: 'hidden', headerText: settings.styling.leaderboard.leaderboardHeaderText || 'Leaderboard' });
     }
-
-    // Request the initial full state from the background script
-    browser.runtime.sendMessage({ type: 'REQUEST_INITIAL_STATE' }).then(response => {
-        if (response && response.settings) {
-            settings = response.settings;
-            pollState = response.poll; // Store initial poll state
-            // The UI structure is already built, now apply all the styles and data.
-            applyAllStyles(response.settings);
-            updateGaugeDisplay(response.gauge);
-            updateRecentMaxIndicator(response.gauge);
-            updateYesNoPollDisplay(response.poll);
-            updateLeaderboardDisplay(response.leaderboard);
-        } else {
-             console.error("Received invalid initial state from background script.");
-             if (messageTarget) messageTarget.innerHTML = `<div style="color: red; padding: 20px;">Received invalid data from the extension. Please try reloading.</div>`;
-        }
-    }).catch(error => {
-        console.error("Error requesting initial state:", error.message);
-            // Maybe display an error message in the popout
-            if (messageTarget) messageTarget.innerHTML = `<div style="color: red; padding: 20px;">Could not connect to the extension's background service. Please try reloading the extension.</div>`;
-    });
 });

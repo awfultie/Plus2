@@ -81,7 +81,6 @@ class YouTubeAdapter extends BasePlatformAdapter {
             iconsDiv.insertBefore(highlightButton, existingMenuButton);
         } catch (error) {
             if (!error.message.includes("Extension context invalidated")) {
-                console.error("[Plus2] Error in addHighlightButton:", error);
             }
         }
     }

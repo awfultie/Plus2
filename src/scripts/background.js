@@ -2,6 +2,8 @@
 
 // --- Service Worker State ---
 let settings = {};
+let webhookClient = null;
+let streamviewClient = null;
 
 // Gauge State
 let occurrenceCount = 0;
@@ -9,6 +11,11 @@ let recentMaxValue = 0;
 let lastIncrementTime = 0;
 let decayTimerId = null;
 let resetRecentMaxTimerId = null;
+
+// Message deduplication - track processed messages to prevent double counting
+let processedMessages = new Set();
+const MESSAGE_DEDUP_EXPIRY = 30000; // 30 seconds
+const MESSAGE_DEDUP_MAX_SIZE = 1000; // Maximum number of messages to track
 
 // Poll State
 let yesCount = 0;
@@ -50,8 +57,16 @@ const defaultOptions = {
     popoutDefaultWidth: 600, popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableReplyTooltip: true,
     enableHighlightTracking: false, enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7,
     leaderboardHeaderText: 'Leaderboard', leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
-    gaugeMinDisplayThreshold: 3
+    gaugeMinDisplayThreshold: 3,
+    // Webhook settings
+    enableWebhookIntegration: false, webhookEndpoint: "", webhookApiKey: "", webhookTimeout: 5000, webhookRetryAttempts: 3,
+    webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
+    // Streamview settings
+    enableStreamview: false, streamviewBaseUrl: "https://studio--plus2-streamview.us-central1.hosted.app", streamviewApiKey: "", currentStreamview: null,
+    // Browser Source Style settings
+    browserSourceStyle: null
 };
+
 
 function openPopout() {
     // If a popout window ID exists, try to focus it.
@@ -90,6 +105,36 @@ function createAndTrackPopout() {
 }
 
 // --- Helper Functions ---
+
+// Create a hash for message deduplication based on content and timestamp (within 5 seconds)
+function createMessageHash(text, username, timestamp) {
+    // Round timestamp to 5-second intervals to catch rapid duplicates
+    const roundedTimestamp = Math.floor(timestamp / 5000) * 5000;
+    return `${text}|${username}|${roundedTimestamp}`;
+}
+
+// Clean up old processed messages to prevent memory leaks
+function cleanupProcessedMessages() {
+    const now = Date.now();
+    const messagesToDelete = [];
+    
+    for (const entry of processedMessages) {
+        const [hash, timestamp] = entry.split('|TIMESTAMP|');
+        if (timestamp && (now - parseInt(timestamp)) > MESSAGE_DEDUP_EXPIRY) {
+            messagesToDelete.push(entry);
+        }
+    }
+    
+    messagesToDelete.forEach(entry => processedMessages.delete(entry));
+    
+    // Also limit size to prevent unbounded growth
+    if (processedMessages.size > MESSAGE_DEDUP_MAX_SIZE) {
+        const entries = Array.from(processedMessages);
+        entries.slice(0, entries.length - MESSAGE_DEDUP_MAX_SIZE).forEach(entry => {
+            processedMessages.delete(entry);
+        });
+    }
+}
 function getChannelNameFromUrl(url) {
     const match = url.match(/\/popout\/([^/]+)\/|\.tv\/([^/]+)/);
     if (match) {
@@ -106,7 +151,7 @@ function broadcastToPopouts(message) {
         // The "Receiving end does not exist" error is expected and harmless if the popout window is not open.
         // We can safely ignore it by checking for chrome.runtime.lastError.
         if (error.message.includes("Receiving end does not exist")) { /* Silently ignore */ }
-        else { console.error("Broadcast failed:", error); }
+        else { }
     });
 
     // Also send to content scripts in all tabs (for docked iframe support)
@@ -117,28 +162,101 @@ function broadcastToPopouts(message) {
                     // Silently ignore errors for tabs that don't have our content script
                     if (!error.message.includes("Receiving end does not exist") && 
                         !error.message.includes("Could not establish connection")) {
-                        console.error("Tab broadcast failed:", error);
                     }
                 });
             }
         });
     }).catch(error => {
-        console.error("Failed to query tabs for broadcast:", error);
     });
 }
 
 function broadcastGaugeUpdate() {
-    broadcastToPopouts({ type: 'GAUGE_UPDATE', data: getGaugeState() });
+    const gaugeData = getGaugeState();
+    broadcastToPopouts({ type: 'GAUGE_UPDATE', data: gaugeData });
+    
+    // Send to webhook - always send for streamview, check settings for legacy webhooks
+    if (webhookClient) {
+        webhookClient.sendEvent('gauge_update', gaugeData);
+    }
 }
 
 function broadcastPollUpdate() {
-    broadcastToPopouts({ type: 'POLL_UPDATE', data: getPollState(), gaugeData: getGaugeState() });
+    const pollData = getPollState();
+    broadcastToPopouts({ type: 'POLL_UPDATE', data: pollData, gaugeData: getGaugeState() });
+    
+    // Send to webhook - always send for streamview, check settings for legacy webhooks
+    if (webhookClient) {
+        webhookClient.sendEvent('poll_update', pollData);
+    }
 }
 
 function broadcastLeaderboardUpdate() {
     getLeaderboardData().then(leaderboardData => {
         broadcastToPopouts({ type: 'LEADERBOARD_UPDATE', data: leaderboardData });
+        
+        // Send to webhook - always send for streamview, check settings for legacy webhooks
+        if (webhookClient) {
+            webhookClient.sendEvent('leaderboard_update', leaderboardData);
+        }
     });
+}
+
+function buildNestedConfig(settings) {
+    // This function builds the nested configuration object that is used by popout.js
+    // and sent to the streamview server. It should be kept in sync with streamview-client.js.
+    return {
+        display: {
+            chromaKeyColor: settings.chromaKeyColor,
+            popoutBaseFontSize: settings.popoutBaseFontSize,
+            popoutDefaultWidth: settings.popoutDefaultWidth,
+            popoutDefaultHeight: settings.popoutDefaultHeight,
+            displayTime: settings.displayTime
+        },
+        features: {
+            enableCounting: settings.enableCounting,
+            enableYesNoPolling: settings.enableYesNoPolling,
+            enableLeaderboard: settings.enableLeaderboard,
+            enableHighlightTracking: settings.enableHighlightTracking,
+            appendMessages: settings.appendMessages
+        },
+        styling: {
+            messageBGColor: settings.messageBGColor,
+            paragraphTextColor: settings.paragraphTextColor,
+            enableUsernameColoring: settings.enableUsernameColoring,
+            usernameDefaultColor: settings.usernameDefaultColor,
+            gauge: {
+                gaugeMaxValue: settings.gaugeMaxValue,
+                gaugeMinDisplayThreshold: settings.gaugeMinDisplayThreshold,
+                gaugeTrackColor: settings.gaugeTrackColor,
+                gaugeTrackAlpha: settings.gaugeTrackAlpha,
+                gaugeTrackBorderColor: settings.gaugeTrackBorderColor,
+                gaugeTrackBorderAlpha: settings.gaugeTrackBorderAlpha,
+                gaugeFillGradientStartColor: settings.gaugeFillGradientStartColor,
+                gaugeFillGradientEndColor: settings.gaugeFillGradientEndColor,
+                recentMaxIndicatorColor: settings.recentMaxIndicatorColor,
+                peakLabels: {
+                    low: { text: settings.peakLabelLow, color: settings.peakLabelLowColor },
+                    mid: { text: settings.peakLabelMid, color: settings.peakLabelMidColor },
+                    high: { text: settings.peakLabelHigh, color: settings.peakLabelHighColor },
+                    max: { text: settings.peakLabelMax, color: settings.peakLabelMaxColor }
+                },
+                enablePeakLabelAnimation: settings.enablePeakLabelAnimation,
+                peakLabelAnimationDuration: settings.peakLabelAnimationDuration,
+                peakLabelAnimationIntensity: settings.peakLabelAnimationIntensity
+            },
+            polling: {
+                yesPollBarColor: settings.yesPollBarColor,
+                noPollBarColor: settings.noPollBarColor,
+                pollTextColor: settings.pollTextColor
+            },
+            leaderboard: {
+                leaderboardHeaderText: settings.leaderboardHeaderText,
+                leaderboardBackgroundColor: settings.leaderboardBackgroundColor,
+                leaderboardBackgroundAlpha: settings.leaderboardBackgroundAlpha,
+                leaderboardTextColor: settings.leaderboardTextColor
+            }
+        }
+    };
 }
 
 // --- State Packaging ---
@@ -212,10 +330,37 @@ async function loadSettings() {
     const oldSettings = { ...settings };
     settings = items;
 
+    // Initialize or update webhook client
+    if (webhookClient) {
+        webhookClient.updateSettings(settings);
+    } else {
+        webhookClient = new WebhookClient(settings);
+    }
+
+    // Initialize or update streamview client
+    if (streamviewClient) {
+        streamviewClient.updateSettings(settings);
+    } else {
+        streamviewClient = new StreamviewClient(settings);
+    }
+    
+    // Send current leaderboard state to content scripts
+    setTimeout(() => {
+        broadcastToPopouts({ type: 'LEADERBOARD_STATE_UPDATE', mode: leaderboardDisplayMode });
+    }, 100);
+
+    // If webhook settings changed, clear any pending retries
+    if (oldSettings.enableWebhookIntegration !== settings.enableWebhookIntegration ||
+        oldSettings.webhookEndpoint !== settings.webhookEndpoint ||
+        oldSettings.webhookApiKey !== settings.webhookApiKey) {
+        webhookClient.clearRetries();
+    }
+
     // If counting was just toggled, reset state and timers
     if (oldSettings.enableCounting !== settings.enableCounting) {
         occurrenceCount = 0;
         recentMaxValue = 0;
+        processedMessages.clear(); // Clear processed message history when toggling counting
         if (decayTimerId) clearInterval(decayTimerId);
         decayTimerId = null;
         if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
@@ -236,8 +381,7 @@ async function loadSettings() {
         broadcastLeaderboardUpdate();
     }
 
-    console.log('[Plus2] Settings loaded/reloaded in background.');
-    broadcastToPopouts({ type: 'SETTINGS_UPDATE', data: settings });
+    broadcastToPopouts({ type: 'SETTINGS_UPDATE', data: buildNestedConfig(settings) });
 }
 
 function setupDecayMechanism() {
@@ -267,10 +411,31 @@ function setupDecayMechanism() {
 }
 
 function processChatMessage(data) {
-    const { text, images, isModPost, modReplyContent } = data;
+    const { text, images, isModPost, modReplyContent, channelUrl, username, badges } = data;
+    
+    // Clean up old processed messages periodically
+    if (Math.random() < 0.01) { // 1% chance to clean up on each message
+        cleanupProcessedMessages();
+    }
+    
+    // Create message hash for deduplication (skip for testing user)
+    if (username !== 'awful_tie') {
+        const timestamp = Date.now();
+        const messageHash = createMessageHash(text, username || 'unknown', timestamp);
+        const messageKey = `${messageHash}|TIMESTAMP|${timestamp}`;
+        
+        // Check if we've already processed this message recently
+        if (processedMessages.has(messageKey) || 
+            Array.from(processedMessages).some(entry => entry.startsWith(messageHash + '|TIMESTAMP|'))) {
+            return;
+        }
+        
+        // Mark this message as processed
+        processedMessages.add(messageKey);
+    }
 
     if (isModPost && settings.enableModPostReplyHighlight) {
-        processHighlightRequest({ isModPost: true, html: modReplyContent });
+        processHighlightRequest({ isModPost: true, html: modReplyContent, channelUrl });
         return;
     }
 
@@ -307,8 +472,35 @@ function processChatMessage(data) {
 }
 
 function processHighlightRequest(data) {
+    
     let { badgesHTML, usernameHTML, messageBodyHTML, replyHTML, username, channelUrl, isModPost, html } = data;
+    
+    // Ensure proper UTF-8 encoding for emoji support
+    if (messageBodyHTML) {
+        messageBodyHTML = decodeURIComponent(encodeURIComponent(messageBodyHTML));
+    }
+    if (usernameHTML) {
+        usernameHTML = decodeURIComponent(encodeURIComponent(usernameHTML));
+    }
+    if (badgesHTML) {
+        badgesHTML = decodeURIComponent(encodeURIComponent(badgesHTML));
+    }
+    if (replyHTML) {
+        replyHTML = decodeURIComponent(encodeURIComponent(replyHTML));
+    }
+    if (html) {
+        html = decodeURIComponent(encodeURIComponent(html));
+    }
     const isYouTube = channelUrl && channelUrl.includes('youtube.com');
+
+    // Extract original username color for remote streamview (always extract, let streamview decide whether to use it)
+    let usernameColor = settings.usernameDefaultColor || '#FF0000'; // Fallback color
+    if (usernameHTML) {
+        const colorMatch = usernameHTML.match(/color:\s*(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\))/);
+        if (colorMatch) {
+            usernameColor = colorMatch[1]; // Use the original platform username color
+        }
+    }
 
     let finalHtmlString;
     if (isModPost) {
@@ -365,16 +557,30 @@ function processHighlightRequest(data) {
         currentNonAppendTrackerId = trackerId;
     }
 
+    const highlightData = {
+        html: finalHtmlString,
+        id: trackerId || 0,
+        isAppend: settings.appendMessages,
+        displayTime: settings.displayTime,
+        platform: isYouTube ? 'youtube' : 'twitch',
+        username: username || 'unknown',
+        usernameColor: usernameColor, // Add username color
+        badges: badgesHTML ? ['badge'] : [], // Simple badge detection
+        messageBody: messageBodyHTML || '',
+        reply: replyHTML || '',
+        isModPost: isModPost || false
+    };
+
     broadcastToPopouts({
         type: 'HIGHLIGHT_MESSAGE',
-        data: {
-            html: finalHtmlString,
-            id: trackerId,
-            isAppend: settings.appendMessages,
-            displayTime: settings.displayTime,
-            platform: isYouTube ? 'youtube' : 'twitch'
-        }
+        data: highlightData
     });
+
+    // Send highlight message to webhook - always send for streamview, check settings for legacy webhooks
+    if (webhookClient) {
+        webhookClient.sendEvent('highlight_message', highlightData, 
+            isYouTube ? 'youtube' : 'twitch', channelUrl);
+    }
 
     broadcastLeaderboardUpdate(); // Update leaderboard visibility
 
@@ -402,7 +608,7 @@ async function saveLogEntry(logEntry) {
         await browser.storage.local.set({ highlightLog: updatedLog });
         broadcastLeaderboardUpdate();
     } catch (error)
-        {console.error("[Plus2] Error saving log entry:", error);
+        {
     } finally {
         isSavingLog = false; // Release lock
     }
@@ -515,12 +721,16 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             initializationPromise.then(() => {
                 getLeaderboardData().then(leaderboardData => {
                     sendResponse({
-                        settings,
+                        settings: buildNestedConfig(settings),
                         gauge: getGaugeState(),
                         poll: getPollState(),
                         leaderboard: leaderboardData
                     });
+                }).catch(error => {
+                    sendResponse({ error: error.message });
                 });
+            }).catch(error => {
+                sendResponse({ error: error.message });
             });
             return true; // Keep message channel open for the async response
 
@@ -533,7 +743,17 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 activeHighlightTrackers.clear();
                 currentNonAppendTrackerId = null;
             }
-            broadcastLeaderboardUpdate();
+            
+            // Send leaderboard state update to content scripts
+            broadcastToPopouts({ type: 'LEADERBOARD_STATE_UPDATE', mode: leaderboardDisplayMode });
+            
+            // Send leaderboard toggle to streamview via webhook
+            if (webhookClient) {
+                webhookClient.sendEvent('leaderboard_toggle', {
+                    mode: leaderboardDisplayMode,
+                    isVisible: leaderboardDisplayMode === 'shown'
+                });
+            }
             break;
 
         case 'SETTINGS_UPDATED': // Sent from options page on save
@@ -547,12 +767,22 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'OPEN_POPOUT_WINDOW': // Sent from new in-chat button
             openPopout();
             break;
+
+        case 'CREATE_STREAMVIEW': // Sent from options page
+            streamviewClient.createStreamview().then(result => {
+                sendResponse({ success: true, data: result });
+            }).catch(error => {
+                const errorMessage = (error instanceof Error) ? error.message : String(error);
+                sendResponse({ success: false, error: errorMessage });
+            });
+            return true; // Keep message channel open for async response
+
+        // UPDATE_STREAMVIEW removed - browser source is now configured independently via web UI
     }
 });
 
 browser.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'sync') {
-        console.log('[Plus2] Detected settings change in browser.storage.sync, reloading.');
         loadSettings();
     }
 });
@@ -567,12 +797,12 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
     // When a supported chat page loads, reset the state to keep it clean between streams.
     if (isTwitch || isYouTube) {
-        console.log(`[Plus2] ${isTwitch ? 'Twitch' : 'YouTube'} tab loaded. Resetting state.`);
         occurrenceCount = 0;
         recentMaxValue = 0;
         clearYesNoPollData();
         activeHighlightTrackers.clear();
         currentNonAppendTrackerId = null;
+        processedMessages.clear(); // Clear processed message history for new stream
         broadcastGaugeUpdate();
         broadcastLeaderboardUpdate();
 
@@ -587,7 +817,6 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             const shouldOpenForYouTube = isYouTubePopout;
 
             if (shouldOpenForTwitch || shouldOpenForYouTube) {
-                console.log(`[Plus2] ${isTwitchPopout ? 'Twitch' : 'YouTube'} popout chat detected, auto-opening popout window.`);
                 openPopout();
             }
         }
@@ -596,7 +825,6 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 browser.windows.onRemoved.addListener((windowId) => {
     if (windowId === popoutWindowId) {
-        console.log('[Plus2] Popout window closed.');
         popoutWindowId = null;
     }
 });

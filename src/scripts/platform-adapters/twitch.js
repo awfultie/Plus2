@@ -198,7 +198,6 @@ class TwitchAdapter extends BasePlatformAdapter {
             iconsDiv.insertBefore(highlightButton, iconsDiv.firstChild);
         } catch (error) {
             if (!error.message.includes("Extension context invalidated")) {
-                console.error("[Plus2] Error in addHighlightButton:", error);
             }
         }
     }

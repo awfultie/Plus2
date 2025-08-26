@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plus2 Streamview Configuration",
+  "type": "object",
+  "required": ["name", "configuration"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Display name for the streamview"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the streamview"
+    },
+    "configuration": {
+      "type": "object",
+      "required": ["display", "features", "styling", "behavior"],
+      "properties": {
+        "display": {
+          "type": "object",
+          "properties": {
+            "chromaKeyColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "popoutBaseFontSize": { "type": "number", "minimum": 8, "maximum": 72 },
+            "popoutDefaultWidth": { "type": "number", "minimum": 100 },
+            "popoutDefaultHeight": { "type": "number", "minimum": 100 },
+            "displayTime": { "type": "number", "minimum": 1000 }
+          }
+        },
+        "features": {
+          "type": "object",
+          "properties": {
+            "enableCounting": { "type": "boolean" },
+            "enableYesNoPolling": { "type": "boolean" },
+            "enableLeaderboard": { "type": "boolean" },
+            "enableHighlightTracking": { "type": "boolean" },
+            "appendMessages": { "type": "boolean" }
+          }
+        },
+        "styling": {
+          "type": "object",
+          "properties": {
+            "messageBGColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "paragraphTextColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "enableUsernameColoring": { "type": "boolean" },
+            "usernameDefaultColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "gauge": {
+              "type": "object",
+              "properties": {
+                "gaugeMaxValue": { "type": "number", "minimum": 1 },
+                "gaugeMinDisplayThreshold": { "type": "number", "minimum": 0 },
+                "gaugeTrackColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "gaugeTrackAlpha": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gaugeTrackBorderColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "gaugeTrackBorderAlpha": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gaugeFillGradientStartColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "gaugeFillGradientEndColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "recentMaxIndicatorColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "peakLabels": {
+                  "type": "object",
+                  "properties": {
+                    "low": { "$ref": "#/definitions/peakLabel" },
+                    "mid": { "$ref": "#/definitions/peakLabel" },
+                    "high": { "$ref": "#/definitions/peakLabel" },
+                    "max": { "$ref": "#/definitions/peakLabel" }
+                  }
+                },
+                "enablePeakLabelAnimation": { "type": "boolean" },
+                "peakLabelAnimationDuration": { "type": "number", "minimum": 0.1, "maximum": 10 },
+                "peakLabelAnimationIntensity": { "type": "number", "minimum": 1, "maximum": 20 }
+              }
+            },
+            "polling": {
+              "type": "object",
+              "properties": {
+                "yesPollBarColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "noPollBarColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "pollTextColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+              }
+            },
+            "leaderboard": {
+              "type": "object",
+              "properties": {
+                "leaderboardHeaderText": { "type": "string" },
+                "leaderboardBackgroundColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "leaderboardBackgroundAlpha": { "type": "number", "minimum": 0, "maximum": 1 },
+                "leaderboardTextColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+              }
+            }
+          }
+        },
+        "behavior": {
+          "type": "object",
+          "properties": {
+            "stringToCount": { "type": "string" },
+            "exactMatchCounting": { "type": "boolean" },
+            "decayInterval": { "type": "number", "minimum": 100 },
+            "decayAmount": { "type": "number", "minimum": 1 },
+            "recentMaxResetDelay": { "type": "number", "minimum": 500 },
+            "pollClearTime": { "type": "number", "minimum": 1000 },
+            "pollCooldownDuration": { "type": "number", "minimum": 0 },
+            "pollActivityThreshold": { "type": "number", "minimum": 1 },
+            "pollActivityCheckInterval": { "type": "number", "minimum": 1000 },
+            "pollDisplayThreshold": { "type": "number", "minimum": 1 },
+            "leaderboardHighlightValue": { "type": "number", "minimum": 1 },
+            "leaderboardTimeWindowDays": { "type": "number", "minimum": 1, "maximum": 365 }
+          }
+        },
+        "webhookEndpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "The webhook endpoint URL where events will be sent"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "peakLabel": {
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "maxLength": 50 },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+      },
+      "required": ["text", "color"]
+    }
+  }
+}

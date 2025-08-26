@@ -26,6 +26,21 @@ class MessageProcessor {
         }
     }
 
+    // Process existing messages for UI only (no webhook events)
+    processExistingMessagesUIOnly(chatContainer) {
+        if (!chatContainer) return;
+    
+        if (this.adapter.platform === 'twitch') {
+            if (this.settings.enable7TVCompat) {
+                this._processSevenTVMessagesUIOnly(chatContainer);
+            } else {
+                this._processStandardTwitchMessagesUIOnly(chatContainer);
+            }
+        } else if (this.adapter.platform === 'youtube') {
+            this._processYouTubeMessagesUIOnly(chatContainer);
+        }
+    }
+
     _processSevenTVMessages(chatContainer) {
         const seventvMessages = chatContainer.querySelectorAll('.seventv-message');
         seventvMessages.forEach(seventvMessageRoot => {
@@ -60,6 +75,40 @@ class MessageProcessor {
             this._addUIToMessage(messageNode);
             if (!this.processedMessageElements.has(messageNode)) {
                 this.processNewMessage(messageNode, messageNode, messageNode);
+            }
+        });
+    }
+
+    // UI-only versions that don't trigger webhook events
+    _processSevenTVMessagesUIOnly(chatContainer) {
+        const seventvMessages = chatContainer.querySelectorAll('.seventv-message');
+        seventvMessages.forEach(seventvMessageRoot => {
+            const hoverTarget = seventvMessageRoot.querySelector('.seventv-chat-message-container');
+            const chatMessageElement = seventvMessageRoot.querySelector(this.adapter.selectors.chatMessage);
+            if (hoverTarget && chatMessageElement && !this.processedMessageElements.has(chatMessageElement)) {
+                this._addUIToMessage(hoverTarget);
+                this.processedMessageElements.add(chatMessageElement); // Mark as processed to avoid duplicates
+            }
+        });
+    }
+
+    _processStandardTwitchMessagesUIOnly(chatContainer) {
+        const twitchMessages = chatContainer.querySelectorAll(':scope > div');
+        twitchMessages.forEach(twitchMessageLine => {
+            const chatMessageElement = twitchMessageLine.querySelector(this.adapter.selectors.chatMessage);
+            if (chatMessageElement && !this.processedMessageElements.has(chatMessageElement)) {
+                this._addUIToMessage(twitchMessageLine);
+                this.processedMessageElements.add(chatMessageElement); // Mark as processed to avoid duplicates
+            }
+        });
+    }
+
+    _processYouTubeMessagesUIOnly(chatContainer) {
+        const ytMessages = chatContainer.querySelectorAll(this.adapter.selectors.chatMessage);
+        ytMessages.forEach(messageNode => {
+            if (!this.processedMessageElements.has(messageNode)) {
+                this._addUIToMessage(messageNode);
+                this.processedMessageElements.add(messageNode); // Mark as processed to avoid duplicates
             }
         });
     }
@@ -100,7 +149,6 @@ class MessageProcessor {
             this._markAsProcessed(itemToMarkAsProcessed);
         } catch (error) {
             if (!error.message.includes("Extension context invalidated")) {
-                console.error("[Plus2] Error in processNewMessage:", error);
             }
         }
     }

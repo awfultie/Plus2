@@ -1,7 +1,7 @@
 /* General container setup */
 #highlightedMessageContainer.plus2-in-popout {
     flex-grow: 1;
-    font-family: var(--font-base, Inter, Roobert, "Helvetica Neue", Helvetica, Arial, sans-serif);
+    font-family: var(--font-base, Inter, Roobert, "Helvetica Neue", Helvetica, Arial, sans-serif), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiOne";
 }
 
 #messageTarget {
@@ -96,6 +96,12 @@
     vertical-align: middle;
     max-height: 1.5rem; /* Increased size for better visibility */
     width: auto;
+}
+
+/* Ensure emojis are rendered properly */
+.plus2-popout-message-body {
+    font-variant-emoji: emoji;
+    text-rendering: optimizeSpeed;
 }
 
 /* --- Styling for Mod-Posted Messages --- */

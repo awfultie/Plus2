@@ -21,7 +21,6 @@
         
         if (isYouTube) {
             if (!settings.enableYouTube) {
-                console.log('[Plus2] Script disabled on YouTube as per settings.');
                 return null;
             }
             return new YouTubeAdapter(settings);
@@ -33,15 +32,14 @@
     // --- Chat Container Management ---
     function onChatContainerAdded(chatContainer) {
         if (isObserverActive) return;
-        console.log("[Plus2] Chat container found. Initializing features.");
         isObserverActive = true;
         observedChatContainer = chatContainer;
 
         // Handle auto-docking
         uiInjection.handleAutoDocking();
 
-        // Process existing messages
-        messageProcessor.processExistingMessages(chatContainer);
+        // Process existing messages for UI only (no webhook events for old messages)
+        messageProcessor.processExistingMessagesUIOnly(chatContainer);
 
         // Create message observer for new messages
         messageObserver = new MutationObserver((mutationsList) => {
@@ -85,12 +83,10 @@
         });
 
         messageObserver.observe(chatContainer, { childList: true, subtree: true });
-        console.log("[Plus2] Message observer attached.");
     }
 
     function onChatContainerRemoved() {
         if (!isObserverActive) return;
-        console.log("[Plus2] Chat container removed. Cleaning up.");
 
         if (messageObserver) {
             messageObserver.disconnect();
@@ -209,7 +205,6 @@
                     if (!isObserverActive) {
                         onChatContainerAdded(currentChatContainer);
                     } else if (isObserverActive && currentChatContainer !== observedChatContainer) {
-                        console.log("[Plus2] New chat container detected. Re-initializing.");
                         onChatContainerRemoved();
                         onChatContainerAdded(currentChatContainer);
                     }
@@ -226,6 +221,11 @@
 
     function setupMessageForwarding() {
         browser.runtime.onMessage.addListener((message) => {
+            // Handle leaderboard state updates
+            if (message.type === 'LEADERBOARD_STATE_UPDATE' && uiInjection) {
+                uiInjection.updateLeaderboardDisplayMode(message.mode);
+            }
+            
             if (uiInjection && uiInjection.isDocked && uiInjection.dockedContainer) {
                 const iframe = uiInjection.dockedContainer.querySelector('iframe');
                 if (iframe && iframe.contentWindow) {

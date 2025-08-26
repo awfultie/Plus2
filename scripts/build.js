@@ -52,7 +52,7 @@ async function build(browser) {
         // --- Browser-specific modifications ---
         if (browser === 'firefox') {
             manifest.background = {
-                "scripts": ["lib/browser-polyfill.min.js", "scripts/background.js"]
+                "scripts": ["lib/browser-polyfill.min.js", "scripts/webhook-client.js", "scripts/streamview-client.js", "scripts/background.js"]
             };
             manifest.browser_specific_settings = {
                 "gecko": {
@@ -66,10 +66,10 @@ async function build(browser) {
                 "service_worker": "scripts/background.js"
             };
             // The polyfill is loaded via the HTML script tags for UI,
-            // but for the service worker, we need to import it.
+            // but for the service worker, we need to import it and the clients.
             const bgPath = path.join(browserDistDir, 'scripts', 'background.js');
             const bgContent = await fs.readFile(bgPath, 'utf-8');
-            await fs.writeFile(bgPath, `importScripts('../lib/browser-polyfill.min.js');\n\n${bgContent}`);
+            await fs.writeFile(bgPath, `importScripts('../lib/browser-polyfill.min.js', 'webhook-client.js', 'streamview-client.js');\n\n${bgContent}`);
         }
 
         // Write the final manifest file

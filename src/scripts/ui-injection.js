@@ -8,6 +8,7 @@ class UIInjection {
         this.poppedInContainer = null;
         this.dockedWrapperElement = null;
         this.stylesInjected = false;
+        this.leaderboardDisplayMode = 'hidden'; // Track leaderboard state
     }
 
     initialize() {
@@ -153,7 +154,7 @@ class UIInjection {
             { id: 'menu-open-popout', text: 'Open Popout', action: () => this._sendMessage({ type: 'OPEN_POPOUT_WINDOW' }) },
             { id: 'menu-toggle-popin', text: this.isPoppedIn ? 'Undock View' : 'Dock View Here', action: () => this.togglePoppedInView() },
             { id: 'menu-copy-url', text: 'Copy Popout URL', action: (btn) => this._copyPopoutUrl(btn) },
-            { id: 'menu-toggle-leaderboard', text: 'Toggle Leaderboard', action: () => this._sendMessage({ type: 'TOGGLE_LEADERBOARD_MODE' }), requires: ['enableHighlightTracking', 'enableLeaderboard'] },
+            { id: 'menu-toggle-leaderboard', text: this.leaderboardDisplayMode === 'shown' ? 'Hide Leaderboard' : 'Show Leaderboard', action: () => this._sendMessage({ type: 'TOGGLE_LEADERBOARD_MODE' }), requires: ['enableHighlightTracking', 'enableLeaderboard'] },
             { id: 'menu-open-options', text: 'Options', action: () => this._sendMessage({ type: 'OPEN_OPTIONS_PAGE' }) }
         ];
 
@@ -207,6 +208,10 @@ class UIInjection {
         if (typeof browser !== 'undefined' && browser.runtime?.id) {
             browser.runtime.sendMessage(message).catch(e => {});
         }
+    }
+
+    updateLeaderboardDisplayMode(mode) {
+        this.leaderboardDisplayMode = mode;
     }
 
     closeCustomMenu() {
