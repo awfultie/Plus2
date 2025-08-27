@@ -63,6 +63,10 @@ const defaultOptions = {
     webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
     // Streamview settings
     enableStreamview: false, streamviewBaseUrl: "https://studio--plus2-streamview.us-central1.hosted.app", streamviewApiKey: "", currentStreamview: null,
+    // Streamview security options
+    streamviewGenerateApiKey: false, streamviewGenerateViewToken: false, streamviewRequireViewToken: false,
+    // StreamView template storage
+    streamviewTemplates: {},
     // Browser Source Style settings
     browserSourceStyle: null
 };
@@ -171,12 +175,15 @@ function broadcastToPopouts(message) {
 }
 
 function broadcastGaugeUpdate() {
-    const gaugeData = getGaugeState();
+    const gaugeData = getGaugeState(); // Full data for popouts (with peakLabels)
+    const webhookGaugeData = getWebhookGaugeState(); // Webhook data without peakLabels
+    
+    console.log(`[Plus2 Gauge] Broadcasting update - Count: ${gaugeData.occurrenceCount}, RecentMax: ${gaugeData.recentMaxValue}, Threshold: ${settings.gaugeMinDisplayThreshold}`);
     broadcastToPopouts({ type: 'GAUGE_UPDATE', data: gaugeData });
     
     // Send to webhook - always send for streamview, check settings for legacy webhooks
     if (webhookClient) {
-        webhookClient.sendEvent('gauge_update', gaugeData);
+        webhookClient.sendEvent('gauge_update', webhookGaugeData);
     }
 }
 
@@ -272,6 +279,16 @@ function getGaugeState() {
             high: { text: settings.peakLabelHigh, color: settings.peakLabelHighColor },
             max: { text: settings.peakLabelMax, color: settings.peakLabelMaxColor }
         }
+    };
+}
+
+// Webhook-specific gauge state without peakLabels (moved to StreamView visual config)
+function getWebhookGaugeState() {
+    return {
+        occurrenceCount,
+        gaugeMaxValue: settings.gaugeMaxValue,
+        recentMaxValue,
+        isPollActive
     };
 }
 
@@ -425,13 +442,19 @@ function processChatMessage(data) {
         const messageKey = `${messageHash}|TIMESTAMP|${timestamp}`;
         
         // Check if we've already processed this message recently
-        if (processedMessages.has(messageKey) || 
-            Array.from(processedMessages).some(entry => entry.startsWith(messageHash + '|TIMESTAMP|'))) {
+        const isDuplicate = processedMessages.has(messageKey) || 
+            Array.from(processedMessages).some(entry => entry.startsWith(messageHash + '|TIMESTAMP|'));
+        
+        if (isDuplicate) {
+            console.log(`[Plus2 Dedup] DUPLICATE message blocked: "${text}" (User: ${username})`);
             return;
         }
         
         // Mark this message as processed
         processedMessages.add(messageKey);
+        console.log(`[Plus2 Dedup] Message processed: "${text}" (User: ${username}, Hash: ${messageHash})`);
+    } else {
+        console.log(`[Plus2 Dedup] Testing user message (no dedup): "${text}"`);
     }
 
     if (isModPost && settings.enableModPostReplyHighlight) {
@@ -456,7 +479,10 @@ function processChatMessage(data) {
             occurrenceCount++;
             if (occurrenceCount > recentMaxValue) recentMaxValue = occurrenceCount;
             lastIncrementTime = Date.now();
+            console.log(`[Plus2 Gauge] Match found! Count: ${occurrenceCount}, RecentMax: ${recentMaxValue}, User: ${username}, Text: "${text}"`);
             broadcastGaugeUpdate();
+        } else {
+            console.log(`[Plus2 Gauge] No match found for: "${text}" (User: ${username})`);
         }
     }
 

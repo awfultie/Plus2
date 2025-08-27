@@ -153,13 +153,13 @@ class UIInjection {
         const menuItems = [
             { id: 'menu-open-popout', text: 'Open Popout', action: () => this._sendMessage({ type: 'OPEN_POPOUT_WINDOW' }) },
             { id: 'menu-toggle-popin', text: this.isPoppedIn ? 'Undock View' : 'Dock View Here', action: () => this.togglePoppedInView() },
-            { id: 'menu-copy-url', text: 'Copy Popout URL', action: (btn) => this._copyPopoutUrl(btn) },
+            { id: 'menu-copy-url', text: 'Copy Browser Source', action: (btn) => this._copyBrowserSourceUrl(btn), requires: ['enableStreamview', 'currentStreamview'] },
             { id: 'menu-toggle-leaderboard', text: this.leaderboardDisplayMode === 'shown' ? 'Hide Leaderboard' : 'Show Leaderboard', action: () => this._sendMessage({ type: 'TOGGLE_LEADERBOARD_MODE' }), requires: ['enableHighlightTracking', 'enableLeaderboard'] },
             { id: 'menu-open-options', text: 'Options', action: () => this._sendMessage({ type: 'OPEN_OPTIONS_PAGE' }) }
         ];
 
         if (typeof browser !== 'undefined' && browser.storage) {
-            browser.storage.sync.get(['enableHighlightTracking', 'enableLeaderboard']).then((items) => {
+            browser.storage.sync.get(['enableHighlightTracking', 'enableLeaderboard', 'enableStreamview', 'currentStreamview']).then((items) => {
                 this._renderMenuItems(menuItems, items);
             });
         } else {
@@ -172,7 +172,13 @@ class UIInjection {
 
     _renderMenuItems(menuItems, items) {
         menuItems.forEach(itemData => {
-            const shouldShow = !itemData.requires || itemData.requires.every(req => items[req]);
+            const shouldShow = !itemData.requires || itemData.requires.every(req => {
+                if (req === 'currentStreamview') {
+                    // Special check for currentStreamview - must exist and have a viewUrl
+                    return items.currentStreamview && items.currentStreamview.viewUrl;
+                }
+                return items[req];
+            });
 
             if (shouldShow) {
                 const button = document.createElement('button');
@@ -193,13 +199,19 @@ class UIInjection {
         });
     }
 
-    _copyPopoutUrl(btn) {
-        if (typeof browser !== 'undefined' && browser.runtime) {
-            const popoutUrl = browser.runtime.getURL('ui/popout.html');
-            navigator.clipboard.writeText(popoutUrl).then(() => {
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(() => { btn.textContent = originalText; }, 1500);
+    _copyBrowserSourceUrl(btn) {
+        if (typeof browser !== 'undefined' && browser.storage) {
+            const originalText = btn.textContent;
+            browser.storage.sync.get(['currentStreamview']).then((items) => {
+                if (items.currentStreamview && items.currentStreamview.viewUrl) {
+                    navigator.clipboard.writeText(items.currentStreamview.viewUrl).then(() => {
+                        btn.textContent = 'Copied!';
+                        setTimeout(() => { btn.textContent = originalText; }, 1500);
+                    }).catch(() => {
+                        btn.textContent = 'Copy failed';
+                        setTimeout(() => { btn.textContent = originalText; }, 1500);
+                    });
+                }
             });
         }
     }

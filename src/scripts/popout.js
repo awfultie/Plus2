@@ -318,10 +318,14 @@ function updateGaugeContainerVisibility(gaugeData) {
     const isGaugeVisible = (occurrenceCount >= threshold || recentMaxValue >= threshold);
     const isPollVisible = pollState.shouldDisplay; // Check if the poll should be displayed
 
+    console.log(`[Popout Gauge] Visibility check - Count: ${occurrenceCount}, RecentMax: ${recentMaxValue}, Threshold: ${threshold}, Visible: ${isGaugeVisible}, Poll: ${isPollVisible}`);
+
     if (isGaugeVisible || isPollVisible) {
         gaugeContainerElement.style.display = 'block';
+        console.log(`[Popout Gauge] Gauge container SHOWN`);
     } else {
         gaugeContainerElement.style.display = 'none';
+        console.log(`[Popout Gauge] Gauge container HIDDEN`);
     }
 }
 

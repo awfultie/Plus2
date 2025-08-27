@@ -108,6 +108,10 @@ class WebhookClient {
             // Determine which endpoint and key to use, prioritizing Streamview
             if (this.settings.enableStreamview && this.settings.currentStreamview) {
                 endpoint = this.settings.currentStreamview.webhookUrl;
+                // Use the API key from the streamview if it was generated
+                if (this.settings.currentStreamview.apiKey) {
+                    apiKey = this.settings.currentStreamview.apiKey;
+                }
             } else if (this.settings.enableWebhookIntegration) {
                 endpoint = this.settings.webhookEndpoint;
                 apiKey = this.settings.webhookApiKey;

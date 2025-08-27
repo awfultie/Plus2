@@ -11,16 +11,36 @@ class StreamviewClient {
     }
 
     async createStreamview() {
-
         try {
             const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+            
+            // Build configuration with security options
+            const configuration = this.buildConfigurationFromSettings();
+            
+            // Add security configuration if any security options are enabled
+            if (this.settings.streamviewGenerateApiKey || this.settings.streamviewGenerateViewToken || this.settings.streamviewRequireViewToken) {
+                configuration.security = {};
+                
+                if (this.settings.streamviewGenerateApiKey) {
+                    configuration.security.generateApiKey = true;
+                }
+                
+                if (this.settings.streamviewGenerateViewToken) {
+                    configuration.security.generateViewToken = true;
+                }
+                
+                if (this.settings.streamviewRequireViewToken) {
+                    configuration.security.requireViewToken = true;
+                }
+            }
+            
             const response = await fetch(`${baseUrl}/api/streamview/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(this.settings.streamviewApiKey ? { 'X-API-Key': this.settings.streamviewApiKey } : {})
                 },
-                body: JSON.stringify({}) // Empty payload - server will use default template
+                body: JSON.stringify({ configuration })
             });
 
             if (!response.ok) {
@@ -148,10 +168,17 @@ class StreamviewClient {
     async deleteStreamview(streamviewId) {
         try {
             const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+            
+            // Use the API key from currentStreamview if available, otherwise fall back to settings
+            let apiKey = this.settings.streamviewApiKey;
+            if (this.settings.currentStreamview && this.settings.currentStreamview.apiKey) {
+                apiKey = this.settings.currentStreamview.apiKey;
+            }
+            
             const response = await fetch(`${baseUrl}/api/streamview/${streamviewId}`, {
                 method: 'DELETE',
                 headers: {
-                    ...(this.settings.streamviewApiKey ? { 'X-API-Key': this.settings.streamviewApiKey } : {})
+                    ...(apiKey ? { 'X-API-Key': apiKey } : {})
                 }
             });
 
@@ -169,10 +196,17 @@ class StreamviewClient {
     async listStreamviews() {
         try {
             const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+            
+            // Use the API key from currentStreamview if available, otherwise fall back to settings
+            let apiKey = this.settings.streamviewApiKey;
+            if (this.settings.currentStreamview && this.settings.currentStreamview.apiKey) {
+                apiKey = this.settings.currentStreamview.apiKey;
+            }
+            
             const response = await fetch(`${baseUrl}/api/streamview`, {
                 method: 'GET',
                 headers: {
-                    ...(this.settings.streamviewApiKey ? { 'X-API-Key': this.settings.streamviewApiKey } : {})
+                    ...(apiKey ? { 'X-API-Key': apiKey } : {})
                 }
             });
 

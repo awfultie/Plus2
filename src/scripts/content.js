@@ -50,8 +50,9 @@
         if (messageBodyEl && usernameEl) {
             const text = messageBodyEl.textContent || '';
             const images = Array.from(messageBodyEl.querySelectorAll('img')).map(img => img.alt || '');
+            const username = usernameEl.textContent || '';
 
-            sendToBackground('CHAT_MESSAGE_FOUND', { text, images });
+            sendToBackground('CHAT_MESSAGE_FOUND', { text, images, username });
         }
 
         // Add a highlight button to the message

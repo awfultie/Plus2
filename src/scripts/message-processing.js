@@ -129,13 +129,15 @@ class MessageProcessor {
         try {
             // 1. Send message data to background for counting/polling
             const messageContentContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.messageContent);
+            const usernameContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.username);
             if (messageContentContainer) {
                 const text = (messageContentContainer.textContent || "").trim();
                 const images = Array.from(messageContentContainer.querySelectorAll(this.adapter.selectors.chatImage)).map(img => img.alt);
+                const username = usernameContainer ? (usernameContainer.textContent || "").trim() : '';
                 if (typeof browser !== 'undefined' && browser.runtime?.id) {
                     browser.runtime.sendMessage({
                         type: 'CHAT_MESSAGE_FOUND',
-                        data: { text, images }
+                        data: { text, images, username }
                     }).catch(e => { /* Silently ignore */ });
                 }
             }

@@ -173,12 +173,16 @@ document.addEventListener('DOMContentLoaded', () => {
     popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableHighlightTracking: false,
     enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7, leaderboardHeaderText: 'Leaderboard',
     leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
-    gaugeMinDisplayThreshold: 4,
+    gaugeMinDisplayThreshold: 3,
     // Webhook settings
     enableWebhookIntegration: false, webhookEndpoint: "", webhookApiKey: "", webhookTimeout: 5000, webhookRetryAttempts: 3,
     webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
     // Streamview settings
     enableStreamview: false, streamviewBaseUrl: "https://studio--plus2-streamview.us-central1.hosted.app", streamviewApiKey: "", currentStreamview: null,
+    // Streamview security options
+    streamviewGenerateApiKey: false, streamviewGenerateViewToken: false, streamviewRequireViewToken: false,
+    // StreamView template storage
+    streamviewTemplates: {},
     // Browser Source Style settings
     browserSourceStyle: null
   };
@@ -634,6 +638,29 @@ document.addEventListener('DOMContentLoaded', () => {
             configUrl: apiData.configUrl
           };
           
+          // Handle security data if present
+          if (apiData.security) {
+            // Store API key securely if generated
+            if (apiData.security.apiKey) {
+              streamviewData.apiKey = apiData.security.apiKey;
+            }
+            
+            // Store view token securely if generated
+            if (apiData.security.viewToken) {
+              streamviewData.viewToken = apiData.security.viewToken;
+            }
+            
+            // Use protected view URL if available
+            if (apiData.security.protectedViewUrl) {
+              streamviewData.viewUrl = apiData.security.protectedViewUrl;
+            }
+            
+            // Update webhook URL with authentication if API key was generated
+            if (apiData.security.apiKey && apiData.webhookUrl) {
+              streamviewData.webhookUrl = apiData.webhookUrl;
+            }
+          }
+          
           await browser.storage.sync.set({
             currentStreamview: streamviewData
           });
@@ -701,6 +728,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const featuresListEl = document.getElementById('activeFeaturesList');
         featuresListEl.textContent = enabledFeatures.length > 0 ? enabledFeatures.join(', ') : 'None (check webhook settings)';
+        
+        // Update security status display
+        const apiKeyStatusEl = document.getElementById('apiKeyStatus');
+        const viewTokenStatusEl = document.getElementById('viewTokenStatus');
+        const noSecurityStatusEl = document.getElementById('noSecurityStatus');
+        
+        const hasApiKey = currentStreamview.apiKey ? true : false;
+        const hasViewToken = currentStreamview.viewToken ? true : false;
+        
+        if (hasApiKey || hasViewToken) {
+            if (noSecurityStatusEl) noSecurityStatusEl.style.display = 'none';
+            if (apiKeyStatusEl) apiKeyStatusEl.style.display = hasApiKey ? 'block' : 'none';
+            if (viewTokenStatusEl) viewTokenStatusEl.style.display = hasViewToken ? 'block' : 'none';
+        } else {
+            if (noSecurityStatusEl) noSecurityStatusEl.style.display = 'block';
+            if (apiKeyStatusEl) apiKeyStatusEl.style.display = 'none';
+            if (viewTokenStatusEl) viewTokenStatusEl.style.display = 'none';
+        }
     } else {
         activeContainer.style.display = 'none';
         noStreamviewMessage.style.display = 'block';
@@ -765,6 +810,272 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Template Manager Functions
+  async function saveCurrentConfigAsTemplate() {
+    const templateNameInput = document.getElementById('templateName');
+    const templateName = templateNameInput?.value?.trim();
+    
+    if (!templateName) {
+      showStatus('❌ Please enter a template name', 3000);
+      return;
+    }
+    
+    try {
+      // Get current streamview configuration
+      const { currentStreamview } = await browser.storage.sync.get(['currentStreamview']);
+      if (!currentStreamview || !currentStreamview.id) {
+        showStatus('❌ No active StreamView to save as template', 3000);
+        return;
+      }
+      
+      // Fetch current StreamView configuration
+      const streamviewBaseUrl = getStreamviewBaseUrl();
+      const response = await fetch(`${streamviewBaseUrl}/api/streamview/${currentStreamview.id}`);
+      const data = await response.json();
+      
+      if (data.status !== 'success') {
+        showStatus('❌ Failed to fetch current StreamView configuration', 3000);
+        return;
+      }
+      
+      // Get current templates and add the new one
+      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
+      streamviewTemplates[templateName] = {
+        name: templateName,
+        configuration: data.configuration,
+        createdAt: new Date().toISOString(),
+        createdFrom: currentStreamview.id
+      };
+      
+      // Save updated templates
+      await browser.storage.sync.set({ streamviewTemplates });
+      
+      // Clear the input and refresh the list
+      if (templateNameInput) templateNameInput.value = '';
+      await refreshTemplatesList();
+      
+      showStatus(`✅ Template "${templateName}" saved successfully!`, 3000);
+      
+    } catch (error) {
+      console.error('Error saving template:', error);
+      showStatus(`❌ Error saving template: ${error.message}`, 5000);
+    }
+  }
+  
+  async function refreshTemplatesList() {
+    const templatesListEl = document.getElementById('templatesList');
+    const templateApiEndpointEl = document.getElementById('templateApiEndpoint');
+    
+    if (!templatesListEl) return;
+    
+    try {
+      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
+      const templateNames = Object.keys(streamviewTemplates);
+      
+      // Update API endpoint display
+      if (templateApiEndpointEl) {
+        const baseUrl = getStreamviewBaseUrl();
+        templateApiEndpointEl.textContent = `${baseUrl}/api/templates/load`;
+      }
+      
+      if (templateNames.length === 0) {
+        templatesListEl.innerHTML = '<div style="color: #666; font-style: italic;">No templates saved yet</div>';
+        return;
+      }
+      
+      // Build templates list
+      templatesListEl.innerHTML = ''; // Clear existing content
+      
+      templateNames.forEach(templateName => {
+        const template = streamviewTemplates[templateName];
+        const createdDate = new Date(template.createdAt).toLocaleDateString();
+        
+        // Create template item element
+        const templateItem = document.createElement('div');
+        templateItem.className = 'template-item';
+        templateItem.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #ddd;';
+        
+        // Create template info section
+        const templateInfo = document.createElement('div');
+        templateInfo.innerHTML = `
+          <strong>${templateName}</strong>
+          <div style="font-size: 0.8em; color: #666;">Created: ${createdDate}</div>
+        `;
+        
+        // Create buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.style.cssText = 'display: flex; gap: 5px;';
+        
+        // Create load button
+        const loadButton = document.createElement('button');
+        loadButton.textContent = 'Load to Current View';
+        loadButton.style.cssText = 'background-color: #4CAF50; padding: 4px 8px; font-size: 0.8em; color: white; border: none; border-radius: 3px; cursor: pointer;';
+        loadButton.addEventListener('click', () => loadTemplateToCurrentView(templateName));
+        
+        // Create delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.style.cssText = 'background-color: #f44336; padding: 4px 8px; font-size: 0.8em; color: white; border: none; border-radius: 3px; cursor: pointer;';
+        deleteButton.addEventListener('click', () => deleteTemplate(templateName));
+        
+        // Assemble the template item
+        buttonsContainer.appendChild(loadButton);
+        buttonsContainer.appendChild(deleteButton);
+        templateItem.appendChild(templateInfo);
+        templateItem.appendChild(buttonsContainer);
+        templatesListEl.appendChild(templateItem);
+      });
+      
+    } catch (error) {
+      console.error('Error refreshing templates list:', error);
+      templatesListEl.innerHTML = '<div style="color: #f44336;">Error loading templates</div>';
+    }
+  }
+  
+  async function loadTemplateToCurrentView(templateName) {
+    try {
+      const { currentStreamview } = await browser.storage.sync.get(['currentStreamview']);
+      if (!currentStreamview || !currentStreamview.id) {
+        showStatus('❌ No active StreamView to load template into', 3000);
+        return;
+      }
+      
+      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
+      const template = streamviewTemplates[templateName];
+      
+      if (!template) {
+        showStatus(`❌ Template "${templateName}" not found`, 3000);
+        return;
+      }
+      
+      const confirmLoad = confirm(
+        `Load Template Confirmation\n\n` +
+        `This will replace the current configuration of StreamView "${currentStreamview.id}" with the template "${templateName}".\n\n` +
+        `This action cannot be undone. Continue?`
+      );
+      
+      if (!confirmLoad) return;
+      
+      // Apply template via StreamView Plus2 API endpoint
+      const streamviewBaseUrl = getStreamviewBaseUrl();
+      const response = await fetch(`${streamviewBaseUrl}/api/templates/plus2`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          streamviewId: currentStreamview.id,
+          templateName: templateName,
+          configuration: template.configuration,
+          apiKey: currentStreamview.apiKey || undefined,
+          templateMetadata: {
+            name: template.name,
+            createdAt: template.createdAt,
+            createdFrom: template.createdFrom
+          }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        showStatus(`✅ Template "${templateName}" loaded successfully!`, 3000);
+      } else {
+        showStatus(`❌ Failed to load template: ${result.message}`, 5000);
+      }
+      
+    } catch (error) {
+      console.error('Error loading template:', error);
+      showStatus(`❌ Error loading template: ${error.message}`, 5000);
+    }
+  }
+  
+  async function deleteTemplate(templateName) {
+    // Enhanced confirmation dialog
+    const confirmDelete = confirm(
+      `⚠️ Delete Template Confirmation\n\n` +
+      `Template: "${templateName}"\n\n` +
+      `This will permanently delete this template from your Plus2 extension.\n` +
+      `This action cannot be undone.\n\n` +
+      `Are you sure you want to continue?`
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+      // Find the delete button for this specific template
+      const templateItems = document.querySelectorAll('.template-item');
+      let deleteButton = null;
+      let templateItem = null;
+      
+      for (const item of templateItems) {
+        const nameElement = item.querySelector('strong');
+        if (nameElement && nameElement.textContent === templateName) {
+          templateItem = item;
+          deleteButton = item.querySelector('button[style*="background-color: #f44336"]');
+          break;
+        }
+      }
+      
+      // Show loading state on the delete button
+      if (deleteButton) {
+        deleteButton.textContent = 'Deleting...';
+        deleteButton.disabled = true;
+        deleteButton.style.opacity = '0.6';
+      }
+      
+      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
+      delete streamviewTemplates[templateName];
+      
+      await browser.storage.sync.set({ streamviewTemplates });
+      
+      // Remove the template item from the DOM immediately (real-time update)
+      if (templateItem) {
+        // Fade out animation before removal
+        templateItem.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        templateItem.style.opacity = '0';
+        templateItem.style.transform = 'translateX(-20px)';
+        
+        setTimeout(() => {
+          templateItem.remove();
+          
+          // Check if this was the last template and show "no templates" message
+          const remainingItems = document.querySelectorAll('.template-item');
+          if (remainingItems.length === 0) {
+            const templatesListEl = document.getElementById('templatesList');
+            if (templatesListEl) {
+              templatesListEl.innerHTML = '<div style="color: #666; font-style: italic;">No templates saved yet</div>';
+            }
+          }
+        }, 300);
+      }
+      
+      showStatus(`✅ Template "${templateName}" deleted successfully`, 3000);
+      
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      showStatus(`❌ Error deleting template: ${error.message}`, 5000);
+      
+      // Restore button state on error (find button again in case DOM changed)
+      const templateItems = document.querySelectorAll('.template-item');
+      for (const item of templateItems) {
+        const nameElement = item.querySelector('strong');
+        if (nameElement && nameElement.textContent === templateName) {
+          const deleteButton = item.querySelector('button[style*="background-color: #f44336"]');
+          if (deleteButton) {
+            deleteButton.textContent = 'Delete';
+            deleteButton.disabled = false;
+            deleteButton.style.opacity = '1';
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // Functions are now properly scoped and attached via addEventListener
+  // No need for global window assignments
+
   // Browser Source Configuration button
   const openBrowserSourceConfigButton = document.getElementById('openBrowserSourceConfig');
   if (openBrowserSourceConfigButton) {
@@ -826,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Apply the channel ID override by updating the base URL inputs
       const baseUrl = streamviewBaseUrlInput ? streamviewBaseUrlInput.value : 'https://studio--plus2-streamview.us-central1.hosted.app';
-      const webhookUrl = `${baseUrl}/api/webhook/${channelId}`;
+      const webhookUrl = `${baseUrl}/api/webhook/plus2?channel=${channelId}`;
       const viewUrl = `${baseUrl}/view/${channelId}`;
       const configUrl = `${baseUrl}/config/${channelId}`;
       
@@ -847,10 +1158,34 @@ document.addEventListener('DOMContentLoaded', () => {
           return browser.storage.sync.set({ currentStreamview });
         }
       }).then(() => {
+        // Notify background script of settings update
+        return browser.runtime.sendMessage({ type: 'SETTINGS_UPDATED' });
       }).catch(error => {
+        console.error('Error applying channel ID override:', error);
+        showStatus(`❌ Error applying override: ${error.message}`, 5000);
       });
       
       showStatus(`✅ Channel ID override applied for channel: ${channelId}`, 3000);
+    });
+  }
+
+  // Template Manager Event Listeners
+  const saveAsTemplateButton = document.getElementById('saveAsTemplate');
+  if (saveAsTemplateButton) {
+    saveAsTemplateButton.addEventListener('click', saveCurrentConfigAsTemplate);
+  }
+
+  // Initialize templates list on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    refreshTemplatesList();
+  });
+  
+  // Also refresh when streamview settings might have changed
+  if (typeof browser !== 'undefined' && browser.storage) {
+    browser.storage.onChanged.addListener((changes) => {
+      if (changes.streamviewTemplates || changes.streamviewBaseUrl) {
+        refreshTemplatesList();
+      }
     });
   }
 
