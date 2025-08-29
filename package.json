@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node scripts/build.js",
     "build:chrome": "node scripts/build.js chrome",
+    "build:chrome-dev": "node scripts/build.js chrome-dev",
     "build:firefox": "node scripts/build.js firefox"
   },
   "devDependencies": {

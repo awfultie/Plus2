@@ -151,6 +151,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const createStreamviewButton = document.getElementById('createStreamview');
   const streamviewOptionsContainer = document.getElementById('streamviewOptionsContainer');
   const copyViewUrlButton = document.getElementById('copyViewUrlButton');
+  // Secret key management elements
+  const streamviewSecretKeyInput = document.getElementById('streamviewSecretKey');
+  const generateSecretKeyButton = document.getElementById('generateSecretKey');
+  const showSecretKeyButton = document.getElementById('showSecretKey');
+  const clearSecretKeyButton = document.getElementById('clearSecretKey');
   // Channel ID Override elements
   const enableChannelIdOverrideInput = document.getElementById('enableChannelIdOverride');
   const channelIdOverrideContainer = document.getElementById('channelIdOverrideContainer');
@@ -178,9 +183,10 @@ document.addEventListener('DOMContentLoaded', () => {
     enableWebhookIntegration: false, webhookEndpoint: "", webhookApiKey: "", webhookTimeout: 5000, webhookRetryAttempts: 3,
     webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
     // Streamview settings
-    enableStreamview: false, streamviewBaseUrl: "https://studio--plus2-streamview.us-central1.hosted.app", streamviewApiKey: "", currentStreamview: null,
+    enableStreamview: false, streamviewBaseUrl: "https://streamview.channel", streamviewApiKey: "", currentStreamview: null,
     // Streamview security options
-    streamviewGenerateApiKey: false, streamviewGenerateViewToken: false, streamviewRequireViewToken: false,
+    streamviewGenerateApiKey: false,
+    streamviewSecretKey: '',
     // StreamView template storage
     streamviewTemplates: {},
     // Browser Source Style settings
@@ -621,6 +627,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response && response.success) {
           showStatus('✅ Browser source created successfully!', 3000);
           
+          // Auto-uncheck the Generate API Key checkbox to prevent accidental regeneration
+          const generateApiKeyCheckbox = document.getElementById('streamviewGenerateApiKey');
+          if (generateApiKeyCheckbox && generateApiKeyCheckbox.checked) {
+            generateApiKeyCheckbox.checked = false;
+            // Save the updated setting
+            await saveOptions();
+          }
+          
           // The actual API response is wrapped in response.data
           const apiData = response.data;
           
@@ -645,10 +659,6 @@ document.addEventListener('DOMContentLoaded', () => {
               streamviewData.apiKey = apiData.security.apiKey;
             }
             
-            // Store view token securely if generated
-            if (apiData.security.viewToken) {
-              streamviewData.viewToken = apiData.security.viewToken;
-            }
             
             // Use protected view URL if available
             if (apiData.security.protectedViewUrl) {
@@ -731,20 +741,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update security status display
         const apiKeyStatusEl = document.getElementById('apiKeyStatus');
-        const viewTokenStatusEl = document.getElementById('viewTokenStatus');
         const noSecurityStatusEl = document.getElementById('noSecurityStatus');
         
         const hasApiKey = currentStreamview.apiKey ? true : false;
-        const hasViewToken = currentStreamview.viewToken ? true : false;
         
-        if (hasApiKey || hasViewToken) {
+        if (hasApiKey) {
             if (noSecurityStatusEl) noSecurityStatusEl.style.display = 'none';
-            if (apiKeyStatusEl) apiKeyStatusEl.style.display = hasApiKey ? 'block' : 'none';
-            if (viewTokenStatusEl) viewTokenStatusEl.style.display = hasViewToken ? 'block' : 'none';
+            if (apiKeyStatusEl) apiKeyStatusEl.style.display = 'block';
         } else {
             if (noSecurityStatusEl) noSecurityStatusEl.style.display = 'block';
             if (apiKeyStatusEl) apiKeyStatusEl.style.display = 'none';
-            if (viewTokenStatusEl) viewTokenStatusEl.style.display = 'none';
         }
     } else {
         activeContainer.style.display = 'none';
@@ -771,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getStreamviewBaseUrl() {
     const baseUrlInput = document.getElementById('streamviewBaseUrl');
-    return baseUrlInput ? baseUrlInput.value : 'https://studio--plus2-streamview.us-central1.hosted.app';
+    return baseUrlInput ? baseUrlInput.value : 'https://streamview.channel';
   }
 
   // Make functions available globally for inline event handlers
@@ -810,6 +816,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Secret key management event listeners
+  if (generateSecretKeyButton) {
+    generateSecretKeyButton.addEventListener('click', () => {
+      const newSecret = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+      streamviewSecretKeyInput.value = newSecret;
+      streamviewSecretKeyInput.type = 'text'; // Show the generated key
+      showStatus('✅ New secret key generated!', 2000);
+      // Auto-save the new secret key
+      saveOptions({ streamviewSecretKey: newSecret });
+    });
+  }
+
+  if (showSecretKeyButton) {
+    showSecretKeyButton.addEventListener('click', () => {
+      if (streamviewSecretKeyInput.type === 'password') {
+        streamviewSecretKeyInput.type = 'text';
+        showSecretKeyButton.textContent = 'Hide Key';
+      } else {
+        streamviewSecretKeyInput.type = 'password';
+        showSecretKeyButton.textContent = 'Show Key';
+      }
+    });
+  }
+
+  if (clearSecretKeyButton) {
+    clearSecretKeyButton.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear your secret key? You will lose access to any protected StreamViews.')) {
+        streamviewSecretKeyInput.value = '';
+        showStatus('🗑️ Secret key cleared', 2000);
+        // Auto-save the cleared secret key
+        saveOptions({ streamviewSecretKey: '' });
+      }
+    });
+  }
+
+  if (streamviewSecretKeyInput) {
+    streamviewSecretKeyInput.addEventListener('input', () => {
+      // Auto-save secret key changes
+      saveOptions({ streamviewSecretKey: streamviewSecretKeyInput.value });
+    });
+  }
+
   // Template Manager Functions
   async function saveCurrentConfigAsTemplate() {
     const templateNameInput = document.getElementById('templateName');
@@ -820,63 +868,92 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
+    // Prevent duplicate execution
+    if (saveCurrentConfigAsTemplate.isRunning) {
+      return;
+    }
+    saveCurrentConfigAsTemplate.isRunning = true;
+    
     try {
       // Get current streamview configuration
       const { currentStreamview } = await browser.storage.sync.get(['currentStreamview']);
       if (!currentStreamview || !currentStreamview.id) {
         showStatus('❌ No active StreamView to save as template', 3000);
+        saveCurrentConfigAsTemplate.isRunning = false;
         return;
       }
       
       // Fetch current StreamView configuration
       const streamviewBaseUrl = getStreamviewBaseUrl();
-      const response = await fetch(`${streamviewBaseUrl}/api/streamview/${currentStreamview.id}`);
+      
+      // Build headers - include secret key if available
+      const headers = {};
+      const { streamviewSecretKey } = await browser.storage.sync.get(['streamviewSecretKey']);
+      if (streamviewSecretKey) {
+        headers['x-secret-key'] = streamviewSecretKey;
+      }
+      
+      const response = await fetch(`${streamviewBaseUrl}/api/streamview/${currentStreamview.id}`, { headers });
       const data = await response.json();
       
       if (data.status !== 'success') {
         showStatus('❌ Failed to fetch current StreamView configuration', 3000);
+        saveCurrentConfigAsTemplate.isRunning = false;
         return;
       }
       
-      // Get current templates and add the new one
-      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
-      streamviewTemplates[templateName] = {
+      // Check if template already exists
+      const { streamviewTemplateIndex = [] } = await browser.storage.sync.get(['streamviewTemplateIndex']);
+      const templateKey = `streamview_template_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      
+      if (streamviewTemplateIndex.includes(templateName)) {
+        const overwrite = confirm(`Template "${templateName}" already exists. Do you want to overwrite it?`);
+        if (!overwrite) {
+          saveCurrentConfigAsTemplate.isRunning = false;
+          return;
+        }
+      }
+      
+      // Store individual template with a unique key to avoid quota limits
+      const templateData = {
         name: templateName,
         configuration: data.configuration,
         createdAt: new Date().toISOString(),
         createdFrom: currentStreamview.id
       };
       
-      // Save updated templates
-      await browser.storage.sync.set({ streamviewTemplates });
+      // Save individual template
+      await browser.storage.sync.set({ [templateKey]: templateData });
       
-      // Clear the input and refresh the list
+      // Update template index (list of template names) only if it's a new template
+      if (!streamviewTemplateIndex.includes(templateName)) {
+        streamviewTemplateIndex.push(templateName);
+        await browser.storage.sync.set({ streamviewTemplateIndex });
+      }
+      
+      // Clear the input (list will refresh automatically via storage change listener)
       if (templateNameInput) templateNameInput.value = '';
-      await refreshTemplatesList();
       
       showStatus(`✅ Template "${templateName}" saved successfully!`, 3000);
       
     } catch (error) {
       console.error('Error saving template:', error);
       showStatus(`❌ Error saving template: ${error.message}`, 5000);
+    } finally {
+      // Reset the running flag
+      saveCurrentConfigAsTemplate.isRunning = false;
     }
   }
   
   async function refreshTemplatesList() {
     const templatesListEl = document.getElementById('templatesList');
-    const templateApiEndpointEl = document.getElementById('templateApiEndpoint');
     
     if (!templatesListEl) return;
     
     try {
-      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
-      const templateNames = Object.keys(streamviewTemplates);
-      
-      // Update API endpoint display
-      if (templateApiEndpointEl) {
-        const baseUrl = getStreamviewBaseUrl();
-        templateApiEndpointEl.textContent = `${baseUrl}/api/templates/load`;
-      }
+      // Get template index (list of template names)
+      const { streamviewTemplateIndex = [] } = await browser.storage.sync.get(['streamviewTemplateIndex']);
+      const templateNames = streamviewTemplateIndex;
       
       if (templateNames.length === 0) {
         templatesListEl.innerHTML = '<div style="color: #666; font-style: italic;">No templates saved yet</div>';
@@ -886,8 +963,16 @@ document.addEventListener('DOMContentLoaded', () => {
       // Build templates list
       templatesListEl.innerHTML = ''; // Clear existing content
       
+      // Fetch all templates
+      const templateKeys = templateNames.map(name => `streamview_template_${name.replace(/[^a-zA-Z0-9]/g, '_')}`);
+      const templatesData = await browser.storage.sync.get(templateKeys);
+      
       templateNames.forEach(templateName => {
-        const template = streamviewTemplates[templateName];
+        const templateKey = `streamview_template_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const template = templatesData[templateKey];
+        
+        if (!template) return; // Skip if template not found
+        
         const createdDate = new Date(template.createdAt).toLocaleDateString();
         
         // Create template item element
@@ -940,8 +1025,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
-      const template = streamviewTemplates[templateName];
+      // Load individual template
+      const templateKey = `streamview_template_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const { [templateKey]: template } = await browser.storage.sync.get([templateKey]);
       
       if (!template) {
         showStatus(`❌ Template "${templateName}" not found`, 3000);
@@ -958,11 +1044,21 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Apply template via StreamView Plus2 API endpoint
       const streamviewBaseUrl = getStreamviewBaseUrl();
+      
+      // Build headers - include secret key if available
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add secret key header if stored in localStorage
+      const { streamviewSecretKey } = await browser.storage.sync.get(['streamviewSecretKey']);
+      if (streamviewSecretKey) {
+        headers['x-secret-key'] = streamviewSecretKey;
+      }
+      
       const response = await fetch(`${streamviewBaseUrl}/api/templates/plus2`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           streamviewId: currentStreamview.id,
           templateName: templateName,
@@ -1024,10 +1120,14 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteButton.style.opacity = '0.6';
       }
       
-      const { streamviewTemplates = {} } = await browser.storage.sync.get(['streamviewTemplates']);
-      delete streamviewTemplates[templateName];
+      // Remove individual template
+      const templateKey = `streamview_template_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      await browser.storage.sync.remove([templateKey]);
       
-      await browser.storage.sync.set({ streamviewTemplates });
+      // Update template index
+      const { streamviewTemplateIndex = [] } = await browser.storage.sync.get(['streamviewTemplateIndex']);
+      const updatedIndex = streamviewTemplateIndex.filter(name => name !== templateName);
+      await browser.storage.sync.set({ streamviewTemplateIndex: updatedIndex });
       
       // Remove the template item from the DOM immediately (real-time update)
       if (templateItem) {
@@ -1085,7 +1185,27 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (activeStreamviewId) {
         const configUrl = `${streamviewBaseUrl}/config/${activeStreamviewId}`;
-        chrome.tabs.create({ url: configUrl });
+        
+        // Create tab and inject secret key into localStorage if available
+        chrome.tabs.create({ url: configUrl }, (tab) => {
+          // Get the current settings to check for secret key
+          browser.storage.sync.get(['streamviewSecretKey']).then(({ streamviewSecretKey }) => {
+            if (streamviewSecretKey && tab.id) {
+              // Wait a moment for the tab to load, then inject the secret key
+              setTimeout(() => {
+                chrome.scripting.executeScript({
+                  target: { tabId: tab.id },
+                  func: (secretKey) => {
+                    localStorage.setItem('streamviewSecretKey', secretKey);
+                  },
+                  args: [streamviewSecretKey]
+                }).catch(error => {
+                  console.log('Could not inject secret key:', error);
+                });
+              }, 1000);
+            }
+          });
+        });
       } else {
         showStatus('❌ No active streamview found. Please create a streamview first.', 3000);
       }
@@ -1136,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Apply the channel ID override by updating the base URL inputs
-      const baseUrl = streamviewBaseUrlInput ? streamviewBaseUrlInput.value : 'https://studio--plus2-streamview.us-central1.hosted.app';
+      const baseUrl = streamviewBaseUrlInput ? streamviewBaseUrlInput.value : 'https://streamview.channel';
       const webhookUrl = `${baseUrl}/api/webhook/plus2?channel=${channelId}`;
       const viewUrl = `${baseUrl}/view/${channelId}`;
       const configUrl = `${baseUrl}/config/${channelId}`;
@@ -1175,15 +1295,11 @@ document.addEventListener('DOMContentLoaded', () => {
     saveAsTemplateButton.addEventListener('click', saveCurrentConfigAsTemplate);
   }
 
-  // Initialize templates list on page load
-  document.addEventListener('DOMContentLoaded', () => {
-    refreshTemplatesList();
-  });
   
   // Also refresh when streamview settings might have changed
   if (typeof browser !== 'undefined' && browser.storage) {
     browser.storage.onChanged.addListener((changes) => {
-      if (changes.streamviewTemplates || changes.streamviewBaseUrl) {
+      if (changes.streamviewTemplateIndex || changes.streamviewBaseUrl || Object.keys(changes).some(key => key.startsWith('streamview_template_'))) {
         refreshTemplatesList();
       }
     });
@@ -1298,6 +1414,9 @@ document.addEventListener('DOMContentLoaded', () => {
     populateForm(options);
     loadActiveStreamview(); // Always load streamview display regardless of enableStreamview setting
     initializeBrowserSourceStyle(options);
+    
+    // Initialize templates list on page load
+    refreshTemplatesList();
   });
 
   // --- Browser Source Style Functionality ---

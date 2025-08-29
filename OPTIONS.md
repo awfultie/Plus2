@@ -113,6 +113,50 @@ This document provides a comprehensive overview of all configuration options ava
 |--------|------|---------|-------------|
 | `enable7TVCompat` | Boolean | `false` | Enable compatibility mode for 7TV browser extension |
 
+## StreamView Integration
+
+StreamView provides an advanced web-based interface for creating and managing sophisticated browser source configurations. This integration extends Plus 2's capabilities significantly.
+
+### Browser Source Configuration
+- **Advanced Element Positioning**: Drag-and-drop interface for precise element placement
+- **Live Preview**: Real-time preview of all elements with visual feedback
+- **Zoom Controls**: 25%-300% zoom with precise positioning (zoom controls are UI-only and don't save configuration)
+- **Canvas Outline**: Visual boundary indicators for accurate element positioning
+- **Individual Element Control**: Configure messages, gauge, polls, and leaderboard independently
+
+### Template System
+Templates allow you to save, load, and share complete StreamView configurations:
+
+**Storage Architecture:**
+- Templates are stored individually (not as a single large object) to avoid browser extension storage quota limits
+- Each template uses a unique storage key: `streamview_template_[sanitized_name]`
+- Template index maintained separately for efficient listing
+- Automatic cleanup and synchronization across browser sessions
+
+**Template Operations:**
+- **Save**: `saveCurrentConfigAsTemplate()` - Creates new template from current StreamView configuration
+- **Load**: `loadTemplateToCurrentView()` - Applies template to active StreamView
+- **Delete**: `deleteTemplate()` - Removes template with confirmation dialog
+- **Automatic Refresh**: UI updates automatically when templates change (no manual refresh needed)
+
+**Security Features:**
+- Duplicate template name protection with overwrite confirmation
+- Execution guards prevent race conditions during save operations
+- Proper error handling and cleanup for all operations
+
+### Preview Features
+- **Drag Functionality**: Elements can be repositioned by dragging in the live preview
+- **Zoom-Aware Dragging**: Drag calculations account for zoom level and scroll position
+- **Element Selection**: Click elements to automatically switch to their configuration tab
+- **Visual Feedback**: Selected elements are highlighted with primary color borders
+- **Leaderboard Preview**: Shows 3 items instead of 5 for cleaner preview display
+
+### Technical Implementation
+- **Quota Management**: Individual template storage prevents browser extension storage limits (102,400 bytes per item)
+- **Race Condition Prevention**: Function execution guards prevent duplicate saves
+- **Storage Change Listeners**: Automatic UI updates when templates are modified
+- **Error Handling**: Comprehensive error handling with user feedback via toast notifications
+
 ## Notes
 
 - All color values accept standard CSS color formats (hex, rgb, rgba, named colors)

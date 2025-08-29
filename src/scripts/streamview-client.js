@@ -2,12 +2,12 @@
 class StreamviewClient {
     constructor(settings) {
         this.settings = settings;
-        this.baseUrl = settings.streamviewBaseUrl || 'https://studio--plus2-streamview.us-central1.hosted.app';
+        this.baseUrl = settings.streamviewBaseUrl || 'https://streamview.channel';
     }
 
     updateSettings(newSettings) {
         this.settings = newSettings;
-        this.baseUrl = newSettings.streamviewBaseUrl || 'https://studio--plus2-streamview.us-central1.hosted.app';
+        this.baseUrl = newSettings.streamviewBaseUrl || 'https://streamview.channel';
     }
 
     async createStreamview() {
@@ -18,19 +18,20 @@ class StreamviewClient {
             const configuration = this.buildConfigurationFromSettings();
             
             // Add security configuration if any security options are enabled
-            if (this.settings.streamviewGenerateApiKey || this.settings.streamviewGenerateViewToken || this.settings.streamviewRequireViewToken) {
+            if (this.settings.streamviewGenerateApiKey || this.settings.streamviewSecretKey) {
                 configuration.security = {};
                 
                 if (this.settings.streamviewGenerateApiKey) {
                     configuration.security.generateApiKey = true;
                 }
                 
-                if (this.settings.streamviewGenerateViewToken) {
-                    configuration.security.generateViewToken = true;
-                }
-                
-                if (this.settings.streamviewRequireViewToken) {
-                    configuration.security.requireViewToken = true;
+                // Include secret key if set
+                if (this.settings.streamviewSecretKey) {
+                    configuration.security.secretKey = this.settings.streamviewSecretKey;
+                    // Enable protection by default when secret key is provided
+                    configuration.security.requireSecretForEditing = true;
+                    // Hide from public listings when secret key is used
+                    configuration.security.hideFromPublicListings = true;
                 }
             }
             

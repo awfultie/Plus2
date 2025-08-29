@@ -65,6 +65,17 @@ async function build(browser) {
             manifest.background = {
                 "service_worker": "scripts/background.js"
             };
+            // Remove localhost permissions for Chrome builds (but not dev builds)
+            if (browser !== 'chrome-dev' && manifest.host_permissions) {
+                manifest.host_permissions = manifest.host_permissions.filter(
+                    permission => !permission.includes('localhost')
+                );
+            }
+            if (browser !== 'chrome-dev' && manifest.content_security_policy?.extension_pages) {
+                manifest.content_security_policy.extension_pages = manifest.content_security_policy.extension_pages.replace(
+                    ' http://localhost:*;', ''
+                );
+            }
             // The polyfill is loaded via the HTML script tags for UI,
             // but for the service worker, we need to import it and the clients.
             const bgPath = path.join(browserDistDir, 'scripts', 'background.js');

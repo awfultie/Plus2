@@ -13,6 +13,8 @@
     "*://*.twitch.tv/*",
     "*://*.youtube.com/*",
     "https://awfulstreamview--streamview-ba878.us-central1.hosted.app/*",
+    "https://studio--plus2-streamview.us-central1.hosted.app/*",
+    "*://*.streamview.channel/*",
     "http://localhost:*/*"
   ],
   "content_scripts": [

@@ -62,9 +62,9 @@ const defaultOptions = {
     enableWebhookIntegration: false, webhookEndpoint: "", webhookApiKey: "", webhookTimeout: 5000, webhookRetryAttempts: 3,
     webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
     // Streamview settings
-    enableStreamview: false, streamviewBaseUrl: "https://studio--plus2-streamview.us-central1.hosted.app", streamviewApiKey: "", currentStreamview: null,
+    enableStreamview: false, streamviewBaseUrl: "https://streamview.channel", streamviewApiKey: "", currentStreamview: null,
     // Streamview security options
-    streamviewGenerateApiKey: false, streamviewGenerateViewToken: false, streamviewRequireViewToken: false,
+    streamviewGenerateApiKey: false,
     // StreamView template storage
     streamviewTemplates: {},
     // Browser Source Style settings

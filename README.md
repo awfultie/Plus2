@@ -121,6 +121,11 @@ Here's a breakdown of the key features offered by Plus 2:
 *   **Settings Import/Export:**
     *   Easily backup your personalized settings to a JSON file.
     *   Import settings from a file to quickly restore your configuration or share it.
+*   **StreamView Integration:**
+    *   Create and manage advanced browser source configurations through the integrated StreamView web application.
+    *   Template system allows saving, loading, and sharing complex configurations.
+    *   Features live preview with zoom controls and drag-and-drop positioning.
+    *   Enhanced browser source support with individual element styling and positioning.
 
 ## Configuration (Options Page)
 
@@ -159,6 +164,14 @@ For a complete reference of all available options, see the [OPTIONS.md](OPTIONS.
 
 ### Compatibility Mode:
 *   Check this if you use the 7TV browser extension.
+
+### StreamView Integration:
+*   **Browser Source Configuration:** Advanced web-based interface for creating sophisticated browser sources.
+*   **Template Management:** Save configuration templates that can be applied to multiple StreamViews.
+*   **Live Preview:** Interactive preview with zoom controls (25%-300%) and drag-and-drop element positioning.
+*   **Individual Element Control:** Configure messages, gauge, polls, and leaderboard with precise positioning and styling.
+*   **Canvas Outline:** Visual boundary indicators in the preview for accurate positioning.
+*   **Quota-Optimized Storage:** Templates are stored individually to avoid browser extension storage limits.
 
 ## Contributing
 
