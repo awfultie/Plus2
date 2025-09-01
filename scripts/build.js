@@ -52,7 +52,14 @@ async function build(browser) {
         // --- Browser-specific modifications ---
         if (browser === 'firefox') {
             manifest.background = {
-                "scripts": ["lib/browser-polyfill.min.js", "scripts/webhook-client.js", "scripts/streamview-client.js", "scripts/background.js"]
+                "scripts": [
+                    "lib/browser-polyfill.min.js", 
+                    "scripts/polling/polling-utils.js",
+                    "scripts/polling/generic-polling.js",
+                    "scripts/webhook-client.js", 
+                    "scripts/streamview-client.js", 
+                    "scripts/background.js"
+                ]
             };
             manifest.browser_specific_settings = {
                 "gecko": {

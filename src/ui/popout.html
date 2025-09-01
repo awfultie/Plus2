@@ -8,6 +8,18 @@
 <body>
     <!-- The UI container will be built and injected by popout.js -->
     <script src="../lib/browser-polyfill.min.js"></script>
+    
+    <!-- Phase 1 Refactoring: Extracted utilities -->
+    <script src="../scripts/popout/config/defaults.js"></script>
+    <script src="../scripts/popout/utils/colors.js"></script>
+    <script src="../scripts/popout/utils/animations.js"></script>
+    
+    <!-- Phase 2 Refactoring: Extracted components -->
+    <script src="../scripts/popout/components/gauge.js"></script>
+    <script src="../scripts/popout/components/polling.js"></script>
+    <script src="../scripts/popout/components/leaderboard.js"></script>
+    
+    <!-- Main popout script -->
     <script src="../scripts/popout.js"></script>
 </body>
 </html>

@@ -4,108 +4,39 @@
 let settings = {};
 let highlightedMessageContainer;
 let pollState = {}; // To hold the current state of the poll
+let genericPollState = {}; // To hold the current state of the generic poll
 let messageTarget;
 let gaugeContainerElement, gaugeFillElement, recentMaxIndicatorElement, maxLevelReachedLabelElement;
 let yesNoPollDisplayContainerElement, yesBarElement, noBarElement, yesPollLabelElement, noPollLabelElement, pollWinnerTextElement;
+let genericPollDisplayContainerElement;
 let leaderboardContainerElement;
 let activeMessageTimeouts = new Map(); // To manage timeouts for individual messages in append mode
 
+// --- Component Instances ---
+let gaugeComponent;
+let pollingComponent;
+let leaderboardComponent;
+
 // --- Helper Functions ---
 
+// Default settings functions moved to popout/config/defaults.js
+// Use the global utility functions for backward compatibility
 function getDefaultSettings() {
-    // This function provides a default configuration that matches the nested structure
-    // expected by the streamview.
-    return {
-        display: {
-            chromaKeyColor: '#b9e6b7',
-            popoutBaseFontSize: 18,
-            popoutDefaultWidth: 600,
-            popoutDefaultHeight: 300,
-            displayTime: 10000
-        },
-        features: {
-            enableCounting: true,
-            enableYesNoPolling: true,
-            enableLeaderboard: true,
-            enableHighlightTracking: true,
-            appendMessages: false
-        },
-        styling: {
-            messageBGColor: '#111111',
-            paragraphTextColor: '#FFFFFF',
-            enableUsernameColoring: true,
-            usernameDefaultColor: '#FF0000',
-            gauge: {
-                gaugeMaxValue: 30,
-                gaugeMinDisplayThreshold: 3,
-                gaugeTrackColor: '#e0e0e0',
-                gaugeTrackAlpha: 0,
-                gaugeTrackBorderColor: '#505050',
-                gaugeTrackBorderAlpha: 1,
-                gaugeFillGradientStartColor: '#ffd700',
-                gaugeFillGradientEndColor: '#ff0000',
-                recentMaxIndicatorColor: '#ff0000',
-                peakLabels: getDefaultPeakLabels(),
-                enablePeakLabelAnimation: true,
-                peakLabelAnimationDuration: 0.6,
-                peakLabelAnimationIntensity: 2
-            },
-            polling: {
-                yesPollBarColor: '#ff0000',
-                noPollBarColor: '#0000ff',
-                pollTextColor: '#ffffff'
-            },
-            leaderboard: {
-                leaderboardHeaderText: 'Leaderboard',
-                leaderboardBackgroundColor: '#000000',
-                leaderboardBackgroundAlpha: 0,
-                leaderboardTextColor: '#FFFFFF'
-            }
-        },
-        behavior: {
-            // Behavior settings are primarily used by the background script
-        }
-    };
+    return window.popoutUtils.getDefaultSettings();
 }
 
 function getDefaultPeakLabels() {
-    return {
-        low: { text: 'Heh', color: '#ffffff' },
-        mid: { text: 'Funny!', color: '#ffff00' },
-        high: { text: 'Hilarious!!', color: '#ffa500' },
-        max: { text: 'OFF THE CHARTS!!!', color: '#ff0000' }
-    };
+    return window.popoutUtils.getDefaultPeakLabels();
 }
 
+// Color utility function moved to popout/utils/colors.js
 function hexToRgba(hex, alpha) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!result) return `rgba(0,0,0,${alpha})`;
-    const r = parseInt(result[1], 16);
-    const g = parseInt(result[2], 16);
-    const b = parseInt(result[3], 16);
-    return `rgba(${r},${g},${b},${alpha})`;
+    return window.popoutUtils.hexToRgba(hex, alpha);
 }
 
+// Animation styles function moved to popout/utils/animations.js
 function injectAnimationStyles() {
-    const styleId = 'plus2AnimationStyles';
-    let style = document.getElementById(styleId);
-    if (style) style.remove(); // Remove to update with new settings if needed
-
-    style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-    @keyframes plus2-vertical-shaking {
-      0%, 50%, 100% { transform: translateY(-1px); }
-      25%, 75% { transform: translateY(-${Math.max(1, settings.styling?.gauge?.peakLabelAnimationIntensity || 2)}px); }
-    }
-    .plus2-shake-animation {
-      animation-name: plus2-vertical-shaking;
-      animation-duration: ${settings.styling?.gauge?.peakLabelAnimationDuration || 0.6}s;
-      animation-iteration-count: infinite;
-      animation-timing-function: ease-in-out;
-    }
-  `;
-    document.head.appendChild(style);
+    window.popoutUtils.injectAnimationStyles(settings);
 }
 
 // --- UI Building and Rendering ---
@@ -245,139 +176,85 @@ function buildHighlightContainerStructure() {
 
     yesNoPollDisplayContainerElement.append(yesBarElement, noBarElement, yesPollLabelElement, noPollLabelElement, pollWinnerTextElement);
 
+    // Generic Poll Container - positioned above messageTarget
+    genericPollDisplayContainerElement = document.createElement('div');
+    genericPollDisplayContainerElement.id = 'genericPollDisplayContainer';
+    Object.assign(genericPollDisplayContainerElement.style, {
+        display: 'none', padding: '10px', margin: '10px 0', boxSizing: 'border-box',
+        backgroundColor: '#111111', textAlign: 'left', borderRadius: '8px', minWidth: '250px',
+        width: 'calc(100% - 20px)', alignSelf: 'center'
+    });
+    // Insert before messageTarget so it appears above it
+    highlightedMessageContainer.insertBefore(genericPollDisplayContainerElement, messageTarget);
+    console.log('[Popout] Created genericPollDisplayContainer:', genericPollDisplayContainerElement.id);
+
     document.body.appendChild(highlightedMessageContainer);
+
+    // Components will be initialized after settings are loaded
+}
+
+function initializeComponents() {
+    // Initialize GaugeComponent
+    gaugeComponent = new window.popoutUtils.GaugeComponent(
+        gaugeContainerElement,
+        gaugeFillElement,
+        recentMaxIndicatorElement,
+        maxLevelReachedLabelElement
+    );
+    
+    // Initialize PollingComponent
+    const yesNoElements = {
+        container: yesNoPollDisplayContainerElement,
+        yesBar: yesBarElement,
+        noBar: noBarElement,
+        yesLabel: yesPollLabelElement,
+        noLabel: noPollLabelElement,
+        winnerText: pollWinnerTextElement
+    };
+    pollingComponent = new window.popoutUtils.PollingComponent();
+    pollingComponent.initialize(yesNoElements, genericPollDisplayContainerElement, settings);
+    
+    // Initialize LeaderboardComponent
+    leaderboardComponent = new window.popoutUtils.LeaderboardComponent(leaderboardContainerElement);
 }
 
 function updateGaugeDisplay(gaugeData) {
-    if (!gaugeFillElement) return;
-    const { occurrenceCount, gaugeMaxValue } = gaugeData;
-
-    // Only hide the gauge fill if the poll is actually being displayed.
-    if (pollState.shouldDisplay) {
-        gaugeFillElement.style.width = '0%';
-    } else {
-        const fillPercentage = Math.min(100, Math.max(0, (occurrenceCount / gaugeMaxValue) * 100));
-        gaugeFillElement.style.width = `${fillPercentage}%`;
+    if (gaugeComponent) {
+        gaugeComponent.updateReferences(settings, pollState);
+        gaugeComponent.updateDisplay(gaugeData);
     }
-    updateGaugeContainerVisibility(gaugeData);
 }
 
 function updateRecentMaxIndicator(gaugeData) {
-    if (!recentMaxIndicatorElement || !maxLevelReachedLabelElement) return;
-    const { recentMaxValue, gaugeMaxValue, peakLabels } = gaugeData;
-
-    // Only hide the gauge indicators if the poll is actually being displayed.
-    if (pollState.shouldDisplay) {
-        recentMaxIndicatorElement.style.display = 'none';
-        maxLevelReachedLabelElement.style.display = 'none';
-        maxLevelReachedLabelElement.classList.remove('plus2-shake-animation');
-        return;
+    if (gaugeComponent) {
+        gaugeComponent.updateReferences(settings, pollState);
+        gaugeComponent.updateRecentMaxIndicator(gaugeData);
     }
-
-    const indicatorPos = (recentMaxValue / gaugeMaxValue) * 100;
-    let newLabelText = "";
-    let labelInfo = {};
-
-    if (recentMaxValue > 0) {
-        if (indicatorPos >= 100) { newLabelText = peakLabels.max.text; labelInfo = { color: peakLabels.max.color, size: '20px', weight: 'bold' }; }
-        else if (indicatorPos >= 75) { newLabelText = peakLabels.high.text; labelInfo = { color: peakLabels.high.color, size: '20px', weight: 'bold' }; }
-        else if (indicatorPos >= 45) { newLabelText = peakLabels.mid.text; labelInfo = { color: peakLabels.mid.color, size: '18px', weight: 'bold' }; }
-        else if (indicatorPos >= 15) { newLabelText = peakLabels.low.text; labelInfo = { color: peakLabels.low.color, size: '16px', weight: 'bold' }; }
-    }
-
-    if (newLabelText) {
-        maxLevelReachedLabelElement.textContent = newLabelText;
-        maxLevelReachedLabelElement.style.color = labelInfo.color;
-        maxLevelReachedLabelElement.style.fontSize = labelInfo.size;
-        maxLevelReachedLabelElement.style.fontWeight = labelInfo.weight;
-        maxLevelReachedLabelElement.style.textShadow = '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black';
-        maxLevelReachedLabelElement.style.display = 'flex';
-        if (newLabelText === peakLabels.max.text && settings.enablePeakLabelAnimation) {
-            maxLevelReachedLabelElement.classList.add('plus2-shake-animation');
-        } else if (settings.styling?.gauge?.enablePeakLabelAnimation) {
-            maxLevelReachedLabelElement.classList.remove('plus2-shake-animation');
-        }
-    } else {
-        maxLevelReachedLabelElement.style.display = 'none';
-        maxLevelReachedLabelElement.classList.remove('plus2-shake-animation');
-    }
-
-    if (recentMaxValue > 0) {
-        recentMaxIndicatorElement.style.left = `calc(${Math.min(100, indicatorPos)}% - 1px)`;
-        recentMaxIndicatorElement.style.display = 'block';
-    } else {
-        recentMaxIndicatorElement.style.display = 'none';
-    }
-    updateGaugeContainerVisibility(gaugeData);
 }
 
+// This function is now handled by the GaugeComponent
 function updateGaugeContainerVisibility(gaugeData) {
-    if (!gaugeContainerElement) return;
-    const { occurrenceCount, recentMaxValue } = gaugeData;
-    const threshold = settings.styling?.gauge?.gaugeMinDisplayThreshold || 3;
-    const isGaugeVisible = (occurrenceCount >= threshold || recentMaxValue >= threshold);
-    const isPollVisible = pollState.shouldDisplay; // Check if the poll should be displayed
-
-    console.log(`[Popout Gauge] Visibility check - Count: ${occurrenceCount}, RecentMax: ${recentMaxValue}, Threshold: ${threshold}, Visible: ${isGaugeVisible}, Poll: ${isPollVisible}`);
-
-    if (isGaugeVisible || isPollVisible) {
-        gaugeContainerElement.style.display = 'block';
-        console.log(`[Popout Gauge] Gauge container SHOWN`);
-    } else {
-        gaugeContainerElement.style.display = 'none';
-        console.log(`[Popout Gauge] Gauge container HIDDEN`);
-    }
+    // Redirected to updateGaugeDisplay which calls the component
+    updateGaugeDisplay(gaugeData);
 }
 
 function updateYesNoPollDisplay(pollData) {
-    if (!yesNoPollDisplayContainerElement) return;
-    const { yesCount, noCount, total, isConcluded, shouldDisplay, winnerMessage } = pollData;
+    if (pollingComponent) {
+        pollingComponent.updateYesNoDisplay(pollData);
+    }
+}
 
-    yesNoPollDisplayContainerElement.style.display = shouldDisplay ? 'flex' : 'none';
-    if (shouldDisplay) {
-        const yesPct = total > 0 ? (yesCount / total) * 100 : 0;
-        const noPct = total > 0 ? (noCount / total) * 100 : 0;
-        yesBarElement.style.width = `${yesPct}%`;
-        noBarElement.style.width = `${noPct}%`;
-        yesPollLabelElement.textContent = `${yesPct.toFixed(0)}% Yes`;
-        noPollLabelElement.textContent = `${noPct.toFixed(0)}% No`;
-        pollWinnerTextElement.textContent = isConcluded ? winnerMessage : '';
-        pollWinnerTextElement.style.display = isConcluded ? 'block' : 'none';
+// Helper function moved to PollingComponent
+
+function updateGenericPollDisplay(genericPollData) {
+    if (pollingComponent) {
+        pollingComponent.updateGenericDisplay(genericPollData);
     }
 }
 
 function updateLeaderboardDisplay(leaderboardData) {
-    if (!leaderboardContainerElement) return;
-    const { topUsers, isVisible, headerText } = leaderboardData;
-
-    leaderboardContainerElement.style.display = isVisible ? 'block' : 'none';
-
-    if (isVisible) {
-        leaderboardContainerElement.querySelector('h4').textContent = headerText;
-        const listElement = leaderboardContainerElement.querySelector('#plus2LeaderboardList');
-        listElement.innerHTML = '';
-        if (topUsers.length === 0) {
-            const li = document.createElement('li');
-            li.style.fontStyle = 'italic';
-            li.textContent = 'No data yet.';
-            listElement.appendChild(li);
-        } else {
-            topUsers.forEach(user => {
-                const li = document.createElement('li');
-                li.style.cssText = 'display: flex; justify-content: space-between; width: 90%; margin-bottom: 3px;';
-
-                const userSpan = document.createElement('span');
-                userSpan.style.cssText = 'margin-right: 1em; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;';
-                userSpan.textContent = user.username;
-
-                const scoreSpan = document.createElement('span');
-                scoreSpan.style.cssText = 'font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;';
-                scoreSpan.textContent = user.score;
-
-                li.append(userSpan, scoreSpan);
-                listElement.appendChild(li);
-            });
-        }
+    if (leaderboardComponent) {
+        leaderboardComponent.updateDisplay(leaderboardData);
     }
 }
 
@@ -442,8 +319,25 @@ function adjustFontSizeToFit(messageElement) {
     }, 0);
 }
 
+function checkAndUpdateGenericPollVisibility() {
+    // When no highlighted messages are present, trigger a generic poll update
+    // so the polling component can determine if it should be displayed
+    if (genericPollDisplayContainerElement && messageTarget && messageTarget.children.length === 0) {
+        console.log('[Popout] MessageTarget is empty, requesting generic poll update');
+        // Request fresh generic poll data to update visibility
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            chrome.runtime.sendMessage({ action: 'GET_GENERIC_POLL_STATE' }, (response) => {
+                if (response && response.genericPoll && pollingComponent) {
+                    pollingComponent.updateGenericDisplay(response.genericPoll);
+                }
+            });
+        }
+    }
+}
+
 function renderHighlightedMessage(messageData) {
     if (!messageTarget) return;
+    
     const { html, id, isAppend, displayTime, platform } = messageData;
 
     const messageElement = document.createElement('div');
@@ -473,6 +367,7 @@ function renderHighlightedMessage(messageData) {
         const timeoutId = setTimeout(() => {
             if (messageElement.parentNode === messageTarget) {
                 messageTarget.removeChild(messageElement);
+                checkAndUpdateGenericPollVisibility();
             }
             activeMessageTimeouts.delete(id);
         }, displayTime);
@@ -487,6 +382,7 @@ function renderHighlightedMessage(messageData) {
         const timeoutId = setTimeout(() => {
             if (messageElement.parentNode === messageTarget) {
                 messageTarget.removeChild(messageElement);
+                checkAndUpdateGenericPollVisibility();
             }
             activeMessageTimeouts.delete(id);
         }, displayTime);
@@ -509,6 +405,11 @@ function applyAllStyles(newSettings) {
 
     document.documentElement.style.fontSize = `${settings.display?.popoutBaseFontSize}px`;
     document.body.style.backgroundColor = settings.display?.chromaKeyColor;
+    
+    // Apply minimum width to generic poll display
+    if (genericPollDisplayContainerElement && settings.genericPollMinWidth) {
+        genericPollDisplayContainerElement.style.minWidth = `${settings.genericPollMinWidth}px`;
+    }
     if (gaugeContainerElement) {
         gaugeContainerElement.style.backgroundColor = hexToRgba(settings.styling?.gauge?.gaugeTrackColor, settings.styling?.gauge?.gaugeTrackAlpha);
         gaugeContainerElement.style.border = `2px solid ${hexToRgba(settings.styling?.gauge?.gaugeTrackBorderColor, settings.styling?.gauge?.gaugeTrackBorderAlpha)}`;
@@ -543,6 +444,16 @@ function handleIncomingMessage(message) {
       break;
     case 'SETTINGS_UPDATE':
       applyAllStyles(message.data);
+      // Update all components with new settings
+      if (pollingComponent) {
+        pollingComponent.updateSettings(message.data);
+      }
+      if (leaderboardComponent) {
+        leaderboardComponent.updateSettings(message.data);
+      }
+      if (gaugeComponent) {
+        gaugeComponent.updateReferences(message.data, pollState);
+      }
       break;
     case 'GAUGE_UPDATE':
       updateGaugeDisplay(message.data);
@@ -555,6 +466,10 @@ function handleIncomingMessage(message) {
       updateGaugeDisplay(message.gaugeData);
       updateRecentMaxIndicator(message.gaugeData);
       break;
+    case 'GENERIC_POLL_UPDATE':
+      console.log('[Popout] Received generic poll update:', message.data);
+      updateGenericPollDisplay(message.data);
+      break;
     case 'LEADERBOARD_UPDATE':
       updateLeaderboardDisplay(message.data);
       break;
@@ -565,6 +480,7 @@ function handleIncomingMessage(message) {
       messageTarget.innerHTML = '';
       activeMessageTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
       activeMessageTimeouts.clear();
+      checkAndUpdateGenericPollVisibility();
       break;
   }
 }
@@ -593,11 +509,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response && response.settings) {
                 settings = response.settings;
                 pollState = response.poll; // Store initial poll state
+                
+                // Initialize components now that we have settings
+                initializeComponents();
+                
                 // The UI structure is already built, now apply all the styles and data.
                 applyAllStyles(response.settings);
                 updateGaugeDisplay(response.gauge);
                 updateRecentMaxIndicator(response.gauge);
                 updateYesNoPollDisplay(response.poll);
+                updateGenericPollDisplay(response.genericPoll);
                 updateLeaderboardDisplay(response.leaderboard);
             } else {
                  if (messageTarget) messageTarget.innerHTML = `<div style="color: red; padding: 20px;">Received invalid data from the extension. Please try reloading.</div>`;
@@ -610,6 +531,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Running in standalone mode (streamview) - use default settings
         settings = getDefaultSettings();
         pollState = { shouldDisplay: false, yesCount: 0, noCount: 0, total: 0, isConcluded: false, winnerMessage: '' };
+        genericPollState = { shouldDisplay: false, isActive: false, isConcluded: false, monitoringType: null, tracker: null };
+        
+        // Initialize components for standalone mode
+        initializeComponents();
         
         // Add CSS to remove background colors for streamview
         const streamviewStyle = document.createElement('style');
@@ -624,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateGaugeDisplay({ occurrenceCount: 0, gaugeMaxValue: settings.styling.gauge.gaugeMaxValue, recentMaxValue: 0, peakLabels: getDefaultPeakLabels() });
         updateRecentMaxIndicator({ occurrenceCount: 0, gaugeMaxValue: settings.styling.gauge.gaugeMaxValue, recentMaxValue: 0, peakLabels: getDefaultPeakLabels() });
         updateYesNoPollDisplay(pollState);
+        updateGenericPollDisplay(genericPollState);
         updateLeaderboardDisplay({ topUsers: [], isVisible: false, mode: 'hidden', headerText: settings.styling.leaderboard.leaderboardHeaderText || 'Leaderboard' });
     }
 });

@@ -1,5 +1,13 @@
 // /Users/tyler/repos/plus2BS/scripts/background.js
 
+// Import modular polling system for Chrome service worker
+try {
+    importScripts('polling/polling-utils.js', 'polling/generic-polling.js');
+} catch (e) {
+    // Firefox or other environments that don't support importScripts will load via script tags
+    console.log('[Background] ImportScripts not available, modules loaded via HTML');
+}
+
 // --- Service Worker State ---
 let settings = {};
 let webhookClient = null;
@@ -46,8 +54,12 @@ const defaultOptions = {
     stringToCount: "+2, lol, lmao, lul, lmfao, dangLUL",
     decayInterval: 500, decayAmount: 1, exactMatchCounting: false, gaugeMaxValue: 30, enableCounting: false,
     peakLabelLow: "Heh", peakLabelMid: "Funny!", peakLabelHigh: "Hilarious!!", peakLabelMax: "OFF THE CHARTS!!!",
-    recentMaxResetDelay: 2000, enable7TVCompat: false, enableYouTube: true, enableModPostReplyHighlight: true, enableYesNoPolling: false,
+    recentMaxResetDelay: 2000, enable7TVCompat: false, enableYouTube: true, enableModPostReplyHighlight: true, enableYesNoPolling: false, enableGenericPolling: true,
     pollClearTime: 12000, pollCooldownDuration: 5000, pollActivityThreshold: 1, pollActivityCheckInterval: 2000,
+    genericPollLookbackWindow: 6000, genericPollMaxLetterLength: 5, genericPollEndThreshold: 2,
+    genericPollLetterIndividualThreshold: 3, genericPollLetterTotalThreshold: 10, genericPollNumberThreshold: 7,
+    genericPollMinWidth: 250, genericPollSentimentDecayAmount: 1, genericPollSentimentMaxDisplayItems: 5,
+    genericPollSentimentDisplayThreshold: 10, genericPollSentimentMaxGrowthWidth: 150, genericPollSentimentMaxGaugeValue: 30,
     pollDisplayThreshold: 15, inactivityTimeoutDuration: 5000, maxPrunedCacheSize: 500, gaugeTrackColor: '#e0e0e0',
     gaugeTrackAlpha: 0, gaugeTrackBorderAlpha: 1, gaugeTrackBorderColor: '#505050', gaugeFillGradientStartColor: '#ffd700',
     gaugeFillGradientEndColor: '#ff0000', recentMaxIndicatorColor: '#ff0000', peakLabelLowColor: '#ffffff',
@@ -254,7 +266,8 @@ function buildNestedConfig(settings) {
             polling: {
                 yesPollBarColor: settings.yesPollBarColor,
                 noPollBarColor: settings.noPollBarColor,
-                pollTextColor: settings.pollTextColor
+                pollTextColor: settings.pollTextColor,
+                genericPollMinWidth: settings.genericPollMinWidth
             },
             leaderboard: {
                 leaderboardHeaderText: settings.leaderboardHeaderText,
@@ -262,7 +275,13 @@ function buildNestedConfig(settings) {
                 leaderboardBackgroundAlpha: settings.leaderboardBackgroundAlpha,
                 leaderboardTextColor: settings.leaderboardTextColor
             }
-        }
+        },
+        // Add sentiment polling settings at root level for backward compatibility
+        genericPollSentimentMaxGaugeValue: settings.genericPollSentimentMaxGaugeValue,
+        genericPollSentimentMaxGrowthWidth: settings.genericPollSentimentMaxGrowthWidth,
+        genericPollSentimentDecayAmount: settings.genericPollSentimentDecayAmount,
+        genericPollSentimentMaxDisplayItems: settings.genericPollSentimentMaxDisplayItems,
+        genericPollSentimentDisplayThreshold: settings.genericPollSentimentDisplayThreshold
     };
 }
 
@@ -397,6 +416,11 @@ async function loadSettings() {
     if (oldSettings.enableLeaderboard !== settings.enableLeaderboard) {
         broadcastLeaderboardUpdate();
     }
+    
+    // Update generic polling module settings
+    if (genericPolling && genericPolling.updateSettings) {
+        genericPolling.updateSettings(settings);
+    }
 
     broadcastToPopouts({ type: 'SETTINGS_UPDATE', data: buildNestedConfig(settings) });
 }
@@ -457,9 +481,9 @@ function processChatMessage(data) {
         console.log(`[Plus2 Dedup] Testing user message (no dedup): "${text}"`);
     }
 
-    if (isModPost && settings.enableModPostReplyHighlight) {
+    if (isModPost && settings.enableModPostReplyHighlight && modReplyContent) {
         processHighlightRequest({ isModPost: true, html: modReplyContent, channelUrl });
-        return;
+        // Don't return - let it continue to generic polling
     }
 
     if (settings.enableCounting) {
@@ -488,6 +512,10 @@ function processChatMessage(data) {
 
     if (settings.enableYesNoPolling) {
         processMessageForYesNoPoll(text, images);
+    }
+
+    if (settings.enableGenericPolling) {
+        processMessageForGenericPoll(text, images);
     }
 
     if (activeHighlightTrackers.size > 0 && text.includes("+2")) {
@@ -579,6 +607,8 @@ function processHighlightRequest(data) {
         if (currentNonAppendTrackerId !== null && activeHighlightTrackers.has(currentNonAppendTrackerId)) {
             saveLogEntry(activeHighlightTrackers.get(currentNonAppendTrackerId).logEntry);
             activeHighlightTrackers.delete(currentNonAppendTrackerId);
+            console.log(`[Highlight] Message replaced, broadcasting generic poll update`);
+            broadcastGenericPollUpdate(); // Update generic poll display when highlight is replaced
         }
         currentNonAppendTrackerId = trackerId;
     }
@@ -618,7 +648,9 @@ function processHighlightRequest(data) {
             if (currentNonAppendTrackerId === trackerId) {
                 currentNonAppendTrackerId = null;
             }
+            console.log(`[Highlight] Message expired, broadcasting generic poll update`);
             broadcastLeaderboardUpdate(); // Update after message expires
+            broadcastGenericPollUpdate(); // Update generic poll display after message expires
         }
     }, settings.displayTime);
 }
@@ -730,6 +762,53 @@ function clearYesNoPollData() {
     broadcastPollUpdate();
 }
 
+
+// --- Generic Polling System (Modularized) ---
+// Generic polling functionality has been moved to polling/generic-polling.js
+// Initialize it after settings are loaded
+
+let genericPolling = null;
+
+function initializeGenericPolling() {
+    if (typeof GenericPolling !== 'undefined' && !genericPolling) {
+        genericPolling = GenericPolling;
+        genericPolling.initialize({
+            settings: settings,
+            broadcastToPopouts: broadcastToPopouts,
+            webhookClient: webhookClient
+        });
+        console.log('[Background] Generic Polling module initialized');
+    }
+}
+
+// Wrapper functions to maintain backward compatibility
+function processMessageForGenericPoll(text, images) {
+    if (genericPolling) {
+        genericPolling.processMessage(text, images);
+    } else {
+        console.log('[Background] Generic polling not initialized yet');
+    }
+}
+
+function getGenericPollState() {
+    return genericPolling ? genericPolling.getState() : {
+        isActive: false,
+        isConcluded: false,
+        monitoringType: 'sentiment',
+        shouldDisplay: false
+    };
+}
+
+function broadcastGenericPollUpdate() {
+    const pollData = getGenericPollState();
+    broadcastToPopouts({ type: 'GENERIC_POLL_UPDATE', data: pollData });
+    
+    // Send to webhook if enabled
+    if (webhookClient && settings.webhookEvents?.genericPollUpdates) {
+        webhookClient.sendEvent('generic_poll_update', pollData);
+    }
+}
+
 // --- Event Listeners ---
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -750,6 +829,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         settings: buildNestedConfig(settings),
                         gauge: getGaugeState(),
                         poll: getPollState(),
+                        genericPoll: getGenericPollState(),
                         leaderboard: leaderboardData
                     });
                 }).catch(error => {
@@ -782,8 +862,18 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
             break;
 
-        case 'SETTINGS_UPDATED': // Sent from options page on save
-            loadSettings();
+        // SETTINGS_UPDATED removed - now using storage.onChanged listener only
+
+        case 'REQUEST_SETTINGS': // Sent from content scripts requesting initial settings
+            // Wait for initialization to complete before sending settings
+            initializationPromise.then(() => {
+                browser.tabs.sendMessage(sender.tab.id, {
+                    type: 'SETTINGS_UPDATE',
+                    data: buildNestedConfig(settings)
+                }).catch(() => {
+                    // Tab might not be ready to receive messages yet, ignore silently
+                });
+            });
             break;
 
         case 'OPEN_OPTIONS_PAGE': // Sent from content script
@@ -862,6 +952,9 @@ async function initialize() {
     if (settings.enableCounting) {
         setupDecayMechanism();
     }
+    
+    // Initialize modular components
+    initializeGenericPolling();
 }
 
 initializationPromise = initialize();

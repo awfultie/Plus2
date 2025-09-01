@@ -156,71 +156,82 @@
 
     // --- Initialization ---
     function initialize() {
+        // Set up message listener for settings updates
+        setupMessageForwarding();
+        
+        // Get initial settings and initialize immediately (don't wait)
         browser.storage.sync.get([
             'requiredUrlSubstring', 'enable7TVCompat', 'enableModPostReplyHighlight', 'enableReplyTooltip',
             'inactivityTimeoutDuration', 'maxPrunedCacheSize', 'enableYouTube', 'dockingBehavior', 'dockedViewHeight',
             'enableFrankerFaceZCompat'
         ]).then((items) => {
             settings = items;
+            initializeWithSettings(settings);
+        });
+    }
 
-            // Create platform adapter
-            platformAdapter = createPlatformAdapter();
-            if (!platformAdapter) {
-                return; // Platform not supported or disabled
-            }
+    function initializeWithSettings(settingsData) {
+        settings = settingsData;
 
-            // Initialize modules
-            messageProcessor = new MessageProcessor(platformAdapter, settings);
-            uiInjection = new UIInjection(platformAdapter, settings);
-            searchFeature = new SearchFeature(platformAdapter, settings);
-            tooltipHandler = new TooltipHandler(platformAdapter, settings);
-            autoScroll = new AutoScroll(settings);
+        // Create platform adapter
+        platformAdapter = createPlatformAdapter();
+        if (!platformAdapter) {
+            return; // Platform not supported or disabled
+        }
 
-            // Make tooltip handler available globally for message processor
-            window.tooltipHandler = tooltipHandler;
+        // Initialize modules
+        messageProcessor = new MessageProcessor(platformAdapter, settings);
+        uiInjection = new UIInjection(platformAdapter, settings);
+        searchFeature = new SearchFeature(platformAdapter, settings);
+        tooltipHandler = new TooltipHandler(platformAdapter, settings);
+        autoScroll = new AutoScroll(settings);
 
-            // Initialize UI components
-            uiInjection.initialize();
-            searchFeature.initialize();
-            autoScroll.initialize();
+        // Make tooltip handler available globally for message processor
+        window.tooltipHandler = tooltipHandler;
 
-            // Set up site observer for SPA navigation
-            if (siteObserver) siteObserver.disconnect();
-            siteObserver = new MutationObserver(() => {
-                // Check URL filter for Twitch
-                if (platformAdapter.platform === 'twitch' && !platformAdapter.shouldProcessOnThisPlatform()) {
-                    if (isObserverActive) {
-                        onChatContainerRemoved();
-                    }
-                    return;
-                }
+        // Initialize UI components
+        uiInjection.initialize();
+        searchFeature.initialize();
+        autoScroll.initialize();
 
-                // Look for chat container
-                const chatContainerSelector = platformAdapter.platform === 'twitch' 
-                    ? platformAdapter.selectors.chatScrollableArea 
-                    : `#${platformAdapter.selectors.chatScrollableArea.replace('#', '')}`;
-                const currentChatContainer = document.querySelector(chatContainerSelector);
-
-                if (currentChatContainer) {
-                    if (!isObserverActive) {
-                        onChatContainerAdded(currentChatContainer);
-                    } else if (isObserverActive && currentChatContainer !== observedChatContainer) {
-                        onChatContainerRemoved();
-                        onChatContainerAdded(currentChatContainer);
-                    }
-                } else if (!currentChatContainer && isObserverActive) {
+        // Set up site observer for SPA navigation
+        if (siteObserver) siteObserver.disconnect();
+        siteObserver = new MutationObserver(() => {
+            // Check URL filter for Twitch
+            if (platformAdapter.platform === 'twitch' && !platformAdapter.shouldProcessOnThisPlatform()) {
+                if (isObserverActive) {
                     onChatContainerRemoved();
                 }
-            });
-            siteObserver.observe(document.body, { childList: true, subtree: true });
+                return;
+            }
 
-            // Set up message forwarding for docked iframe (Firefox compatibility)
-            setupMessageForwarding();
+            // Look for chat container
+            const chatContainerSelector = platformAdapter.platform === 'twitch' 
+                ? platformAdapter.selectors.chatScrollableArea 
+                : `#${platformAdapter.selectors.chatScrollableArea.replace('#', '')}`;
+            const currentChatContainer = document.querySelector(chatContainerSelector);
+
+            if (currentChatContainer) {
+                if (!isObserverActive) {
+                    onChatContainerAdded(currentChatContainer);
+                } else if (isObserverActive && currentChatContainer !== observedChatContainer) {
+                    onChatContainerRemoved();
+                    onChatContainerAdded(currentChatContainer);
+                }
+            } else if (!currentChatContainer && isObserverActive) {
+                onChatContainerRemoved();
+            }
         });
+        siteObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     function setupMessageForwarding() {
         browser.runtime.onMessage.addListener((message) => {
+            // Handle settings updates - just update the settings object for now
+            if (message.type === 'SETTINGS_UPDATE') {
+                settings = message.data;
+            }
+            
             // Handle leaderboard state updates
             if (message.type === 'LEADERBOARD_STATE_UPDATE' && uiInjection) {
                 uiInjection.updateLeaderboardDisplayMode(message.mode);

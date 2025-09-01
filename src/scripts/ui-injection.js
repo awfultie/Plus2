@@ -17,6 +17,10 @@ class UIInjection {
         this.setupOptionsButtonInjector();
     }
 
+    updateSettings(newSettings) {
+        this.settings = newSettings;
+    }
+
     injectHoverStyles() {
         if (this.stylesInjected) return;
         const style = document.createElement('style');
@@ -211,6 +215,9 @@ class UIInjection {
                         btn.textContent = 'Copy failed';
                         setTimeout(() => { btn.textContent = originalText; }, 1500);
                     });
+                } else {
+                    btn.textContent = 'No URL available';
+                    setTimeout(() => { btn.textContent = originalText; }, 1500);
                 }
             });
         }

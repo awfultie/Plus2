@@ -49,7 +49,10 @@
 
         if (messageBodyEl && usernameEl) {
             const text = messageBodyEl.textContent || '';
-            const images = Array.from(messageBodyEl.querySelectorAll('img')).map(img => img.alt || '');
+            const images = Array.from(messageBodyEl.querySelectorAll('img')).map(img => ({
+                alt: img.alt || '',
+                src: img.src || ''
+            }));
             const username = usernameEl.textContent || '';
 
             sendToBackground('CHAT_MESSAGE_FOUND', { text, images, username });

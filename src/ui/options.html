@@ -732,6 +732,7 @@
         <a href="#" class="nav-link" data-target="panel-popout">Popout Window</a>
         <a href="#" class="nav-link" data-target="panel-message-counter">Message Counter</a>
         <a href="#" class="nav-link" data-target="panel-polling">Yes/No Polling</a>
+        <a href="#" class="nav-link" data-target="panel-generic-polling">Generic Polling</a>
         <a href="#" class="nav-link" data-target="panel-tracking">Tracking & Leaderboard</a>
         <a href="#" class="nav-link" data-target="panel-streamview">Browser Source Config</a>
       </nav>
@@ -1014,6 +1015,93 @@
             </div>
           </details>
         </div>
+      </div>
+
+      <!-- Generic Polling Panel -->
+      <div id="panel-generic-polling" class="options-panel">
+        <h2>Generic Polling</h2>
+        <p>This feature automatically detects and visualizes trends in chat messages, including short text responses, emotes, and numbers, displaying the results in the popout window.</p>
+        
+        <div class="form-inline-group">
+          <input type="checkbox" id="enableGenericPolling">
+          <label for="enableGenericPolling">Enable Generic Polling</label>
+        </div>
+
+        <div id="genericPollingOptionsContainer" style="display: none;">
+          <h3>Lookback Window Settings</h3>
+          <div class="form-group">
+            <label for="genericPollLookbackWindow">Lookback Window Duration (ms) <span class="tooltip-icon" data-tooltip="Duration of the rolling window to collect messages for analysis.">?</span></label>
+          </div>
+          <input type="number" id="genericPollLookbackWindow" min="1000" max="30000">
+
+          <div class="form-group">
+            <label for="genericPollMaxLetterLength">Maximum Letter Length <span class="tooltip-icon" data-tooltip="Maximum character length for messages to be considered as text responses.">?</span></label>
+          </div>
+          <input type="number" id="genericPollMaxLetterLength" min="1" max="20">
+
+          <div class="form-group">
+            <label for="genericPollEndThreshold">Activity End Threshold <span class="tooltip-icon" data-tooltip="Minimum new responses needed during a check interval to keep the poll active.">?</span></label>
+          </div>
+          <input type="number" id="genericPollEndThreshold" min="1" max="10">
+
+          <div class="form-group">
+            <label for="genericPollResultDisplayTime">Result Display Time (seconds) <span class="tooltip-icon" data-tooltip="How long to show poll results after a poll ends.">?</span></label>
+          </div>
+          <input type="number" id="genericPollResultDisplayTime" min="5" max="60" step="1">
+
+          <h3>Activation Thresholds</h3>
+          <p>These settings control when the system will activate polling for different message types.</p>
+          
+          <h4>Text Responses</h4>
+          <div class="form-group">
+            <label for="genericPollLetterIndividualThreshold">Individual Response Threshold <span class="tooltip-icon" data-tooltip="Minimum occurrences of a single text response to trigger activation.">?</span></label>
+          </div>
+          <input type="number" id="genericPollLetterIndividualThreshold" min="1" max="20">
+
+          <div class="form-group">
+            <label for="genericPollLetterTotalThreshold">Total Text Response Threshold <span class="tooltip-icon" data-tooltip="Minimum total text responses under max length to trigger activation.">?</span></label>
+          </div>
+          <input type="number" id="genericPollLetterTotalThreshold" min="1" max="50">
+
+          <h4>Number Responses</h4>
+          <div class="form-group">
+            <label for="genericPollNumberThreshold">Number Activation Threshold <span class="tooltip-icon" data-tooltip="Minimum total number responses to trigger activation.">?</span></label>
+          </div>
+          <input type="number" id="genericPollNumberThreshold" min="1" max="30">
+        </div>
+        
+        <h3>Sentiment Tracking</h3>
+        <p>When no active poll is running, the system tracks popular phrases, words, and emotes.</p>
+        
+        <div class="form-group">
+          <label for="genericPollSentimentDisplayThreshold">Sentiment Display Threshold <span class="tooltip-icon" data-tooltip="Minimum count required for sentiment tracker to be visible.">?</span></label>
+        </div>
+        <input type="number" id="genericPollSentimentDisplayThreshold" min="1" max="50" step="1">
+
+        <div class="form-group">
+          <label for="genericPollSentimentMaxDisplayItems">Sentiment Max Display Items <span class="tooltip-icon" data-tooltip="Maximum number of sentiment items to display at one time (top items by count).">?</span></label>
+        </div>
+        <input type="number" id="genericPollSentimentMaxDisplayItems" min="1" max="20" step="1">
+
+        <div class="form-group">
+          <label for="genericPollSentimentDecayAmount">Sentiment Decay Amount <span class="tooltip-icon" data-tooltip="Amount to decrease sentiment item counts by each second when not seen in chat (1 = slow decay, higher = faster decay).">?</span></label>
+        </div>
+        <input type="number" id="genericPollSentimentDecayAmount" min="1" max="10" step="1">
+
+        <div class="form-group">
+          <label for="genericPollSentimentMaxGrowthWidth">Sentiment Max Growth Width (px) <span class="tooltip-icon" data-tooltip="Maximum extra pixels that sentiment gauge containers can grow beyond their normal width (0 = no growth, 200+ = very wide growth).">?</span></label>
+        </div>
+        <input type="number" id="genericPollSentimentMaxGrowthWidth" min="0" step="10">
+
+        <div class="form-group">
+          <label for="genericPollSentimentMaxGaugeValue">Sentiment Gauge Max Value <span class="tooltip-icon" data-tooltip="Maximum value for sentiment gauge fill calculation. Gauges will be 100% full when item count reaches this value.">?</span></label>
+        </div>
+        <input type="number" id="genericPollSentimentMaxGaugeValue" min="1" step="1">
+
+        <div class="form-group">
+          <label for="genericPollMinWidth">Polling Display Minimum Width (px) <span class="tooltip-icon" data-tooltip="Minimum width of the generic polling display container.">?</span></label>
+        </div>
+        <input type="number" id="genericPollMinWidth" min="150" max="500" step="10">
       </div>
 
       <!-- Tracking Panel -->

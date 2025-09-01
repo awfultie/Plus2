@@ -92,6 +92,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const pollActivityThresholdInput = document.getElementById('pollActivityThreshold');
   const pollCooldownDurationInput = document.getElementById('pollCooldownDuration');
   const pollActivityCheckIntervalInput = document.getElementById('pollActivityCheckInterval');
+  
+  // Generic Polling Elements
+  const enableGenericPollingInput = document.getElementById('enableGenericPolling');
+  const genericPollingOptionsContainer = document.getElementById('genericPollingOptionsContainer');
+  const genericPollLookbackWindowInput = document.getElementById('genericPollLookbackWindow');
+  const genericPollMaxLetterLengthInput = document.getElementById('genericPollMaxLetterLength');
+  const genericPollEndThresholdInput = document.getElementById('genericPollEndThreshold');
+  const genericPollResultDisplayTimeInput = document.getElementById('genericPollResultDisplayTime');
+  const genericPollLetterIndividualThresholdInput = document.getElementById('genericPollLetterIndividualThreshold');
+  const genericPollLetterTotalThresholdInput = document.getElementById('genericPollLetterTotalThreshold');
+  const genericPollNumberThresholdInput = document.getElementById('genericPollNumberThreshold');
+  const genericPollSentimentDisplayThresholdInput = document.getElementById('genericPollSentimentDisplayThreshold');
+  const genericPollSentimentMaxDisplayItemsInput = document.getElementById('genericPollSentimentMaxDisplayItems');
+  const genericPollSentimentDecayAmountInput = document.getElementById('genericPollSentimentDecayAmount');
+  const genericPollSentimentMaxGrowthWidthInput = document.getElementById('genericPollSentimentMaxGrowthWidth');
+  const genericPollSentimentMaxGaugeValueInput = document.getElementById('genericPollSentimentMaxGaugeValue');
+  const genericPollMinWidthInput = document.getElementById('genericPollMinWidth');
+  
   const maxPrunedCacheSizeInput = document.getElementById('maxPrunedCacheSize');
   const inactivityTimeoutDurationInput = document.getElementById('inactivityTimeoutDuration');
   const gaugeTrackColorInput = document.getElementById('gaugeTrackColor');
@@ -167,8 +185,11 @@ document.addEventListener('DOMContentLoaded', () => {
     stringToCount: "+2, lol, lmao, lul, lmfao, dangLUL", decayInterval: 500, decayAmount: 1, exactMatchCounting: false,
     gaugeMaxValue: 30, enableCounting: false, dockingBehavior: 'none', dockedViewHeight: 250, peakLabelLow: "Heh", peakLabelMid: "Funny!", peakLabelHigh: "Hilarious!!",
     peakLabelMax: "OFF THE CHARTS!!!", recentMaxResetDelay: 2000, enable7TVCompat: false, enableFrankerFaceZCompat: false, enableYouTube: true,
-    enableModPostReplyHighlight: true, enableYesNoPolling: false, pollClearTime: 12000, pollCooldownDuration: 5000,
+    enableModPostReplyHighlight: true, enableYesNoPolling: false, enableGenericPolling: true, pollClearTime: 12000, pollCooldownDuration: 5000,
     pollActivityThreshold: 1, pollActivityCheckInterval: 2000, pollDisplayThreshold: 15, inactivityTimeoutDuration: 5000,
+    genericPollLookbackWindow: 6000, genericPollMaxLetterLength: 5, genericPollEndThreshold: 2, genericPollResultDisplayTime: 12,
+    genericPollLetterIndividualThreshold: 3, genericPollLetterTotalThreshold: 10, genericPollNumberThreshold: 7,
+    genericPollSentimentDisplayThreshold: 10, genericPollSentimentMaxDisplayItems: 5, genericPollSentimentDecayAmount: 1, genericPollSentimentMaxGrowthWidth: 150, genericPollSentimentMaxGaugeValue: 30, genericPollMinWidth: 250,
     maxPrunedCacheSize: 500, gaugeTrackColor: '#e0e0e0', gaugeTrackAlpha: 0, gaugeTrackBorderAlpha: 1,
     gaugeTrackBorderColor: '#505050', gaugeFillGradientStartColor: '#ffd700', gaugeFillGradientEndColor: '#ff0000',
     recentMaxIndicatorColor: '#ff0000', peakLabelLowColor: '#ffffff', peakLabelMidColor: '#ffff00', peakLabelHighColor: '#ffa500',
@@ -339,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Toggle visibility of conditional sections
     toggleSection(enableCountingInput, countingOptionsContainer);
     toggleSection(enableYesNoPollingInput, yesNoPollingOptionsContainer);
+    toggleSection(enableGenericPollingInput, genericPollingOptionsContainer);
     toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
     toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
     if (enableWebhookIntegrationInput && webhookOptionsContainer) {
@@ -403,11 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return browser.storage.sync.set(optionsToSave);
     }).then(async () => {
       showStatus('Options saved!');
-      if (browser.runtime && browser.runtime.id) {
-        browser.runtime.sendMessage({ type: 'SETTINGS_UPDATED' }).catch(error => {
-        });
-      }
-
+      
       // Auto-sync to streamview removed - browser source is now configured independently via web UI
     });
   }
@@ -439,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
   enable7TVCompatInput.addEventListener('change', handleCompatibilityToggles);
   enableCountingInput.addEventListener('change', () => toggleSection(enableCountingInput, countingOptionsContainer));
   enableYesNoPollingInput.addEventListener('change', () => toggleSection(enableYesNoPollingInput, yesNoPollingOptionsContainer));
+  enableGenericPollingInput.addEventListener('change', () => toggleSection(enableGenericPollingInput, genericPollingOptionsContainer));
   enableHighlightTrackingInput.addEventListener('change', () => {
       toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
       // If tracking is disabled, leaderboard must also be disabled
@@ -678,8 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Verify storage immediately after setting
           const verification = await browser.storage.sync.get(['currentStreamview']);
           
-          // Force background script to reload settings with the new currentStreamview
-          await browser.runtime.sendMessage({ type: 'SETTINGS_UPDATED' });
+          // Storage.onChanged listener will automatically reload settings
           
           await updateActiveStreamviewDisplay();
         } else {
@@ -1278,8 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return browser.storage.sync.set({ currentStreamview });
         }
       }).then(() => {
-        // Notify background script of settings update
-        return browser.runtime.sendMessage({ type: 'SETTINGS_UPDATED' });
+        // Storage.onChanged listener will automatically reload settings
       }).catch(error => {
         console.error('Error applying channel ID override:', error);
         showStatus(`❌ Error applying override: ${error.message}`, 5000);

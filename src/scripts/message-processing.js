@@ -132,7 +132,10 @@ class MessageProcessor {
             const usernameContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.username);
             if (messageContentContainer) {
                 const text = (messageContentContainer.textContent || "").trim();
-                const images = Array.from(messageContentContainer.querySelectorAll(this.adapter.selectors.chatImage)).map(img => img.alt);
+                const images = Array.from(messageContentContainer.querySelectorAll(this.adapter.selectors.chatImage)).map(img => ({
+                    alt: img.alt,
+                    src: img.src
+                }));
                 const username = usernameContainer ? (usernameContainer.textContent || "").trim() : '';
                 if (typeof browser !== 'undefined' && browser.runtime?.id) {
                     browser.runtime.sendMessage({
