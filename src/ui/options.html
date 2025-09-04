@@ -731,8 +731,7 @@
         <a href="#" class="nav-link" data-target="panel-general">General</a>
         <a href="#" class="nav-link" data-target="panel-popout">Popout Window</a>
         <a href="#" class="nav-link" data-target="panel-message-counter">Message Counter</a>
-        <a href="#" class="nav-link" data-target="panel-polling">Yes/No Polling</a>
-        <a href="#" class="nav-link" data-target="panel-generic-polling">Generic Polling</a>
+        <a href="#" class="nav-link" data-target="panel-unified-polling">Unified Polling</a>
         <a href="#" class="nav-link" data-target="panel-tracking">Tracking & Leaderboard</a>
         <a href="#" class="nav-link" data-target="panel-streamview">Browser Source Config</a>
       </nav>
@@ -963,145 +962,231 @@
           </details>
         </div>
       </div>
-      <!-- Polling Panel -->
-      <div id="panel-polling" class="options-panel">
-        <h2>Yes/No Polling</h2>
-        <p>This feature automatically detects and visualizes simple Yes/No polls based on chat messages, displaying the results in the popout window.</p>
+      <!-- Unified Polling Panel -->
+      <div id="panel-unified-polling" class="options-panel">
+        <h2>Unified Polling System</h2>
+        <p>This advanced polling system automatically detects and visualizes all types of chat polls including Yes/No, numbers, letters, and sentiment tracking with priority-based activation.</p>
+        
         <div class="form-inline-group">
-          <input type="checkbox" id="enableYesNoPolling">
-          <label for="enableYesNoPolling">Enable Yes/No Polling</label>
+          <input type="checkbox" id="enableUnifiedPolling">
+          <label for="enableUnifiedPolling">Enable Unified Polling</label>
         </div>
-        <div id="yesNoPollingOptionsContainer" style="display: none;">
+        
+        <div id="unifiedPollingOptionsContainer" style="display: none;">
+          <!-- Global Unified Settings -->
+          <h3>Global Polling Settings</h3>
           <div class="label-with-tooltip">
-            <label for="pollClearTime">Poll Clear Time (ms)</label>
-            <span class="tooltip-icon" data-tooltip="Duration results are shown after the poll ends.">?</span>
+            <label for="unifiedPollingLookbackWindow">Lookback Window (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Duration of the rolling window to collect messages for analysis.">?</span>
           </div>
-          <input type="number" id="pollClearTime" min="1000">
+          <input type="number" id="unifiedPollingLookbackWindow" min="5000" max="30000" step="1000">
+
           <div class="label-with-tooltip">
-            <label for="pollDisplayThreshold">Poll Display Threshold</label>
-            <span class="tooltip-icon" data-tooltip="Minimum total Yes/No responses required before displaying the poll bar.">?</span>
+            <label for="unifiedPollingResultDisplayTime">Result Display Time (ms)</label>
+            <span class="tooltip-icon" data-tooltip="How long to show poll results after a poll ends.">?</span>
           </div>
-          <input type="number" id="pollDisplayThreshold" min="1">
+          <input type="number" id="unifiedPollingResultDisplayTime" min="5000" max="60000" step="1000">
+
           <div class="label-with-tooltip">
-            <label for="pollActivityThreshold">Poll Activity Threshold</label>
-            <span class="tooltip-icon" data-tooltip="Minimum new votes needed during a check interval to keep the poll active. A higher value makes the poll end more quickly.">?</span>
-          </div>
-          <input type="number" id="pollActivityThreshold" min="1">
-          <div class="label-with-tooltip">
-            <label for="pollActivityCheckInterval">Poll Activity Check Interval (ms)</label>
-            <span class="tooltip-icon" data-tooltip="Frequency to check if an active poll should end due to low activity. Lower values check more often.">?</span>
-          </div>
-          <input type="number" id="pollActivityCheckInterval" min="250">
-          <div class="label-with-tooltip">
-            <label for="pollCooldownDuration">Poll Cooldown (ms)</label>
+            <label for="unifiedPollingCooldownDuration">Cooldown Duration (ms)</label>
             <span class="tooltip-icon" data-tooltip="Time after a poll ends before a new one can start.">?</span>
           </div>
-          <input type="number" id="pollCooldownDuration" min="0">
-          
+          <input type="number" id="unifiedPollingCooldownDuration" min="0" max="30000" step="1000">
+
+          <div class="label-with-tooltip">
+            <label for="unifiedPollingMinimumDuration">Minimum Poll Duration (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Minimum time a poll must stay active before it can end.">?</span>
+          </div>
+          <input type="number" id="unifiedPollingMinimumDuration" min="1000" max="60000" step="1000">
+
+          <div class="label-with-tooltip">
+            <label for="unifiedPollingActivityCheckInterval">Activity Check Interval (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Frequency to check if an active poll should end due to inactivity.">?</span>
+          </div>
+          <input type="number" id="unifiedPollingActivityCheckInterval" min="1000" max="10000" step="1000">
+
+          <!-- Poll Type Settings -->
+          <h3>Poll Type Configuration</h3>
+          <p>Configure activation thresholds and settings for each poll type. Higher priority polls (lower number) activate first.</p>
+
+          <!-- Yes/No Polls -->
           <details>
-            <summary>Poll Preview &amp; Customization</summary>
+            <summary>Yes/No Polls (Priority 1)</summary>
             <div>
-              <div class="preview-section">
-                <h4>Poll Preview:</h4>
-                <div id="combinedPollPreviewContainer" style="position: relative; width: 200px; height: 25px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center;">
-                  <div id="previewYesPollSegment" style="width: 65%; height: 100%; background-color: green;"></div>
-                  <div id="previewNoPollSegment" style="width: 35%; height: 100%; background-color: red;"></div>
-                  <span id="previewPollTextColor" style="position: absolute; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Yes 65% | No 35%</span>
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingYesNoEnabled">
+                <label for="unifiedPollingYesNoEnabled">Enable Yes/No Polls</label>
+              </div>
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingYesNoThreshold">Activation Threshold</label>
+                <span class="tooltip-icon" data-tooltip="Minimum combined yes/no responses needed to activate poll.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingYesNoThreshold" min="1" max="20">
+
+              <h4>Yes/No Poll Styling</h4>
+              <div class="input-group">
+                <label for="unifiedPollingYesColor">"Yes" Color:</label>
+                <input type="color" id="unifiedPollingYesColor">
+              </div>
+              <div class="input-group">
+                <label for="unifiedPollingNoColor">"No" Color:</label>
+                <input type="color" id="unifiedPollingNoColor">
+              </div>
+              <div class="input-group">
+                <label for="unifiedPollingYesNoWidth">Poll Width (px):</label>
+                <input type="number" id="unifiedPollingYesNoWidth" min="200" max="800">
+              </div>
+            </div>
+          </details>
+
+          <!-- Number Polls -->
+          <details>
+            <summary>Number Polls (Priority 2)</summary>
+            <div>
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingNumbersEnabled">
+                <label for="unifiedPollingNumbersEnabled">Enable Number Polls</label>
+              </div>
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersThreshold">Activation Threshold</label>
+                <span class="tooltip-icon" data-tooltip="Minimum number responses needed to activate poll.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersThreshold" min="1" max="30">
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersMaxDisplay">Max Display Items</label>
+                <span class="tooltip-icon" data-tooltip="Maximum number of different numbers to display.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersMaxDisplay" min="5" max="50">
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersMaxBins">Max Bins</label>
+                <span class="tooltip-icon" data-tooltip="Maximum number of bins for grouping numbers.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersMaxBins" min="3" max="20">
+            </div>
+          </details>
+
+          <!-- Letter Polls -->
+          <details>
+            <summary>Letter Polls (Priority 3)</summary>
+            <div>
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingLettersEnabled">
+                <label for="unifiedPollingLettersEnabled">Enable Letter Polls</label>
+              </div>
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingLettersThreshold">Total Activation Threshold</label>
+                <span class="tooltip-icon" data-tooltip="Minimum total letter responses needed to activate poll.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingLettersThreshold" min="1" max="50">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingLettersIndividualThreshold">Individual Response Threshold</label>
+                <span class="tooltip-icon" data-tooltip="Minimum occurrences of a single letter response to be included.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingLettersIndividualThreshold" min="1" max="20">
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingLettersMaxDisplay">Max Display Items</label>
+                <span class="tooltip-icon" data-tooltip="Maximum number of different letters to display.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingLettersMaxDisplay" min="5" max="26">
+            </div>
+          </details>
+
+          <!-- Sentiment Tracking -->
+          <details>
+            <summary>Sentiment Tracking (Priority 4)</summary>
+            <div>
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingSentimentEnabled">
+                <label for="unifiedPollingSentimentEnabled">Enable Sentiment Tracking</label>
+              </div>
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentThreshold">Display Threshold</label>
+                <span class="tooltip-icon" data-tooltip="Minimum count an item needs to be shown in sentiment display (always-on tracking).">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentThreshold" min="1" max="50">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentMaxDisplayItems">Max Display Items</label>
+                <span class="tooltip-icon" data-tooltip="Maximum number of sentiment items to display at once.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentMaxDisplayItems" min="1" max="20">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentMaxGrowthWidth">Max Growth Width (px)</label>
+                <span class="tooltip-icon" data-tooltip="Maximum extra pixels that sentiment gauges can grow beyond normal width.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentMaxGrowthWidth" min="0" max="500" step="10">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentMaxGaugeValue">Max Gauge Value</label>
+                <span class="tooltip-icon" data-tooltip="Maximum value for sentiment gauge calculations. Gauges are 100% full at this count.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentMaxGaugeValue" min="1" max="100">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentBlockList">Block List</label>
+                <span class="tooltip-icon" data-tooltip="Comma-separated list of words/phrases to exclude from sentiment tracking.">?</span>
+              </div>
+              <input type="text" id="unifiedPollingSentimentBlockList" placeholder="lol,kappa,ez">
+
+              <div class="label-with-tooltip">
+                <label>Custom Sentiment Groups</label>
+                <span class="tooltip-icon" data-tooltip="Create groups to track multiple terms under a single label. Individual terms in groups won't appear separately.">?</span>
+              </div>
+              
+              <div id="sentimentGroupsContainer" style="border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin: 10px 0; background: #f9f9f9;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                  <h4 style="margin: 0; color: #333;">Sentiment Groups</h4>
+                  <button type="button" id="addSentimentGroupBtn" style="background: #28a745; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;">+ Add Group</button>
+                </div>
+                <div id="sentimentGroupsList"></div>
+                <div id="noGroupsMessage" style="text-align: center; color: #666; padding: 20px; font-style: italic;">
+                  No custom groups created yet. Click "Add Group" to get started!
                 </div>
               </div>
-              <div class="input-group" style="margin-top: 20px;"><label for="yesPollBarColor">"Yes" Bar Color:</label><input type="color" id="yesPollBarColor"></div>
-              <div class="input-group"><label for="noPollBarColor">"No" Bar Color:</label><input type="color" id="noPollBarColor"></div>
-              <div class="input-group"><label for="pollTextColor">Label Color:</label><input type="color" id="pollTextColor"></div>
+              
+              <!-- Hidden textarea for compatibility -->
+              <textarea id="unifiedPollingSentimentGroups" style="display: none;"></textarea>
+            </div>
+          </details>
+
+          <!-- Highlight Gauge Integration -->
+          <details>
+            <summary>Highlight Gauge Integration</summary>
+            <div>
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingHighlightGaugeEnabled">
+                <label for="unifiedPollingHighlightGaugeEnabled">Enable Highlight Gauge Integration</label>
+              </div>
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingHighlightGaugeStringToCount">Terms to Count</label>
+                <span class="tooltip-icon" data-tooltip="Comma-separated list of terms to track in highlight gauge.">?</span>
+              </div>
+              <input type="text" id="unifiedPollingHighlightGaugeStringToCount" placeholder="+2, lol, lmao">
+
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingHighlightGaugeExactMatch">
+                <label for="unifiedPollingHighlightGaugeExactMatch">Exact Match Only</label>
+                <span class="tooltip-icon" data-tooltip="If checked, only exact word matches count. If unchecked, partial matches are allowed.">?</span>
+              </div>
+
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingHighlightGaugeSentimentIntegration">
+                <label for="unifiedPollingHighlightGaugeSentimentIntegration">Sentiment Integration</label>
+                <span class="tooltip-icon" data-tooltip="If enabled, highlight gauge terms also contribute to sentiment tracking.">?</span>
+              </div>
             </div>
           </details>
         </div>
-      </div>
-
-      <!-- Generic Polling Panel -->
-      <div id="panel-generic-polling" class="options-panel">
-        <h2>Generic Polling</h2>
-        <p>This feature automatically detects and visualizes trends in chat messages, including short text responses, emotes, and numbers, displaying the results in the popout window.</p>
-        
-        <div class="form-inline-group">
-          <input type="checkbox" id="enableGenericPolling">
-          <label for="enableGenericPolling">Enable Generic Polling</label>
-        </div>
-
-        <div id="genericPollingOptionsContainer" style="display: none;">
-          <h3>Lookback Window Settings</h3>
-          <div class="form-group">
-            <label for="genericPollLookbackWindow">Lookback Window Duration (ms) <span class="tooltip-icon" data-tooltip="Duration of the rolling window to collect messages for analysis.">?</span></label>
-          </div>
-          <input type="number" id="genericPollLookbackWindow" min="1000" max="30000">
-
-          <div class="form-group">
-            <label for="genericPollMaxLetterLength">Maximum Letter Length <span class="tooltip-icon" data-tooltip="Maximum character length for messages to be considered as text responses.">?</span></label>
-          </div>
-          <input type="number" id="genericPollMaxLetterLength" min="1" max="20">
-
-          <div class="form-group">
-            <label for="genericPollEndThreshold">Activity End Threshold <span class="tooltip-icon" data-tooltip="Minimum new responses needed during a check interval to keep the poll active.">?</span></label>
-          </div>
-          <input type="number" id="genericPollEndThreshold" min="1" max="10">
-
-          <div class="form-group">
-            <label for="genericPollResultDisplayTime">Result Display Time (seconds) <span class="tooltip-icon" data-tooltip="How long to show poll results after a poll ends.">?</span></label>
-          </div>
-          <input type="number" id="genericPollResultDisplayTime" min="5" max="60" step="1">
-
-          <h3>Activation Thresholds</h3>
-          <p>These settings control when the system will activate polling for different message types.</p>
-          
-          <h4>Text Responses</h4>
-          <div class="form-group">
-            <label for="genericPollLetterIndividualThreshold">Individual Response Threshold <span class="tooltip-icon" data-tooltip="Minimum occurrences of a single text response to trigger activation.">?</span></label>
-          </div>
-          <input type="number" id="genericPollLetterIndividualThreshold" min="1" max="20">
-
-          <div class="form-group">
-            <label for="genericPollLetterTotalThreshold">Total Text Response Threshold <span class="tooltip-icon" data-tooltip="Minimum total text responses under max length to trigger activation.">?</span></label>
-          </div>
-          <input type="number" id="genericPollLetterTotalThreshold" min="1" max="50">
-
-          <h4>Number Responses</h4>
-          <div class="form-group">
-            <label for="genericPollNumberThreshold">Number Activation Threshold <span class="tooltip-icon" data-tooltip="Minimum total number responses to trigger activation.">?</span></label>
-          </div>
-          <input type="number" id="genericPollNumberThreshold" min="1" max="30">
-        </div>
-        
-        <h3>Sentiment Tracking</h3>
-        <p>When no active poll is running, the system tracks popular phrases, words, and emotes.</p>
-        
-        <div class="form-group">
-          <label for="genericPollSentimentDisplayThreshold">Sentiment Display Threshold <span class="tooltip-icon" data-tooltip="Minimum count required for sentiment tracker to be visible.">?</span></label>
-        </div>
-        <input type="number" id="genericPollSentimentDisplayThreshold" min="1" max="50" step="1">
-
-        <div class="form-group">
-          <label for="genericPollSentimentMaxDisplayItems">Sentiment Max Display Items <span class="tooltip-icon" data-tooltip="Maximum number of sentiment items to display at one time (top items by count).">?</span></label>
-        </div>
-        <input type="number" id="genericPollSentimentMaxDisplayItems" min="1" max="20" step="1">
-
-        <div class="form-group">
-          <label for="genericPollSentimentDecayAmount">Sentiment Decay Amount <span class="tooltip-icon" data-tooltip="Amount to decrease sentiment item counts by each second when not seen in chat (1 = slow decay, higher = faster decay).">?</span></label>
-        </div>
-        <input type="number" id="genericPollSentimentDecayAmount" min="1" max="10" step="1">
-
-        <div class="form-group">
-          <label for="genericPollSentimentMaxGrowthWidth">Sentiment Max Growth Width (px) <span class="tooltip-icon" data-tooltip="Maximum extra pixels that sentiment gauge containers can grow beyond their normal width (0 = no growth, 200+ = very wide growth).">?</span></label>
-        </div>
-        <input type="number" id="genericPollSentimentMaxGrowthWidth" min="0" step="10">
-
-        <div class="form-group">
-          <label for="genericPollSentimentMaxGaugeValue">Sentiment Gauge Max Value <span class="tooltip-icon" data-tooltip="Maximum value for sentiment gauge fill calculation. Gauges will be 100% full when item count reaches this value.">?</span></label>
-        </div>
-        <input type="number" id="genericPollSentimentMaxGaugeValue" min="1" step="1">
-
-        <div class="form-group">
-          <label for="genericPollMinWidth">Polling Display Minimum Width (px) <span class="tooltip-icon" data-tooltip="Minimum width of the generic polling display container.">?</span></label>
-        </div>
-        <input type="number" id="genericPollMinWidth" min="150" max="500" step="10">
       </div>
 
       <!-- Tracking Panel -->
@@ -1389,6 +1474,7 @@ color: white;"></textarea>
   </footer>
 
   <script src="../lib/browser-polyfill.min.js"></script>
+  <script src="../scripts/config/settings-manager.js"></script>
   <script src="../scripts/options.js"></script>
 </body>
 </html>

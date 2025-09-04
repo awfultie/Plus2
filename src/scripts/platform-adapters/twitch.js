@@ -7,15 +7,15 @@ class TwitchAdapter extends BasePlatformAdapter {
     }
 
     shouldProcessOnThisPlatform() {
-        if (this.settings.requiredUrlSubstring && 
-            !window.location.href.includes(this.settings.requiredUrlSubstring)) {
+        if (this.settings.behavior?.requiredUrlSubstring && 
+            !window.location.href.includes(this.settings.behavior.requiredUrlSubstring)) {
             return false;
         }
         return true;
     }
 
     getSelectors() {
-        if (this.settings.enable7TVCompat) {
+        if (this.settings.features?.enableSevenTVCompatibility) {
             return {
                 chatMessage: '.seventv-user-message',
                 messageContent: '.seventv-chat-message-body',
@@ -26,7 +26,7 @@ class TwitchAdapter extends BasePlatformAdapter {
                 chatBadge: '.seventv-chat-badge',
                 reply: 'div.seventv-reply-message-part'
             };
-        } else if (this.settings.enableFrankerFaceZCompat) {
+        } else if (this.settings.features?.enableFrankerFaceZCompatibility) {
             return {
                 chatMessage: '.chat-line__message',
                 messageContent: 'span.message',
@@ -52,9 +52,9 @@ class TwitchAdapter extends BasePlatformAdapter {
     }
 
     extractMessageParts(chatLine) {
-        if (this.settings.enable7TVCompat) {
+        if (this.settings.features?.enableSevenTVCompatibility) {
             return this._extract7TVMessage(chatLine);
-        } else if (this.settings.enableFrankerFaceZCompat) {
+        } else if (this.settings.features?.enableFrankerFaceZCompatibility) {
             return this._extractFFZMessage(chatLine);
         } else {
             return this._extractStandardMessage(chatLine);

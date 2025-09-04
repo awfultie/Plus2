@@ -162,13 +162,14 @@ class UIInjection {
             { id: 'menu-open-options', text: 'Options', action: () => this._sendMessage({ type: 'OPEN_OPTIONS_PAGE' }) }
         ];
 
-        if (typeof browser !== 'undefined' && browser.storage) {
-            browser.storage.sync.get(['enableHighlightTracking', 'enableLeaderboard', 'enableStreamview', 'currentStreamview']).then((items) => {
-                this._renderMenuItems(menuItems, items);
-            });
-        } else {
-            this._renderMenuItems(menuItems, {});
-        }
+        // Use nested settings structure instead of flat storage access
+        const settingsData = {
+            enableHighlightTracking: this.settings.tracking?.enableHighlightTracking,
+            enableLeaderboard: this.settings.features?.enableLeaderboard,
+            enableStreamview: this.settings.integrations?.streamview?.enabled,
+            currentStreamview: this.settings.integrations?.streamview?.current
+        };
+        this._renderMenuItems(menuItems, settingsData);
 
         document.body.appendChild(this.customPopupMenu);
         setTimeout(() => window.addEventListener('click', (e) => this._closeCustomMenuOnClickOutside(e)), 0);
@@ -204,22 +205,19 @@ class UIInjection {
     }
 
     _copyBrowserSourceUrl(btn) {
-        if (typeof browser !== 'undefined' && browser.storage) {
-            const originalText = btn.textContent;
-            browser.storage.sync.get(['currentStreamview']).then((items) => {
-                if (items.currentStreamview && items.currentStreamview.viewUrl) {
-                    navigator.clipboard.writeText(items.currentStreamview.viewUrl).then(() => {
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => { btn.textContent = originalText; }, 1500);
-                    }).catch(() => {
-                        btn.textContent = 'Copy failed';
-                        setTimeout(() => { btn.textContent = originalText; }, 1500);
-                    });
-                } else {
-                    btn.textContent = 'No URL available';
-                    setTimeout(() => { btn.textContent = originalText; }, 1500);
-                }
+        const originalText = btn.textContent;
+        const currentStreamview = this.settings.integrations?.streamview?.current;
+        if (currentStreamview && currentStreamview.viewUrl) {
+            navigator.clipboard.writeText(currentStreamview.viewUrl).then(() => {
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = originalText; }, 1500);
+            }).catch(() => {
+                btn.textContent = 'Copy failed';
+                setTimeout(() => { btn.textContent = originalText; }, 1500);
             });
+        } else {
+            btn.textContent = 'No URL available';
+            setTimeout(() => { btn.textContent = originalText; }, 1500);
         }
     }
 
@@ -284,7 +282,7 @@ class UIInjection {
         this.poppedInContainer.id = 'plus2-popped-in-container';
         Object.assign(this.poppedInContainer.style, {
             width: '100%',
-            height: `${this.settings.dockedViewHeight || 250}px`,
+            height: `${this.settings.display?.dockedViewHeight || 250}px`,
             border: '1px solid #444',
             boxSizing: 'border-box',
             overflow: 'hidden'
@@ -427,9 +425,9 @@ class UIInjection {
         const isTwitchPopout = this.adapter.platform === 'twitch' && window.location.pathname.includes('/popout/');
         const isYouTubePopout = this.adapter.platform === 'youtube' && window.location.pathname.includes('/live_chat');
 
-        if (this.settings.dockingBehavior === 'twitch' && isTwitchPopout) {
+        if (this.settings.behavior?.dockingBehavior === 'twitch' && isTwitchPopout) {
             this.popInView();
-        } else if (this.settings.dockingBehavior === 'youtube' && isYouTubePopout) {
+        } else if (this.settings.behavior?.dockingBehavior === 'youtube' && isYouTubePopout) {
             this.popInView();
         }
     }

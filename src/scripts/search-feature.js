@@ -84,13 +84,13 @@ class SearchFeature {
     }
 
     cachePrunedMessage(node) {
-        if (this.prunedMessageCache.length >= this.settings.maxPrunedCacheSize) {
+        if (this.prunedMessageCache.length >= this.settings.behavior?.maxPrunedCacheSize) {
             this.prunedMessageCache.shift();
             this.prunedMessageCacheData.shift();
         }
         this.prunedMessageCache.push(node);
 
-        const usernameSelector = this.settings.enable7TVCompat ? '.seventv-chat-user-username' : '[data-a-target="chat-message-username"]';
+        const usernameSelector = this.settings.features?.enableSevenTVCompatibility ? '.seventv-chat-user-username' : '[data-a-target="chat-message-username"]';
         const usernameElement = node.querySelector(usernameSelector);
         const messageContentElement = node.querySelector(this.adapter.selectors.messageContent);
         const usernameText = usernameElement ? usernameElement.textContent.toLowerCase() : '';
@@ -146,7 +146,7 @@ class SearchFeature {
 
         // Filter live messages
         chatContainer.querySelectorAll(`${this.adapter.selectors.chatScrollableArea} > div`).forEach(wrapper => {
-            const usernameSelector = this.settings.enable7TVCompat ? '.seventv-chat-user-username' : '[data-a-target="chat-message-username"]';
+            const usernameSelector = this.settings.features?.enableSevenTVCompatibility ? '.seventv-chat-user-username' : '[data-a-target="chat-message-username"]';
             const usernameElement = wrapper.querySelector(usernameSelector);
             const messageContentElement = wrapper.querySelector(this.adapter.selectors.messageContent);
             const usernameText = usernameElement ? usernameElement.textContent.toLowerCase() : '';
@@ -183,7 +183,7 @@ class SearchFeature {
         const lowerCaseQuery = query.toLowerCase().trim();
         if (!lowerCaseQuery) return;
 
-        const usernameSelector = this.settings.enable7TVCompat ? '.seventv-chat-user-username' : '[data-a-target="chat-message-username"]';
+        const usernameSelector = this.settings.features?.enableSevenTVCompatibility ? '.seventv-chat-user-username' : '[data-a-target="chat-message-username"]';
         const usernameElement = messageElement.querySelector(usernameSelector);
         const messageContentElement = messageElement.querySelector(this.adapter.selectors.messageContent);
         const usernameText = usernameElement ? usernameElement.textContent.toLowerCase() : '';

@@ -54,6 +54,7 @@ async function build(browser) {
             manifest.background = {
                 "scripts": [
                     "lib/browser-polyfill.min.js", 
+                    "scripts/config/settings-manager.js",
                     "scripts/polling/polling-utils.js",
                     "scripts/polling/generic-polling.js",
                     "scripts/webhook-client.js", 

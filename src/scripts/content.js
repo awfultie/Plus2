@@ -33,8 +33,15 @@
 
     function sendToBackground(type, data) {
         try {
-            browser.runtime.sendMessage({ type, data });
+            browser.runtime.sendMessage({ type, data }).catch(error => {
+                // Silently ignore message port errors - they're common in extensions
+                if (!error.message?.includes('message port closed')) {
+                    console.warn('[Content] Message send error:', error);
+                }
+            });
         } catch (e) {
+            // Runtime not available or extension context invalid
+            console.warn('[Content] Runtime send error:', e);
         }
     }
 

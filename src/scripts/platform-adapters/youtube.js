@@ -7,7 +7,7 @@ class YouTubeAdapter extends BasePlatformAdapter {
     }
 
     shouldProcessOnThisPlatform() {
-        return this.settings.enableYouTube;
+        return this.settings.features?.enableYouTube;
     }
 
     getSelectors() {

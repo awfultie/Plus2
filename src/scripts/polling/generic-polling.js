@@ -51,29 +51,40 @@ function updateGenericPollingSettings(newSettings) {
 
 // Generic Poll Configuration (dynamically updated from settings)
 function getGenericPollConfig() {
-    console.log(`[Generic Poll] Loading config - raw genericPollSentimentDecayAmount:`, settings.genericPollSentimentDecayAmount);
+    console.log(`[Generic Poll] Loading config - raw sentimentDecayAmount:`, settings.polling?.generic?.sentiment?.decayAmount);
     
     return {
-        lookbackWindowMs: settings.genericPollLookbackWindow || 6000,
-        maxLetterLength: settings.genericPollMaxLetterLength || 5,
-        endThreshold: settings.genericPollEndThreshold || 2,
-        resultDisplayTime: (settings.genericPollResultDisplayTime || 12) * 1000,
+        lookbackWindowMs: settings.polling?.generic?.lookbackWindow || 6000,
+        maxLetterLength: settings.polling?.generic?.maxLetterLength || 5,
+        endThreshold: settings.polling?.generic?.endThreshold || 2,
+        resultDisplayTime: (settings.polling?.generic?.resultDisplayTime || 12) * 1000,
         
         // Activation thresholds for active polling
         letterActivation: {
-            individualThreshold: settings.genericPollLetterIndividualThreshold || 3,
-            totalThreshold: settings.genericPollLetterTotalThreshold || 10,
+            individualThreshold: settings.polling?.generic?.letterIndividualThreshold || 3,
+            totalThreshold: settings.polling?.generic?.letterTotalThreshold || 10,
         },
         numberActivation: {
-            threshold: settings.genericPollNumberThreshold || 7,
+            threshold: settings.polling?.generic?.numberThreshold || 7,
         },
         
         // Sentiment tracker configuration
-        sentimentDisplayThreshold: settings.genericPollSentimentDisplayThreshold || 10,
-        sentimentIndividualThreshold: settings.genericPollLetterIndividualThreshold || 3, // Reuse existing setting
-        sentimentMaxDisplayItems: settings.genericPollSentimentMaxDisplayItems || 5,
-        sentimentDecayAmount: settings.genericPollSentimentDecayAmount || 1,
-        sentimentMaxGrowthWidth: settings.genericPollSentimentMaxGrowthWidth || 150,
+        sentimentDisplayThreshold: settings.polling?.generic?.sentiment?.displayThreshold || 10,
+        sentimentIndividualThreshold: settings.polling?.generic?.letterIndividualThreshold || 3, // Reuse existing setting
+        sentimentMaxDisplayItems: settings.polling?.generic?.sentiment?.maxDisplayItems || 5,
+        sentimentDecayAmount: settings.polling?.generic?.sentiment?.decayAmount || 1,
+        sentimentMaxGrowthWidth: settings.polling?.generic?.sentiment?.maxGrowthWidth || 150,
+        sentimentBlockList: (settings.polling?.generic?.sentiment?.blockList || '').split(',').map(word => word.trim()).filter(word => word.length > 0),
+        sentimentGroups: (() => {
+            try {
+                return JSON.parse(settings.polling?.generic?.sentiment?.groups || '[]').filter(group => 
+                    group.label && group.words && group.words.length > 0
+                );
+            } catch (e) {
+                console.error('[Generic Poll] Error parsing sentiment groups:', e);
+                return [];
+            }
+        })(),
     };
 }
 
@@ -276,23 +287,85 @@ function updateSentimentTracker() {
     // Process new messages - check for addition to tracking or increment existing
     newSentimentMessages.forEach(msg => {
         msg.sentimentValues.forEach(value => {
-            if (genericPollState.sentimentTracker[value]) {
+            // Check if value is in block list
+            const blockList = config.sentimentBlockList || [];
+            const valueText = typeof value === 'object' ? (value.alt || value.name || '') : String(value);
+            const isBlocked = blockList.some(blockedWord => 
+                valueText.toLowerCase().includes(blockedWord.toLowerCase())
+            );
+            
+            if (isBlocked) {
+                console.log(`[Sentiment] Blocked sentiment value: "${valueText}"`);
+                return; // Skip this sentiment value
+            }
+            
+            // Check if value matches any sentiment groups
+            const sentimentGroups = config.sentimentGroups || [];
+            let matchedGroup = null;
+            
+            for (const group of sentimentGroups) {
+                const matchFound = group.words.some(groupWord => {
+                    if (group.partialMatch) {
+                        // Partial matching - check if group word is contained in the message
+                        return valueText.toLowerCase().includes(groupWord.toLowerCase());
+                    } else {
+                        // Exact matching - the sentiment value must exactly match the group word
+                        return valueText.toLowerCase() === groupWord.toLowerCase();
+                    }
+                });
+                
+                if (matchFound) {
+                    matchedGroup = group;
+                    console.log(`[Sentiment] Matched "${valueText}" to group "${group.label}"`);
+                    break; // Use first matching group
+                }
+            }
+            
+            // Use group label as the tracking key if matched, otherwise use original value
+            const trackingKey = matchedGroup ? matchedGroup.label : value;
+            
+            if (genericPollState.sentimentTracker[trackingKey]) {
                 // Increment existing tracked item
-                genericPollState.sentimentTracker[value]++;
-                console.log(`[Sentiment] Incremented ${value} to ${genericPollState.sentimentTracker[value]}`);
+                genericPollState.sentimentTracker[trackingKey]++;
+                console.log(`[Sentiment] Incremented ${trackingKey} to ${genericPollState.sentimentTracker[trackingKey]}`);
             } else {
                 // Check if this item should be added to tracking
-                // Count total occurrences of this value across all messages in the window
+                // Count total occurrences of this tracking key across all messages in the window
                 let currentWindowCount = 0;
+                
                 genericPollState.messageBuffer.forEach(m => {
                     if (m.sentimentProcessed && m.timestamp > lookbackCutoff && m.sentimentValues) {
-                        currentWindowCount += m.sentimentValues.filter(v => v === value).length;
+                        m.sentimentValues.forEach(sentValue => {
+                            const sentValueText = typeof sentValue === 'object' ? (sentValue.alt || sentValue.name || '') : String(sentValue);
+                            
+                            // Check if this sentiment value would match the same group/key
+                            let sentValueTrackingKey = sentValue;
+                            
+                            if (matchedGroup) {
+                                // If we're processing a group, check if this sentiment value also matches the same group
+                                const sentValueMatchesGroup = matchedGroup.words.some(groupWord => {
+                                    if (matchedGroup.partialMatch) {
+                                        return sentValueText.toLowerCase().includes(groupWord.toLowerCase());
+                                    } else {
+                                        return sentValueText.toLowerCase() === groupWord.toLowerCase();
+                                    }
+                                });
+                                
+                                if (sentValueMatchesGroup) {
+                                    sentValueTrackingKey = matchedGroup.label;
+                                }
+                            }
+                            
+                            if (sentValueTrackingKey === trackingKey) {
+                                currentWindowCount++;
+                            }
+                        });
                     }
                 });
                 
                 if (currentWindowCount >= config.sentimentIndividualThreshold) {
-                    genericPollState.sentimentTracker[value] = currentWindowCount;
-                    console.log(`[Sentiment] Added ${value} to tracking with count ${currentWindowCount}`);
+                    genericPollState.sentimentTracker[trackingKey] = currentWindowCount;
+                    console.log(`[Sentiment] Added ${trackingKey} to tracking with count ${currentWindowCount}`);
                 }
             }
         });
@@ -490,7 +563,41 @@ function processEmoteResults(data) {
 }
 
 function processNumberResults(data) {
-    // Apply IQR filtering first
+    // Sanity check: If we have at least 10 responses and majority are under 4 characters,
+    // apply stricter character limit of 4 before IQR filtering
+    const totalResponses = Object.values(data).reduce((sum, count) => sum + count, 0);
+    if (totalResponses >= 10) {
+        let shortResponses = 0;
+        Object.entries(data).forEach(([num, count]) => {
+            if (num.length <= 4) {
+                shortResponses += count;
+            }
+        });
+        
+        const shortResponseRatio = shortResponses / totalResponses;
+        if (shortResponseRatio > 0.5) { // More than 50% are short
+            console.log(`[Generic Poll] Number poll sanity check: ${shortResponses}/${totalResponses} (${(shortResponseRatio * 100).toFixed(1)}%) responses are ≤4 chars - applying strict 4-char limit`);
+            
+            // Filter out numbers longer than 4 characters
+            const sanitizedData = {};
+            let removedByLength = 0;
+            Object.entries(data).forEach(([num, count]) => {
+                if (num.length <= 4) {
+                    sanitizedData[num] = count;
+                } else {
+                    removedByLength += count;
+                    console.log(`[Generic Poll] Removed ${count} votes for "${num}" (${num.length} chars > 4 char limit)`);
+                }
+            });
+            
+            if (removedByLength > 0) {
+                console.log(`[Generic Poll] Sanity check removed ${removedByLength} responses that exceeded 4-character limit`);
+                data = sanitizedData;
+            }
+        }
+    }
+    
+    // Apply IQR filtering after sanity check
     const filterResult = applyIQRFilter(data);
     const filteredData = filterResult.data;
     const outliersRemoved = filterResult.outliersRemoved;

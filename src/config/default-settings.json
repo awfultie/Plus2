@@ -1,0 +1,248 @@
+{
+  "core": {
+    "stringToCount": "+2, lol, lmao, lul, lmfao, dangLUL",
+    "exactMatchCounting": false,
+    "enableCounting": false
+  },
+  "display": {
+    "chromaKeyColor": "#b9e6b7",
+    "popoutBaseFontSize": 18,
+    "popoutDefaultWidth": 600,
+    "popoutDefaultHeight": 300,
+    "displayTime": 10000,
+    "dockedViewHeight": 400,
+    "dockingBehavior": "none",
+    "channelIdOverride": "",
+    "templateName": "Default"
+  },
+  "features": {
+    "enableHighlightTracking": false,
+    "appendMessages": false,
+    "enableYesNoPolling": false,
+    "enableLeaderboard": false,
+    "enableWebhookIntegration": false,
+    "enableYouTube": true,
+    "enableSevenTVCompatibility": false,
+    "enableFrankerFaceZCompatibility": false,
+    "enableModPostReplyHighlight": true,
+    "enableGenericPolling": false,
+    "enableChannelIdOverride": false,
+    "enableReplyTooltip": true
+  },
+  "styling": {
+    "messageBGColor": "#111111",
+    "paragraphTextColor": "#FFFFFF",
+    "enableUsernameColoring": true,
+    "usernameDefaultColor": "#FF0000",
+    "gauge": {
+      "gaugeMaxValue": 30,
+      "gaugeMinDisplayThreshold": 3,
+      "gaugeTrackColor": "#e0e0e0",
+      "gaugeTrackAlpha": 0,
+      "gaugeTrackBorderAlpha": 1,
+      "gaugeTrackBorderColor": "#505050",
+      "gaugeFillGradientStartColor": "#ffd700",
+      "gaugeFillGradientEndColor": "#ff0000",
+      "recentMaxIndicatorColor": "#ff0000",
+      "peakLabels": {
+        "low": {
+          "text": "Heh",
+          "color": "#ffffff"
+        },
+        "mid": {
+          "text": "Funny!",
+          "color": "#ffff00"
+        },
+        "high": {
+          "text": "Hilarious!!",
+          "color": "#ffa500"
+        },
+        "max": {
+          "text": "OFF THE CHARTS!!!",
+          "color": "#ff0000"
+        }
+      },
+      "enablePeakLabelAnimation": true,
+      "peakLabelAnimationDuration": 0.6,
+      "peakLabelAnimationIntensity": 2
+    },
+    "polling": {
+      "yesPollBarColor": "#ff0000",
+      "noPollBarColor": "#0000ff",
+      "pollTextColor": "#ffffff",
+      "genericPollMinWidth": 200
+    },
+    "leaderboard": {
+      "leaderboardHeaderText": "Leaderboard",
+      "leaderboardBackgroundColor": "#000000",
+      "leaderboardBackgroundAlpha": 0,
+      "leaderboardTextColor": "#FFFFFF"
+    },
+    "rawCssEditor": ""
+  },
+  "behavior": {
+    "decayInterval": 500,
+    "decayAmount": 1,
+    "recentMaxResetDelay": 2000,
+    "dockingBehavior": "none",
+    "autoOpenPopout": false,
+    "requiredUrlSubstring": "",
+    "inactivityTimeoutDuration": 5000,
+    "maxPrunedCacheSize": 500
+  },
+  "polling": {
+    "unified": {
+      "enabled": true,
+      "lookbackWindow": 10000,
+      "resultDisplayTime": 15000,
+      "cooldownDuration": 8000,
+      "minimumPollDuration": 10000,
+      "activityCheckInterval": 3000
+    },
+    "types": {
+      "yesno": {
+        "enabled": true,
+        "activationThreshold": 3,
+        "priority": 1,
+        "styling": {
+          "yesColor": "#00ff00",
+          "noColor": "#ff0000",
+          "customizable": true
+        }
+      },
+      "numbers": {
+        "enabled": true,
+        "activationThreshold": 7,
+        "priority": 2,
+        "maxDisplayItems": 15,
+        "maxBins": 10
+      },
+      "letters": {
+        "enabled": true,
+        "activationThreshold": 10,
+        "individualThreshold": 3,
+        "priority": 3,
+        "maxDisplayItems": 15
+      },
+      "sentiment": {
+        "enabled": true,
+        "activationThreshold": 15,
+        "priority": 4,
+        "maxDisplayItems": 5,
+        "maxGrowthWidth": 150,
+        "maxGaugeValue": 30,
+        "blockList": "",
+        "groups": "[]"
+      }
+    },
+    "unifiedPolling": {
+      "behavior": {
+        "minActivePollDuration": 5000,
+        "cooldownDuration": 10000,
+        "maxActivePollDuration": 30000,
+        "decayInterval": 500,
+        "messageBufferSize": 50,
+        "lookbackWindow": 30000,
+        "activityCheckInterval": 3000
+      },
+      "yesno": {
+        "enabled": true,
+        "activationThreshold": 3,
+        "priority": 1,
+        "width": 320,
+        "styling": {
+          "yesColor": "#00ff00",
+          "noColor": "#ff0000",
+          "customizable": true
+        }
+      },
+      "numbers": {
+        "enabled": true,
+        "activationThreshold": 7,
+        "priority": 2,
+        "maxDisplayItems": 15,
+        "maxBins": 10
+      },
+      "letters": {
+        "enabled": true,
+        "activationThreshold": 10,
+        "individualThreshold": 3,
+        "priority": 3,
+        "maxDisplayItems": 15
+      },
+      "sentiment": {
+        "enabled": true,
+        "activationThreshold": 15,
+        "priority": 4,
+        "maxDisplayItems": 5,
+        "maxGrowthWidth": 150,
+        "maxGaugeValue": 30,
+        "blockList": "",
+        "groups": "[]"
+      }
+    },
+    "highlightGauge": {
+      "enabled": true,
+      "stringToCount": "+2, lol, lmao",
+      "exactMatch": false,
+      "sentimentIntegration": false
+    },
+    "legacy": {
+      "yesNo": {
+        "displayThreshold": 10,
+        "activityThreshold": 2,
+        "activityCheckInterval": 3000,
+        "resultDisplayTime": 15000,
+        "cooldownDuration": 8000
+      },
+      "generic": {
+        "lookbackWindow": 10000,
+        "maxLetterLength": 4,
+        "endThreshold": 3,
+        "letterIndividualThreshold": 3,
+        "letterTotalThreshold": 10,
+        "numberThreshold": 5,
+        "resultDisplayTime": 12,
+        "sentiment": {
+          "decayAmount": 1,
+          "maxDisplayItems": 5,
+          "displayThreshold": 10,
+          "maxGrowthWidth": 150,
+          "maxGaugeValue": 30,
+          "blockList": "",
+          "groups": "[]"
+        }
+      }
+    }
+  },
+  "leaderboard": {
+    "highlightValue": 10,
+    "timeWindowDays": 30
+  },
+  "integrations": {
+    "webhook": {
+      "endpoint": "",
+      "apiKey": "",
+      "activeWebhookUrl": "",
+      "events": {
+        "chatMessages": false,
+        "highlightMessages": true,
+        "gaugeUpdates": true,
+        "pollUpdates": true,
+        "leaderboardUpdates": true
+      }
+    },
+    "streamview": {
+      "enabled": false,
+      "generateApiKey": false,
+      "baseUrl": "https://studio--plus2-streamview.us-central1.hosted.app",
+      "secretKey": "",
+      "current": null,
+      "browserSourceStyle": null,
+      "batchInterval": 1000,
+      "retryAttempts": 3,
+      "timeout": 5000,
+      "activeViewUrl": ""
+    }
+  }
+}

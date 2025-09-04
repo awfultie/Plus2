@@ -10,7 +10,7 @@ class WebhookClient {
     }
 
     updateSettings(newSettings) {
-        const oldInterval = this.settings.streamviewBatchInterval;
+        const oldInterval = this.settings.integrations?.streamview?.batchInterval;
         this.settings = newSettings;
         // If batching settings change or webhooks are disabled, reset the batching mechanism
         if (oldInterval !== newSettings.streamviewBatchInterval || !this.isEnabled()) {
@@ -20,15 +20,15 @@ class WebhookClient {
 
     isEnabled() {
         // The webhook client is used by both the legacy webhook feature and the new Streamview feature.
-        const streamviewEnabled = this.settings.enableStreamview && this.settings.currentStreamview;
-        const legacyWebhookEnabled = this.settings.enableWebhookIntegration && this.settings.webhookEndpoint && this.settings.webhookEndpoint.trim() !== '';
+        const streamviewEnabled = this.settings.integrations?.streamview?.enabled && this.settings.integrations?.streamview?.current;
+        const legacyWebhookEnabled = this.settings.features?.enableWebhookIntegration && this.settings.integrations?.webhook?.endpoint && this.settings.integrations?.webhook?.endpoint.trim() !== '';
         return streamviewEnabled || legacyWebhookEnabled;
     }
 
     async sendEvent(eventType, eventData, platform = 'twitch', channelUrl = '') {
         if (!this.isEnabled()) return;
 
-        const isStreamviewActive = this.settings.enableStreamview && this.settings.currentStreamview;
+        const isStreamviewActive = this.settings.integrations?.streamview?.enabled && this.settings.integrations?.streamview?.current;
 
         // Check if this event type is enabled
         const eventTypeMap = {
@@ -41,9 +41,9 @@ class WebhookClient {
 
         // If only legacy webhook is active, check its event filters. 
         // Streamview always receives all events to decouple browser source from extension settings.
-        if (!isStreamviewActive && this.settings.enableWebhookIntegration) {
+        if (!isStreamviewActive && this.settings.features?.enableWebhookIntegration) {
             const settingKey = eventTypeMap[eventType];
-            if (settingKey && !this.settings.webhookEvents[settingKey]) {
+            if (settingKey && !this.settings.integrations?.webhook?.events[settingKey]) {
                 return; // Event type disabled for legacy webhook
             }
         }
@@ -64,7 +64,7 @@ class WebhookClient {
 
     _ensureBatchTimer() {
         if (!this.batchTimer) {
-            const interval = this.settings.streamviewBatchInterval || 300;
+            const interval = this.settings.integrations?.streamview?.batchInterval || 300;
             this.batchTimer = setTimeout(() => {
                 this._sendBatch();
             }, interval);
@@ -106,15 +106,15 @@ class WebhookClient {
             let apiKey = '';
 
             // Determine which endpoint and key to use, prioritizing Streamview
-            if (this.settings.enableStreamview && this.settings.currentStreamview) {
-                endpoint = this.settings.currentStreamview.webhookUrl;
+            if (this.settings.integrations?.streamview?.enabled && this.settings.integrations?.streamview?.current) {
+                endpoint = this.settings.integrations.streamview.current.webhookUrl;
                 // Use the API key from the streamview if it was generated
-                if (this.settings.currentStreamview.apiKey) {
-                    apiKey = this.settings.currentStreamview.apiKey;
+                if (this.settings.integrations.streamview.current.apiKey) {
+                    apiKey = this.settings.integrations.streamview.current.apiKey;
                 }
-            } else if (this.settings.enableWebhookIntegration) {
-                endpoint = this.settings.webhookEndpoint;
-                apiKey = this.settings.webhookApiKey;
+            } else if (this.settings.features?.enableWebhookIntegration) {
+                endpoint = this.settings.integrations?.webhook?.endpoint;
+                apiKey = this.settings.integrations?.webhook?.apiKey;
             }
 
             if (!endpoint) throw new Error("No webhook endpoint configured.");
@@ -142,7 +142,7 @@ class WebhookClient {
             });
 
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Request timeout')), this.settings.webhookTimeout || 5000)
+                setTimeout(() => reject(new Error('Request timeout')), this.settings.integrations?.streamview?.timeout || 5000)
             );
             const response = await Promise.race([fetchPromise, timeoutPromise]);
 
@@ -171,7 +171,7 @@ class WebhookClient {
     }
 
     queueForRetry(payload, attempt) {
-        const maxAttempts = this.settings.webhookRetryAttempts || 3;
+        const maxAttempts = this.settings.integrations?.streamview?.retryAttempts || 3;
         
         if (attempt > maxAttempts) {
             const eventType = Array.isArray(payload) ? `batch of ${payload.length}` : payload.event_type;

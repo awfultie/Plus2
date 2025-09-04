@@ -82,7 +82,7 @@ class GaugeComponent {
             this.labelElement.style.textShadow = '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black';
             this.labelElement.style.display = 'flex';
             
-            if (newLabelText === peakLabels.max.text && this.settings.enablePeakLabelAnimation) {
+            if (newLabelText === peakLabels.max.text && this.settings.styling?.gauge?.enablePeakLabelAnimation) {
                 this.labelElement.classList.add('plus2-shake-animation');
             } else if (this.settings.styling?.gauge?.enablePeakLabelAnimation) {
                 this.labelElement.classList.remove('plus2-shake-animation');

@@ -30,7 +30,7 @@ class PollingComponent {
         this.settings = settings;
         console.log(`[Polling] Initialize - Full settings:`, settings);
         console.log(`[Polling] Initialize - genericPollMinWidth paths:`, {
-            direct: settings.genericPollMinWidth,
+            direct: settings.styling?.polling?.genericPollMinWidth,
             stylingPolling: settings.styling?.polling?.genericPollMinWidth,
             stylingRoot: settings.styling?.genericPollMinWidth
         });
@@ -215,6 +215,14 @@ class PollingComponent {
             const existingContent = this.genericContainer.children[1];
             
             if (existingTitle && existingContent) {
+                // Check if we're transitioning from poll results to sentiment tracking
+                // Use data attributes to cleanly identify poll results
+                const hasPollResults = existingContent.querySelector('[data-component-type="poll-results"]');
+                if (hasPollResults) {
+                    console.log('[Polling] Detected poll remnants - clearing before sentiment display');
+                    existingContent.innerHTML = '';
+                }
+                
                 // Update existing title and content instead of replacing
                 existingTitle.textContent = titleElement.textContent;
                 existingTitle.innerHTML = titleElement.innerHTML;
@@ -274,10 +282,10 @@ class PollingComponent {
                 const dataHtml = displayData.map(({ label, count }) => {
                     const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     return `
-                        <div style="margin: 2px 0; display: flex; align-items: center;">
-                            <div style="min-width: 40px; font-size: 12px; color: white; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); text-align: right; margin-right: 8px;">${label}</div>
-                            <div style="flex: 1; background: rgba(255,255,255,0.1); height: 16px; border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #2196F3, #64B5F6); transition: width 0.3s ease;"></div>
+                        <div class="live-poll-row" data-component-type="live-poll" style="margin: 2px 0; display: flex; align-items: center;">
+                            <div class="live-poll-label" style="min-width: 40px; font-size: 12px; color: white; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); text-align: right; margin-right: 8px;">${label}</div>
+                            <div class="live-poll-bar-container" style="flex: 1; background: rgba(255,255,255,0.1); height: 16px; border-radius: 6px; overflow: hidden;">
+                                <div class="live-poll-bar-fill" style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #2196F3, #64B5F6); transition: width 0.3s ease;"></div>
                             </div>
                         </div>
                     `;
@@ -289,7 +297,7 @@ class PollingComponent {
                         ${outliersRemoved} outlier${outliersRemoved > 1 ? 's' : ''} hidden
                     </div>` : '';
                 
-                contentElement.innerHTML = `<div style="font-size: 12px;">${dataHtml}</div>${outlierNotification}`;
+                contentElement.innerHTML = `<div class="live-poll-container" data-component-type="live-poll-container" style="font-size: 12px;">${dataHtml}</div>${outlierNotification}`;
             } else {
                 // Handle letters and other poll types
                 titleElement.innerHTML = `
@@ -345,7 +353,7 @@ class PollingComponent {
                 
                 // Create subtitle with modes
                 const modeText = Array.isArray(results.mode) ? results.mode.join(', ') : results.mode;
-                const subtitle = `Mode: ${modeText}`;
+                const subtitle = `Top Response: ${modeText}`;
                 
                 // Create histogram with visual bars
                 let histogramHtml = '';
@@ -354,11 +362,11 @@ class PollingComponent {
                         const percentage = Math.round(parseFloat(item.percentage));
                         const barWidth = Math.min(percentage, 100);
                         return `
-                            <div style="margin: 3px 0; display: flex; align-items: center;">
-                                <div style="min-width: 50px; font-size: 11px; margin-right: 8px; text-align: right;">${item.value}</div>
-                                <div style="flex: 1; background: rgba(255,255,255,0.2); height: 16px; border-radius: 6px; overflow: hidden; position: relative;">
-                                    <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #2196F3, #64B5F6); transition: width 0.3s ease;"></div>
-                                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none;">${percentage}%</div>
+                            <div class="poll-result-row" data-component-type="poll-result" style="margin: 3px 0; display: flex; align-items: center;">
+                                <div class="poll-result-label" style="min-width: 50px; font-size: 11px; margin-right: 8px; text-align: right;">${item.value}</div>
+                                <div class="poll-result-bar-container" style="flex: 1; background: rgba(255,255,255,0.2); height: 16px; border-radius: 6px; overflow: hidden; position: relative;">
+                                    <div class="poll-result-bar-fill" style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #2196F3, #64B5F6); transition: width 0.3s ease;"></div>
+                                    <div class="poll-result-percentage" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none;">${percentage}%</div>
                                 </div>
                             </div>
                         `;
@@ -369,11 +377,11 @@ class PollingComponent {
                         const percentage = Math.round(parseFloat(item.percentage));
                         const barWidth = Math.min(percentage, 100);
                         return `
-                            <div style="margin: 3px 0; display: flex; align-items: center;">
-                                <div style="min-width: 50px; font-size: 11px; margin-right: 8px; text-align: right;">${item.value}</div>
-                                <div style="flex: 1; background: rgba(255,255,255,0.2); height: 16px; border-radius: 6px; overflow: hidden; position: relative;">
-                                    <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #2196F3, #64B5F6); transition: width 0.3s ease;"></div>
-                                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none;">${percentage}%</div>
+                            <div class="poll-result-row" data-component-type="poll-result" style="margin: 3px 0; display: flex; align-items: center;">
+                                <div class="poll-result-label" style="min-width: 50px; font-size: 11px; margin-right: 8px; text-align: right;">${item.value}</div>
+                                <div class="poll-result-bar-container" style="flex: 1; background: rgba(255,255,255,0.2); height: 16px; border-radius: 6px; overflow: hidden; position: relative;">
+                                    <div class="poll-result-bar-fill" style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #2196F3, #64B5F6); transition: width 0.3s ease;"></div>
+                                    <div class="poll-result-percentage" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none;">${percentage}%</div>
                                 </div>
                             </div>
                         `;
@@ -384,9 +392,11 @@ class PollingComponent {
                 const outlierInfo = results.outliersRemoved > 0 ? ` | Outliers: ${results.outliersRemoved}` : '';
                 
                 contentElement.innerHTML = `
-                    <div style="font-size: 12px; margin-bottom: 8px; color: #ccc; text-align: center;">${subtitle}</div>
-                    <div style="font-size: 12px;">${histogramHtml}</div>
-                    <div style="font-size: 10px; margin-top: 5px; color: #ccc; text-align: right;">Total: ${results.totalVotes} votes${outlierInfo}</div>
+                    <div class="poll-results-container" data-component-type="poll-results">
+                        <div class="poll-results-subtitle" style="font-size: 12px; margin-bottom: 8px; color: #ccc; text-align: center;">${subtitle}</div>
+                        <div class="poll-results-histogram" style="font-size: 12px;">${histogramHtml}</div>
+                        <div class="poll-results-summary" style="font-size: 10px; margin-top: 5px; color: #ccc; text-align: right;">Total: ${results.totalVotes} votes${outlierInfo}</div>
+                    </div>
                 `;
                 break;
                 
@@ -446,13 +456,13 @@ class PollingComponent {
         
         if (tracker.sortedData && tracker.sortedData.length > 0) {
             // Get base max value for gauge calculation - no global scaling needed since bars handle overflow individually
-            const sentimentGaugeMax = this.settings.genericPollSentimentMaxGaugeValue || 30;
-            const sentimentMaxGrowthWidth = this.settings.genericPollSentimentMaxGrowthWidth || 150;
+            const sentimentGaugeMax = this.settings.polling?.generic?.sentiment?.maxGaugeValue || 30;
+            const sentimentMaxGrowthWidth = this.settings.polling?.generic?.sentiment?.maxGrowthWidth || 150;
             
             console.log(`[Sentiment] Settings check - Max Gauge Value: ${sentimentGaugeMax}, Max Growth Width: ${sentimentMaxGrowthWidth}`);
             console.log(`[Sentiment] Raw settings:`, {
-                genericPollSentimentMaxGaugeValue: this.settings.genericPollSentimentMaxGaugeValue,
-                genericPollSentimentMaxGrowthWidth: this.settings.genericPollSentimentMaxGrowthWidth
+                genericPollSentimentMaxGaugeValue: this.settings.polling?.generic?.sentiment?.maxGaugeValue,
+                genericPollSentimentMaxGrowthWidth: this.settings.polling?.generic?.sentiment?.maxGrowthWidth
             });
             
             // Use existing contentElement from DOM if available, otherwise use the new one
@@ -583,6 +593,7 @@ class PollingComponent {
                 // Create new element
                 const newElement = document.createElement('div');
                 newElement.setAttribute('data-sentiment-key', sentimentKey);
+                newElement.setAttribute('data-component-type', 'sentiment-gauge');
                 newElement.className = 'sentiment-row-container';
                 newElement.style.cssText = `
                     margin: 4px 0; 
@@ -628,7 +639,7 @@ class PollingComponent {
                             transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.3s ease;
                             border-radius: 6px;
                         "></div>
-                        <div style="position: relative; z-index: 1; font-size: 12px; color: white; font-weight: 500; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); white-space: nowrap; padding-left: 8px;">${displayLabel}</div>
+                        <div class="sentiment-gauge-label" style="position: relative; z-index: 1; font-size: 12px; color: white; font-weight: 500; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); white-space: nowrap; padding-left: 8px;">${displayLabel}</div>
                     </div>
                 `;
                 

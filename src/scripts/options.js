@@ -86,29 +86,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportButton = document.getElementById('exportSettings');
   const importFileElement = document.getElementById('importSettingsFile');
   const countingOptionsContainer = document.getElementById('countingOptionsContainer');
-  const enableYesNoPollingInput = document.getElementById('enableYesNoPolling');
-  const pollClearTimeInput = document.getElementById('pollClearTime');
-  const pollDisplayThresholdInput = document.getElementById('pollDisplayThreshold');
-  const pollActivityThresholdInput = document.getElementById('pollActivityThreshold');
-  const pollCooldownDurationInput = document.getElementById('pollCooldownDuration');
-  const pollActivityCheckIntervalInput = document.getElementById('pollActivityCheckInterval');
   
-  // Generic Polling Elements
-  const enableGenericPollingInput = document.getElementById('enableGenericPolling');
-  const genericPollingOptionsContainer = document.getElementById('genericPollingOptionsContainer');
-  const genericPollLookbackWindowInput = document.getElementById('genericPollLookbackWindow');
-  const genericPollMaxLetterLengthInput = document.getElementById('genericPollMaxLetterLength');
-  const genericPollEndThresholdInput = document.getElementById('genericPollEndThreshold');
-  const genericPollResultDisplayTimeInput = document.getElementById('genericPollResultDisplayTime');
-  const genericPollLetterIndividualThresholdInput = document.getElementById('genericPollLetterIndividualThreshold');
-  const genericPollLetterTotalThresholdInput = document.getElementById('genericPollLetterTotalThreshold');
-  const genericPollNumberThresholdInput = document.getElementById('genericPollNumberThreshold');
-  const genericPollSentimentDisplayThresholdInput = document.getElementById('genericPollSentimentDisplayThreshold');
-  const genericPollSentimentMaxDisplayItemsInput = document.getElementById('genericPollSentimentMaxDisplayItems');
-  const genericPollSentimentDecayAmountInput = document.getElementById('genericPollSentimentDecayAmount');
-  const genericPollSentimentMaxGrowthWidthInput = document.getElementById('genericPollSentimentMaxGrowthWidth');
-  const genericPollSentimentMaxGaugeValueInput = document.getElementById('genericPollSentimentMaxGaugeValue');
-  const genericPollMinWidthInput = document.getElementById('genericPollMinWidth');
+  // Unified Polling Elements
+  const enableUnifiedPollingInput = document.getElementById('enableUnifiedPolling');
+  const unifiedPollingOptionsContainer = document.getElementById('unifiedPollingOptionsContainer');
+  const unifiedPollingLookbackWindowInput = document.getElementById('unifiedPollingLookbackWindow');
+  const unifiedPollingResultDisplayTimeInput = document.getElementById('unifiedPollingResultDisplayTime');
+  const unifiedPollingCooldownDurationInput = document.getElementById('unifiedPollingCooldownDuration');
+  const unifiedPollingMinimumDurationInput = document.getElementById('unifiedPollingMinimumDuration');
+  const unifiedPollingActivityCheckIntervalInput = document.getElementById('unifiedPollingActivityCheckInterval');
+  
+  // Poll Type Elements
+  const unifiedPollingYesNoEnabledInput = document.getElementById('unifiedPollingYesNoEnabled');
+  const unifiedPollingYesNoThresholdInput = document.getElementById('unifiedPollingYesNoThreshold');
+  const unifiedPollingYesColorInput = document.getElementById('unifiedPollingYesColor');
+  const unifiedPollingNoColorInput = document.getElementById('unifiedPollingNoColor');
+  const unifiedPollingYesNoWidthInput = document.getElementById('unifiedPollingYesNoWidth');
+  
+  const unifiedPollingNumbersEnabledInput = document.getElementById('unifiedPollingNumbersEnabled');
+  const unifiedPollingNumbersThresholdInput = document.getElementById('unifiedPollingNumbersThreshold');
+  const unifiedPollingNumbersMaxDisplayInput = document.getElementById('unifiedPollingNumbersMaxDisplay');
+  const unifiedPollingNumbersMaxBinsInput = document.getElementById('unifiedPollingNumbersMaxBins');
+  
+  const unifiedPollingLettersEnabledInput = document.getElementById('unifiedPollingLettersEnabled');
+  const unifiedPollingLettersThresholdInput = document.getElementById('unifiedPollingLettersThreshold');
+  const unifiedPollingLettersIndividualThresholdInput = document.getElementById('unifiedPollingLettersIndividualThreshold');
+  const unifiedPollingLettersMaxDisplayInput = document.getElementById('unifiedPollingLettersMaxDisplay');
+  
+  const unifiedPollingSentimentEnabledInput = document.getElementById('unifiedPollingSentimentEnabled');
+  const unifiedPollingSentimentThresholdInput = document.getElementById('unifiedPollingSentimentThreshold');
+  const unifiedPollingSentimentMaxDisplayItemsInput = document.getElementById('unifiedPollingSentimentMaxDisplayItems');
+  const unifiedPollingSentimentMaxGrowthWidthInput = document.getElementById('unifiedPollingSentimentMaxGrowthWidth');
+  const unifiedPollingSentimentMaxGaugeValueInput = document.getElementById('unifiedPollingSentimentMaxGaugeValue');
+  const unifiedPollingSentimentBlockListInput = document.getElementById('unifiedPollingSentimentBlockList');
+  const unifiedPollingSentimentGroupsInput = document.getElementById('unifiedPollingSentimentGroups');
+  
+  const unifiedPollingHighlightGaugeEnabledInput = document.getElementById('unifiedPollingHighlightGaugeEnabled');
+  const unifiedPollingHighlightGaugeStringToCountInput = document.getElementById('unifiedPollingHighlightGaugeStringToCount');
+  const unifiedPollingHighlightGaugeExactMatchInput = document.getElementById('unifiedPollingHighlightGaugeExactMatch');
+  const unifiedPollingHighlightGaugeSentimentIntegrationInput = document.getElementById('unifiedPollingHighlightGaugeSentimentIntegration');
   
   const maxPrunedCacheSizeInput = document.getElementById('maxPrunedCacheSize');
   const inactivityTimeoutDurationInput = document.getElementById('inactivityTimeoutDuration');
@@ -180,39 +196,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const channelIdOverrideInput = document.getElementById('channelIdOverride');
   const applyChannelIdOverrideButton = document.getElementById('applyChannelIdOverride');
 
-  const defaultOptions = {
-    requiredUrlSubstring: "", displayTime: 10000, chromaKeyColor: '#b9e6b7', messageBGColor: '#111111', appendMessages: false,
-    stringToCount: "+2, lol, lmao, lul, lmfao, dangLUL", decayInterval: 500, decayAmount: 1, exactMatchCounting: false,
-    gaugeMaxValue: 30, enableCounting: false, dockingBehavior: 'none', dockedViewHeight: 250, peakLabelLow: "Heh", peakLabelMid: "Funny!", peakLabelHigh: "Hilarious!!",
-    peakLabelMax: "OFF THE CHARTS!!!", recentMaxResetDelay: 2000, enable7TVCompat: false, enableFrankerFaceZCompat: false, enableYouTube: true,
-    enableModPostReplyHighlight: true, enableYesNoPolling: false, enableGenericPolling: true, pollClearTime: 12000, pollCooldownDuration: 5000,
-    pollActivityThreshold: 1, pollActivityCheckInterval: 2000, pollDisplayThreshold: 15, inactivityTimeoutDuration: 5000,
-    genericPollLookbackWindow: 6000, genericPollMaxLetterLength: 5, genericPollEndThreshold: 2, genericPollResultDisplayTime: 12,
-    genericPollLetterIndividualThreshold: 3, genericPollLetterTotalThreshold: 10, genericPollNumberThreshold: 7,
-    genericPollSentimentDisplayThreshold: 10, genericPollSentimentMaxDisplayItems: 5, genericPollSentimentDecayAmount: 1, genericPollSentimentMaxGrowthWidth: 150, genericPollSentimentMaxGaugeValue: 30, genericPollMinWidth: 250,
-    maxPrunedCacheSize: 500, gaugeTrackColor: '#e0e0e0', gaugeTrackAlpha: 0, gaugeTrackBorderAlpha: 1,
-    gaugeTrackBorderColor: '#505050', gaugeFillGradientStartColor: '#ffd700', gaugeFillGradientEndColor: '#ff0000',
-    recentMaxIndicatorColor: '#ff0000', peakLabelLowColor: '#ffffff', peakLabelMidColor: '#ffff00', peakLabelHighColor: '#ffa500',
-    peakLabelMaxColor: '#ff0000', yesPollBarColor: '#ff0000', noPollBarColor: '#0000ff', pollTextColor: '#ffffff',
-    enablePeakLabelAnimation: true, peakLabelAnimationDuration: 0.6, peakLabelAnimationIntensity: 2, enableUsernameColoring: true,
-    usernameDefaultColor: '#FF0000', enableReplyTooltip: true, paragraphTextColor: '#FFFFFF', popoutDefaultWidth: 600,
-    popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableHighlightTracking: false,
-    enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7, leaderboardHeaderText: 'Leaderboard',
-    leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
-    gaugeMinDisplayThreshold: 3,
-    // Webhook settings
-    enableWebhookIntegration: false, webhookEndpoint: "", webhookApiKey: "", webhookTimeout: 5000, webhookRetryAttempts: 3,
-    webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
-    // Streamview settings
-    enableStreamview: false, streamviewBaseUrl: "https://streamview.channel", streamviewApiKey: "", currentStreamview: null,
-    // Streamview security options
-    streamviewGenerateApiKey: false,
-    streamviewSecretKey: '',
-    // StreamView template storage
-    streamviewTemplates: {},
-    // Browser Source Style settings
-    browserSourceStyle: null
-  };
+  // defaultOptions will be loaded from SettingsManager
+  let defaultOptions = null;
+  
+  // Initialize SettingsManager and load defaults
+  async function initializeSettings() {
+    if (!defaultOptions && window.SettingsManager) {
+      defaultOptions = await window.SettingsManager.getDefaultSettings();
+      console.log('[Options] Loaded default options from SettingsManager');
+    }
+    return defaultOptions || {};
+  }
 
   function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -228,8 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.head.appendChild(style);
     }
 
-    const intensity = options.peakLabelAnimationIntensity || 2;
-    const duration = options.peakLabelAnimationDuration || 0.6;
+    const intensity = options.styling?.gauge?.peakLabelAnimationIntensity || 2;
+    const duration = options.styling?.gauge?.peakLabelAnimationDuration || 0.6;
 
     // Use a different class name to avoid any potential conflict with popout styles.
     style.textContent = `
@@ -279,54 +273,234 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateAllPreviews(options) {
     // Gauge Previews
     if (previewGaugeContainer) {
-      const trackRgb = hexToRgb(options.gaugeTrackColor);
-      if (trackRgb) previewGaugeContainer.style.backgroundColor = `rgba(${trackRgb.r}, ${trackRgb.g}, ${trackRgb.b}, ${options.gaugeTrackAlpha})`;
-      const borderRgb = hexToRgb(options.gaugeTrackBorderColor);
-      if (borderRgb) previewGaugeContainer.style.borderColor = `rgba(${borderRgb.r}, ${borderRgb.g}, ${borderRgb.b}, ${options.gaugeTrackBorderAlpha})`;
+      const trackColor = options.styling?.gauge?.gaugeTrackColor;
+      const trackAlpha = options.styling?.gauge?.gaugeTrackAlpha;
+      if (trackColor) {
+        const trackRgb = hexToRgb(trackColor);
+        if (trackRgb) previewGaugeContainer.style.backgroundColor = `rgba(${trackRgb.r}, ${trackRgb.g}, ${trackRgb.b}, ${trackAlpha || 1})`;
+      }
+      
+      const borderColor = options.styling?.gauge?.gaugeTrackBorderColor;
+      const borderAlpha = options.styling?.gauge?.gaugeTrackBorderAlpha;
+      if (borderColor) {
+        const borderRgb = hexToRgb(borderColor);
+        if (borderRgb) previewGaugeContainer.style.borderColor = `rgba(${borderRgb.r}, ${borderRgb.g}, ${borderRgb.b}, ${borderAlpha || 1})`;
+      }
     }
-    if (previewGaugeFill) previewGaugeFill.style.background = `linear-gradient(to right, ${options.gaugeFillGradientStartColor}, ${options.gaugeFillGradientEndColor})`;
-    if (previewRecentMaxIndicator) previewRecentMaxIndicator.style.backgroundColor = options.recentMaxIndicatorColor;
-    if (previewPeakLabelLow) { previewPeakLabelLow.style.color = options.peakLabelLowColor; previewPeakLabelLow.textContent = options.peakLabelLow; }
-    if (previewPeakLabelMid) { previewPeakLabelMid.style.color = options.peakLabelMidColor; previewPeakLabelMid.textContent = options.peakLabelMid; }
-    if (previewPeakLabelHigh) { previewPeakLabelHigh.style.color = options.peakLabelHighColor; previewPeakLabelHigh.textContent = options.peakLabelHigh; }
-    if (previewPeakLabelMax) {
-      previewPeakLabelMax.style.color = options.peakLabelMaxColor;
-      previewPeakLabelMax.textContent = options.peakLabelMax;
-      if (options.enablePeakLabelAnimation) {
+    
+    const gradientStart = options.styling?.gauge?.gaugeFillGradientStartColor;
+    const gradientEnd = options.styling?.gauge?.gaugeFillGradientEndColor;
+    if (previewGaugeFill && gradientStart && gradientEnd) {
+      previewGaugeFill.style.background = `linear-gradient(to right, ${gradientStart}, ${gradientEnd})`;
+    }
+    
+    const indicatorColor = options.styling?.gauge?.recentMaxIndicatorColor;
+    if (previewRecentMaxIndicator && indicatorColor) {
+      previewRecentMaxIndicator.style.backgroundColor = indicatorColor;
+    }
+    
+    // Peak labels
+    const peakLabels = options.styling?.gauge?.peakLabels;
+    if (previewPeakLabelLow && peakLabels?.low) {
+      previewPeakLabelLow.style.color = peakLabels.low.color;
+      previewPeakLabelLow.textContent = peakLabels.low.text;
+    }
+    if (previewPeakLabelMid && peakLabels?.mid) {
+      previewPeakLabelMid.style.color = peakLabels.mid.color;
+      previewPeakLabelMid.textContent = peakLabels.mid.text;
+    }
+    if (previewPeakLabelHigh && peakLabels?.high) {
+      previewPeakLabelHigh.style.color = peakLabels.high.color;
+      previewPeakLabelHigh.textContent = peakLabels.high.text;
+    }
+    if (previewPeakLabelMax && peakLabels?.max) {
+      previewPeakLabelMax.style.color = peakLabels.max.color;
+      previewPeakLabelMax.textContent = peakLabels.max.text;
+      
+      const enableAnimation = options.styling?.gauge?.enablePeakLabelAnimation;
+      if (enableAnimation) {
         injectPreviewAnimationStyles(options);
         previewPeakLabelMax.classList.add('plus2-options-shake-animation');
       } else {
         previewPeakLabelMax.classList.remove('plus2-options-shake-animation');
       }
     }
-    if (gaugePreviewSectionBackground) gaugePreviewSectionBackground.style.backgroundColor = options.chromaKeyColor;
+    
+    const chromaKey = options.display?.chromaKeyColor;
+    if (gaugePreviewSectionBackground && chromaKey) {
+      gaugePreviewSectionBackground.style.backgroundColor = chromaKey;
+    }
 
     // Polling Previews
-    if (previewYesPollSegment) previewYesPollSegment.style.backgroundColor = options.yesPollBarColor;
-    if (previewNoPollSegment) previewNoPollSegment.style.backgroundColor = options.noPollBarColor;
-    if (previewPollTextColor) previewPollTextColor.style.color = options.pollTextColor;
+    const yesPollColor = options.styling?.polling?.yesPollBarColor;
+    const noPollColor = options.styling?.polling?.noPollBarColor;
+    const pollTextColor = options.styling?.polling?.pollTextColor;
+    
+    if (previewYesPollSegment && yesPollColor) previewYesPollSegment.style.backgroundColor = yesPollColor;
+    if (previewNoPollSegment && noPollColor) previewNoPollSegment.style.backgroundColor = noPollColor;
+    if (previewPollTextColor && pollTextColor) previewPollTextColor.style.color = pollTextColor;
 
     // Leaderboard Previews
-    if (previewLeaderboardContainer) {
-      const leaderRgb = hexToRgb(options.leaderboardBackgroundColor);
-      if (leaderRgb) previewLeaderboardContainer.style.backgroundColor = `rgba(${leaderRgb.r}, ${leaderRgb.g}, ${leaderRgb.b}, ${options.leaderboardBackgroundAlpha})`;
+    const leaderboardBgColor = options.styling?.leaderboard?.leaderboardBackgroundColor;
+    const leaderboardBgAlpha = options.styling?.leaderboard?.leaderboardBackgroundAlpha;
+    if (previewLeaderboardContainer && leaderboardBgColor) {
+      const leaderRgb = hexToRgb(leaderboardBgColor);
+      if (leaderRgb) previewLeaderboardContainer.style.backgroundColor = `rgba(${leaderRgb.r}, ${leaderRgb.g}, ${leaderRgb.b}, ${leaderboardBgAlpha || 1})`;
     }
+    
+    const leaderboardTextColor = options.styling?.leaderboard?.leaderboardTextColor;
+    const leaderboardHeaderText = options.styling?.leaderboard?.leaderboardHeaderText;
     if (previewLeaderboardHeader) {
-      previewLeaderboardHeader.style.color = options.leaderboardTextColor;
-      previewLeaderboardHeader.textContent = options.leaderboardHeaderText;
+      if (leaderboardTextColor) previewLeaderboardHeader.style.color = leaderboardTextColor;
+      if (leaderboardHeaderText) previewLeaderboardHeader.textContent = leaderboardHeaderText;
     }
-    if (previewLeaderboardList) previewLeaderboardList.style.color = options.leaderboardTextColor;
-    if (leaderboardPreviewSectionBackground) leaderboardPreviewSectionBackground.style.backgroundColor = options.chromaKeyColor;
+    if (previewLeaderboardList && leaderboardTextColor) previewLeaderboardList.style.color = leaderboardTextColor;
+    if (leaderboardPreviewSectionBackground && chromaKey) leaderboardPreviewSectionBackground.style.backgroundColor = chromaKey;
   }
 
-  function populateForm(options) {
-    Object.keys(defaultOptions).forEach(key => {
-      if (key === 'webhookEvents') return; // Handle webhookEvents separately
-      
+  async function populateForm(options) {
+    const currentDefaults = await initializeSettings();
+    
+    // Map flat keys to nested paths
+    const nestedMap = {
+          'chromaKeyColor': 'display.chromaKeyColor',
+          'popoutBaseFontSize': 'display.popoutBaseFontSize',
+          'popoutDefaultWidth': 'display.popoutDefaultWidth',
+          'popoutDefaultHeight': 'display.popoutDefaultHeight',
+          'displayTime': 'display.displayTime',
+          'stringToCount': 'core.stringToCount',
+          'exactMatchCounting': 'core.exactMatchCounting',
+          'enableCounting': 'core.enableCounting',
+          'enableHighlightTracking': 'features.enableHighlightTracking',
+          'appendMessages': 'features.appendMessages',
+          'enableUnifiedPolling': 'polling.unified.enabled',
+          'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
+          'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
+          'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
+          'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
+          'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
+          'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
+          'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
+          'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
+          'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
+          'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+          'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
+          'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
+          'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
+          'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+          'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
+          'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
+          'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
+          'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+          'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
+          'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
+          'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
+          'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+          'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+          'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
+          'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+          'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
+          'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
+          'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
+          'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
+          'enableLeaderboard': 'features.enableLeaderboard',
+          'enableWebhookIntegration': 'features.enableWebhookIntegration',
+          'enableYouTube': 'features.enableYouTube',
+          'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+          'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+          'enableReplyTooltip': 'features.enableReplyTooltip',
+          'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
+          'enableStreamview': 'integrations.streamview.enabled',
+          'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
+          'enableChannelIdOverride': 'features.enableChannelIdOverride',
+          'messageBGColor': 'styling.messageBGColor',
+          'paragraphTextColor': 'styling.paragraphTextColor',
+          'enableUsernameColoring': 'styling.enableUsernameColoring',
+          'usernameDefaultColor': 'styling.usernameDefaultColor',
+          'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
+          'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
+          'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
+          'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
+          'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
+          'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
+          'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
+          'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
+          'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
+          'peakLabelLow': 'styling.gauge.peakLabels.low.text',
+          'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
+          'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
+          'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
+          'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
+          'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
+          'peakLabelMax': 'styling.gauge.peakLabels.max.text',
+          'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
+          'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
+          'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
+          'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
+          'decayInterval': 'behavior.decayInterval',
+          'decayAmount': 'behavior.decayAmount',
+          'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
+          'dockingBehavior': 'behavior.dockingBehavior',
+          'autoOpenPopout': 'behavior.autoOpenPopout',
+          'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
+          'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
+          'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
+          'leaderboardHighlightValue': 'leaderboard.highlightValue',
+          'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
+          'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
+          'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
+          'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
+          'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
+          'webhookEndpoint': 'integrations.webhook.endpoint',
+          'webhookApiKey': 'integrations.webhook.apiKey',
+          'webhookEvents': 'integrations.webhook.events',
+          'enableStreamview': 'integrations.streamview.enabled',
+          'streamviewBaseUrl': 'integrations.streamview.baseUrl',
+          'streamviewSecretKey': 'integrations.streamview.secretKey',
+          'currentStreamview': 'integrations.streamview.current',
+          'browserSourceStyle': 'integrations.streamview.browserSourceStyle'
+        };
+    
+    // Helper function to get nested values 
+    function getNestedValue(obj, key) {
+      // First try the flat key (for backward compatibility)
+      if (obj[key] !== undefined) {
+        return obj[key];
+      }
+        
+        // Try nested path
+        const nestedPath = nestedMap[key];
+        if (nestedPath === null) {
+          // UI-only field that doesn't need storage
+          return undefined;
+        }
+        if (nestedPath) {
+          const keys = nestedPath.split('.');
+          let value = obj;
+          for (const k of keys) {
+            if (value && typeof value === 'object' && value[k] !== undefined) {
+              value = value[k];
+            } else {
+              return undefined;
+            }
+          }
+          return value;
+        }
+        
+        return undefined;
+      }
+    
+    // Iterate over all form fields that have mappings
+    Object.keys(nestedMap).forEach(key => {
       const element = document.getElementById(key);
       if (!element) return;
-
-      const value = options[key] !== undefined ? options[key] : defaultOptions[key];
+      
+      const value = getNestedValue(options, key);
+      if (value === undefined) {
+        console.warn(`[Options] Could not find value for key: ${key}`);
+        return; // Skip this element if we can't find a value
+      }
+      
       if (element.type === 'checkbox') {
         element.checked = value;
       } else if (element.type === 'range') {
@@ -343,15 +517,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Handle webhookEvents object separately
-    const webhookEvents = options.webhookEvents || defaultOptions.webhookEvents;
-    if (webhookChatMessagesInput) webhookChatMessagesInput.checked = webhookEvents.chatMessages;
-    if (webhookHighlightMessagesInput) webhookHighlightMessagesInput.checked = webhookEvents.highlightMessages;
-    if (webhookGaugeUpdatesInput) webhookGaugeUpdatesInput.checked = webhookEvents.gaugeUpdates;
-    if (webhookPollUpdatesInput) webhookPollUpdatesInput.checked = webhookEvents.pollUpdates;
-    if (webhookLeaderboardUpdatesInput) webhookLeaderboardUpdatesInput.checked = webhookEvents.leaderboardUpdates;
+    const webhookEvents = options.integrations?.webhook?.events || currentDefaults.integrations?.webhook?.events;
+    if (webhookChatMessagesInput && webhookEvents) webhookChatMessagesInput.checked = webhookEvents.chatMessages;
+    if (webhookHighlightMessagesInput && webhookEvents) webhookHighlightMessagesInput.checked = webhookEvents.highlightMessages;
+    if (webhookGaugeUpdatesInput && webhookEvents) webhookGaugeUpdatesInput.checked = webhookEvents.gaugeUpdates;
+    if (webhookPollUpdatesInput && webhookEvents) webhookPollUpdatesInput.checked = webhookEvents.pollUpdates;
+    if (webhookLeaderboardUpdatesInput && webhookEvents) webhookLeaderboardUpdatesInput.checked = webhookEvents.leaderboardUpdates;
 
     // Handle radio buttons for dockingBehavior separately
-    const dockingValue = options.dockingBehavior || defaultOptions.dockingBehavior;
+    const dockingValue = options.behavior?.dockingBehavior || currentDefaults.behavior?.dockingBehavior;
     const radioToCheck = document.querySelector(`input[name="dockingBehavior"][value="${dockingValue}"]`);
     if (radioToCheck) {
         radioToCheck.checked = true;
@@ -359,8 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Toggle visibility of conditional sections
     toggleSection(enableCountingInput, countingOptionsContainer);
-    toggleSection(enableYesNoPollingInput, yesNoPollingOptionsContainer);
-    toggleSection(enableGenericPollingInput, genericPollingOptionsContainer);
+    toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer);
     toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
     toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
     if (enableWebhookIntegrationInput && webhookOptionsContainer) {
@@ -377,63 +550,398 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAllPreviews(options);
   }
 
-  function saveOptions() {
+  // Helper function to set nested property using dot notation
+  function setNestedProperty(obj, path, value) {
+    if (path === null || path === undefined) {
+      // Skip UI-only fields that don't need storage
+      return;
+    }
+    const keys = path.split('.');
+    let current = obj;
+    
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      if (!current[key] || typeof current[key] !== 'object') {
+        current[key] = {};
+      }
+      current = current[key];
+    }
+    
+    current[keys[keys.length - 1]] = value;
+  }
+
+  async function saveOptions() {
     const optionsToSave = {};
-    Object.keys(defaultOptions).forEach(key => {
-      if (key === 'webhookEvents') return; // Handle webhookEvents separately
-      
-      const element = document.getElementById(key);
+    const currentDefaults = await initializeSettings();
+    
+    // Mapping from flat form element IDs to nested paths (reuse from populateForm)
+    const nestedMap = {
+      'chromaKeyColor': 'display.chromaKeyColor',
+      'popoutBaseFontSize': 'display.popoutBaseFontSize',
+      'popoutDefaultWidth': 'display.popoutDefaultWidth',
+      'popoutDefaultHeight': 'display.popoutDefaultHeight',
+      'displayTime': 'display.displayTime',
+      'stringToCount': 'core.stringToCount',
+      'exactMatchCounting': 'core.exactMatchCounting',
+      'enableCounting': 'core.enableCounting',
+      'enableHighlightTracking': 'features.enableHighlightTracking',
+      'appendMessages': 'features.appendMessages',
+      'enableUnifiedPolling': 'polling.unified.enabled',
+      'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
+      'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
+      'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
+      'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
+      'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
+      'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
+      'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
+      'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
+      'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
+      'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+      'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
+      'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
+      'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
+      'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+      'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
+      'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
+      'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
+      'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+      'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
+      'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
+      'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
+      'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+      'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+      'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
+      'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+      'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
+      'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
+      'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
+      'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
+      'enableLeaderboard': 'features.enableLeaderboard',
+      'enableWebhookIntegration': 'features.enableWebhookIntegration',
+      'enableYouTube': 'features.enableYouTube',
+      'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+      'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+      'enableReplyTooltip': 'features.enableReplyTooltip',
+      'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
+      'enableStreamview': 'integrations.streamview.enabled',
+      'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
+      'enableChannelIdOverride': 'features.enableChannelIdOverride',
+      'messageBGColor': 'styling.messageBGColor',
+      'paragraphTextColor': 'styling.paragraphTextColor',
+      'enableUsernameColoring': 'styling.enableUsernameColoring',
+      'usernameDefaultColor': 'styling.usernameDefaultColor',
+      'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
+      'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
+      'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
+      'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
+      'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
+      'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
+      'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
+      'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
+      'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
+      'peakLabelLow': 'styling.gauge.peakLabels.low.text',
+      'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
+      'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
+      'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
+      'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
+      'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
+      'peakLabelMax': 'styling.gauge.peakLabels.max.text',
+      'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
+      'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
+      'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
+      'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
+      'decayInterval': 'behavior.decayInterval',
+      'decayAmount': 'behavior.decayAmount',
+      'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
+      'dockingBehavior': 'behavior.dockingBehavior',
+      'autoOpenPopout': 'behavior.autoOpenPopout',
+      'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
+      'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
+      'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
+      'leaderboardHighlightValue': 'leaderboard.highlightValue',
+      'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
+      'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
+      'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
+      'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
+      'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
+      'webhookEndpoint': 'integrations.webhook.endpoint',
+      'webhookApiKey': 'integrations.webhook.apiKey',
+      'enableStreamview': 'integrations.streamview.enabled',
+      'streamviewBaseUrl': 'integrations.streamview.baseUrl',
+      'streamviewSecretKey': 'integrations.streamview.secretKey',
+      'currentStreamview': 'integrations.streamview.current',
+      'browserSourceStyle': 'integrations.streamview.browserSourceStyle'
+    };
+    
+    // Process each form element and map it to nested structure
+    Object.keys(nestedMap).forEach(elementId => {
+      const element = document.getElementById(elementId);
       if (element) {
+        let value;
         if (element.type === 'checkbox') {
-          optionsToSave[key] = element.checked;
-        } else if (typeof defaultOptions[key] === 'number') {
+          value = element.checked;
+        } else if (element.type === 'number' || element.type === 'range') {
           const num = parseFloat(element.value);
-          optionsToSave[key] = !isNaN(num) ? num : defaultOptions[key];
+          value = !isNaN(num) ? num : 0;
         } else {
-          optionsToSave[key] = element.value;
+          value = element.value;
         }
+        
+        console.log(`[Options] Saving ${elementId} = ${value} to path ${nestedMap[elementId]}`);
+        setNestedProperty(optionsToSave, nestedMap[elementId], value);
       }
     });
     
-    // Handle webhookEvents object separately
-    optionsToSave.webhookEvents = {
-      chatMessages: webhookChatMessagesInput ? webhookChatMessagesInput.checked : defaultOptions.webhookEvents.chatMessages,
-      highlightMessages: webhookHighlightMessagesInput ? webhookHighlightMessagesInput.checked : defaultOptions.webhookEvents.highlightMessages,
-      gaugeUpdates: webhookGaugeUpdatesInput ? webhookGaugeUpdatesInput.checked : defaultOptions.webhookEvents.gaugeUpdates,
-      pollUpdates: webhookPollUpdatesInput ? webhookPollUpdatesInput.checked : defaultOptions.webhookEvents.pollUpdates,
-      leaderboardUpdates: webhookLeaderboardUpdatesInput ? webhookLeaderboardUpdatesInput.checked : defaultOptions.webhookEvents.leaderboardUpdates
-    };
+    // Handle special cases
     
+    // Handle webhookEvents object 
+    setNestedProperty(optionsToSave, 'integrations.webhook.events', {
+      chatMessages: webhookChatMessagesInput ? webhookChatMessagesInput.checked : false,
+      highlightMessages: webhookHighlightMessagesInput ? webhookHighlightMessagesInput.checked : false,
+      gaugeUpdates: webhookGaugeUpdatesInput ? webhookGaugeUpdatesInput.checked : false,
+      pollUpdates: webhookPollUpdatesInput ? webhookPollUpdatesInput.checked : false,
+      leaderboardUpdates: webhookLeaderboardUpdatesInput ? webhookLeaderboardUpdatesInput.checked : false
+    });
+    
+    // Handle radio buttons for dockingBehavior
     const selectedDockingRadio = document.querySelector('input[name="dockingBehavior"]:checked');
-    optionsToSave.dockingBehavior = selectedDockingRadio ? selectedDockingRadio.value : 'none';
+    if (selectedDockingRadio) {
+      setNestedProperty(optionsToSave, 'behavior.dockingBehavior', selectedDockingRadio.value);
+    }
 
     // Special handling for leaderboard dependency
-    optionsToSave.enableLeaderboard = enableHighlightTrackingInput.checked && enableLeaderboardInput.checked;
+    if (enableHighlightTrackingInput && enableLeaderboardInput) {
+      setNestedProperty(optionsToSave, 'features.enableLeaderboard', enableHighlightTrackingInput.checked && enableLeaderboardInput.checked);
+    }
     
     // Include browser source styling options
     if (window.browserSourceOptions) {
       // Validate and fix any invalid heights before saving
       const validatedBrowserSourceOptions = validateBrowserSourceOptions(window.browserSourceOptions);
-      optionsToSave.browserSourceStyle = validatedBrowserSourceOptions;
+      setNestedProperty(optionsToSave, 'integrations.streamview.browserSourceStyle', validatedBrowserSourceOptions);
     }
 
     // Preserve currentStreamview when saving options
-    return browser.storage.sync.get(['currentStreamview']).then(({ currentStreamview }) => {
-      if (currentStreamview) {
-        optionsToSave.currentStreamview = currentStreamview;
+    const existingSettings = await window.SettingsManager.getAllSettings();
+    if (existingSettings.integrations?.streamview?.current) {
+      setNestedProperty(optionsToSave, 'integrations.streamview.current', existingSettings.integrations.streamview.current);
+    }
+    
+    console.log('[Options] Final optionsToSave structure:', JSON.stringify(optionsToSave, null, 2));
+    await window.SettingsManager.setSettings(optionsToSave);
+    showStatus('Options saved!');
+    
+    // Auto-sync to streamview removed - browser source is now configured independently via web UI
+  }
+
+  // --- Sentiment Groups Management ---
+  let sentimentGroups = [];
+  
+  async function loadSentimentGroups(settings) {
+    try {
+      // Use SettingsManager if available, fallback to passed settings
+      let sentimentGroupsJson;
+      if (window.SettingsManager) {
+        sentimentGroupsJson = await window.SettingsManager.getSetting('unifiedPollingSentimentGroups');
+      } else {
+        sentimentGroupsJson = settings.polling?.types?.sentiment?.groups;
       }
-      return browser.storage.sync.set(optionsToSave);
-    }).then(async () => {
-      showStatus('Options saved!');
       
-      // Auto-sync to streamview removed - browser source is now configured independently via web UI
+      sentimentGroups = JSON.parse(sentimentGroupsJson || '[]');
+      console.log('[Options] Loaded sentiment groups:', sentimentGroups);
+    } catch (e) {
+      console.error('Error parsing sentiment groups:', e);
+      sentimentGroups = [];
+    }
+    renderSentimentGroups();
+  }
+  
+  async function saveSentimentGroups() {
+    const groupsJson = JSON.stringify(sentimentGroups);
+    
+    try {
+      // Use SettingsManager if available, fallback to direct storage
+      if (window.SettingsManager) {
+        // Save using nested structure
+        const nestedUpdate = {
+          polling: {
+            generic: {
+              sentiment: {
+                groups: groupsJson
+              }
+            }
+          }
+        };
+        await window.SettingsManager.setSettings(nestedUpdate);
+        console.log('[Options] Saved sentiment groups via SettingsManager');
+      } else {
+        const currentOptions = await browser.storage.sync.get();
+        const updatedOptions = {
+          ...currentOptions,
+          unifiedPollingSentimentGroups: groupsJson
+        };
+        await browser.storage.sync.set(updatedOptions);
+        console.log('[Options] Saved sentiment groups via direct storage');
+      }
+      
+      showStatus('Sentiment groups saved!');
+    } catch (error) {
+      console.error('Error saving sentiment groups:', error);
+      showStatus('Error saving sentiment groups');
+    }
+  }
+  
+  function initializeSentimentGroupsUI() {
+    const addBtn = document.getElementById('addSentimentGroupBtn');
+    if (addBtn) {
+      addBtn.addEventListener('click', addSentimentGroup);
+    }
+  }
+  
+  function addSentimentGroup() {
+    const newGroup = {
+      label: '',
+      words: [],
+      partialMatch: false
+    };
+    sentimentGroups.push(newGroup);
+    renderSentimentGroups();
+    saveSentimentGroups();
+  }
+  
+  function renderSentimentGroups() {
+    const container = document.getElementById('sentimentGroupsList');
+    const noGroupsMessage = document.getElementById('noGroupsMessage');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Show/hide no groups message
+    if (noGroupsMessage) {
+      noGroupsMessage.style.display = sentimentGroups.length === 0 ? 'block' : 'none';
+    }
+    
+    sentimentGroups.forEach((group, index) => {
+      const groupElement = document.createElement('div');
+      groupElement.className = 'sentiment-group';
+      groupElement.style.cssText = 'border: 1px solid #ccc; border-radius: 6px; padding: 15px; margin: 10px 0; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);';
+      
+      groupElement.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+          <h4 style="margin: 0; color: #333; flex: 1;">Group ${index + 1}</h4>
+          <button type="button" class="delete-group-btn" data-index="${index}" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 12px; transition: background 0.2s;">Delete</button>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #555;">Group Label:</label>
+          <input type="text" class="group-label" data-index="${index}" value="${group.label || ''}" placeholder="e.g., Positive, Negative, Gaming" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #555;">Words/Phrases (comma-separated):</label>
+          <textarea class="group-words" data-index="${index}" placeholder="e.g., awesome, amazing, great, nice job, well done" style="width: 100%; height: 70px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; font-family: inherit; font-size: 14px;">${(group.words || []).join(', ')}</textarea>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; font-weight: 500; color: #555;">
+            <input type="checkbox" class="group-partial-match" data-index="${index}" ${group.partialMatch ? 'checked' : ''} style="margin-right: 8px;">
+            Enable partial matching
+          </label>
+          <small style="color: #666; margin-left: 24px; line-height: 1.4;">When enabled, "good" will match "good job", "goodness", "so good", etc. Otherwise only exact matches work.</small>
+        </div>
+      `;
+      
+      container.appendChild(groupElement);
+    });
+    
+    // Remove old event listeners and add new ones
+    const oldContainer = container.cloneNode(true);
+    container.parentNode.replaceChild(oldContainer, container);
+    
+    // Add event listeners for the new container
+    oldContainer.addEventListener('input', handleGroupInputChange);
+    oldContainer.addEventListener('click', handleGroupButtonClick);
+    
+    // Update the hidden textarea for compatibility
+    updateHiddenTextarea();
+  }
+  
+  function updateHiddenTextarea() {
+    const textarea = document.getElementById('unifiedPollingSentimentGroups');
+    if (textarea) {
+      textarea.value = JSON.stringify(sentimentGroups);
+    }
+  }
+  
+  function handleGroupInputChange(e) {
+    const index = parseInt(e.target.dataset.index);
+    if (isNaN(index) || !sentimentGroups[index]) return;
+    
+    if (e.target.classList.contains('group-label')) {
+      sentimentGroups[index].label = e.target.value;
+    } else if (e.target.classList.contains('group-words')) {
+      const words = e.target.value.split(',').map(w => w.trim()).filter(w => w.length > 0);
+      sentimentGroups[index].words = words;
+    } else if (e.target.classList.contains('group-partial-match')) {
+      sentimentGroups[index].partialMatch = e.target.checked;
+    }
+    
+    // Update hidden textarea immediately
+    updateHiddenTextarea();
+    
+    // Auto-save after a short delay
+    clearTimeout(handleGroupInputChange.timeout);
+    handleGroupInputChange.timeout = setTimeout(() => {
+      saveSentimentGroups();
+    }, 1000);
+  }
+  
+  function handleGroupButtonClick(e) {
+    if (e.target.classList.contains('delete-group-btn')) {
+      const index = parseInt(e.target.dataset.index);
+      if (isNaN(index)) return;
+      
+      const groupName = sentimentGroups[index]?.label || `Group ${index + 1}`;
+      if (confirm(`Are you sure you want to delete "${groupName}"?`)) {
+        sentimentGroups.splice(index, 1);
+        renderSentimentGroups();
+        saveSentimentGroups();
+      }
+    }
+  }
+  
+  function addSentimentGroup() {
+    const newGroup = {
+      label: '',
+      words: [],
+      partialMatch: false
+    };
+    sentimentGroups.push(newGroup);
+    renderSentimentGroups();
+    
+    // Focus on the new group's label field
+    setTimeout(() => {
+      const newGroupElement = document.querySelector('.sentiment-group:last-child .group-label');
+      if (newGroupElement) newGroupElement.focus();
+    }, 100);
+  }
+  
+  // Initialize sentiment groups functionality
+  const addSentimentGroupBtn = document.getElementById('addSentimentGroup');
+  if (addSentimentGroupBtn) {
+    addSentimentGroupBtn.addEventListener('click', addSentimentGroup);
+    
+    // Add hover effects (moved from inline handlers to fix CSP violation)
+    addSentimentGroupBtn.addEventListener('mouseover', function() {
+      this.style.backgroundColor = '#45a049';
+    });
+    addSentimentGroupBtn.addEventListener('mouseout', function() {
+      this.style.backgroundColor = '#4CAF50';
     });
   }
 
-  function resetToDefaults() {
+  async function resetToDefaults() {
     if (confirm("Are you sure you want to reset all options to their default values?")) {
-      populateForm(defaultOptions);
-      saveOptions();
+      const currentDefaults = await initializeSettings();
+      await populateForm(currentDefaults);
+      await saveOptions();
       showStatus('Options have been reset to defaults!');
     }
   }
@@ -456,8 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   enable7TVCompatInput.addEventListener('change', handleCompatibilityToggles);
   enableCountingInput.addEventListener('change', () => toggleSection(enableCountingInput, countingOptionsContainer));
-  enableYesNoPollingInput.addEventListener('change', () => toggleSection(enableYesNoPollingInput, yesNoPollingOptionsContainer));
-  enableGenericPollingInput.addEventListener('change', () => toggleSection(enableGenericPollingInput, genericPollingOptionsContainer));
+  enableUnifiedPollingInput.addEventListener('change', () => toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer));
   enableHighlightTrackingInput.addEventListener('change', () => {
       toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
       // If tracking is disabled, leaderboard must also be disabled
@@ -1324,45 +1831,180 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Live preview listeners - use both 'input' and 'change' events
   document.querySelectorAll('input, select, textarea').forEach(el => {
-    const handler = () => {
-      const currentOptions = {};
-      Object.keys(defaultOptions).forEach(key => {
-        if (key === 'webhookEvents') return; // Handle webhookEvents separately
-        
-        const element = document.getElementById(key);
+    const handler = async () => {
+      // For live preview, we need to build the current options in nested format 
+      // just like the saveOptions function does, so populateForm can handle it properly
+      const currentDefaults = await initializeSettings();
+      const currentOptions = JSON.parse(JSON.stringify(currentDefaults)); // Deep copy defaults first
+      
+      // Mapping from flat form element IDs to nested paths (same as in saveOptions)
+      const nestedMap = {
+        'chromaKeyColor': 'display.chromaKeyColor',
+        'popoutBaseFontSize': 'display.popoutBaseFontSize',
+        'popoutDefaultWidth': 'display.popoutDefaultWidth',
+        'popoutDefaultHeight': 'display.popoutDefaultHeight',
+        'displayTime': 'display.displayTime',
+        'stringToCount': 'core.stringToCount',
+        'exactMatchCounting': 'core.exactMatchCounting',
+        'enableCounting': 'core.enableCounting',
+        'enableHighlightTracking': 'features.enableHighlightTracking',
+        'appendMessages': 'features.appendMessages',
+        'enableUnifiedPolling': 'polling.unified.enabled',
+        'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
+        'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
+        'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
+        'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
+        'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
+        'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
+        'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
+        'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
+        'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
+        'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+        'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
+        'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
+        'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
+        'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+        'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
+        'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
+        'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
+        'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+        'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
+        'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
+        'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
+        'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+        'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+        'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
+        'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+        'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
+        'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
+        'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
+        'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
+        'enableLeaderboard': 'features.enableLeaderboard',
+        'enableWebhookIntegration': 'features.enableWebhookIntegration',
+        'enableYouTube': 'features.enableYouTube',
+        'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+        'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+        'enableReplyTooltip': 'features.enableReplyTooltip',
+        'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
+        'enableStreamview': 'integrations.streamview.enabled',
+        'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
+        'enableChannelIdOverride': 'features.enableChannelIdOverride',
+        'messageBGColor': 'styling.messageBGColor',
+        'paragraphTextColor': 'styling.paragraphTextColor',
+        'enableUsernameColoring': 'styling.enableUsernameColoring',
+        'usernameDefaultColor': 'styling.usernameDefaultColor',
+        'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
+        'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
+        'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
+        'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
+        'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
+        'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
+        'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
+        'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
+        'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
+        'peakLabelLow': 'styling.gauge.peakLabels.low.text',
+        'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
+        'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
+        'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
+        'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
+        'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
+        'peakLabelMax': 'styling.gauge.peakLabels.max.text',
+        'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
+        'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
+        'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
+        'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
+        'decayInterval': 'behavior.decayInterval',
+        'decayAmount': 'behavior.decayAmount',
+        'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
+        'dockingBehavior': 'behavior.dockingBehavior',
+        'autoOpenPopout': 'behavior.autoOpenPopout',
+        'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
+        'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
+        'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
+        'leaderboardHighlightValue': 'leaderboard.highlightValue',
+        'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
+        'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
+        'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
+        'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
+        'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
+        'webhookEndpoint': 'integrations.webhook.endpoint',
+        'webhookApiKey': 'integrations.webhook.apiKey',
+        'enableStreamview': 'integrations.streamview.enabled',
+        'streamviewBaseUrl': 'integrations.streamview.baseUrl',
+        'streamviewSecretKey': 'integrations.streamview.secretKey'
+      };
+      
+      // Update currentOptions based on form elements
+      Object.keys(nestedMap).forEach(elementId => {
+        const element = document.getElementById(elementId);
         if (element) {
-          if (element.type === 'checkbox') currentOptions[key] = element.checked;
-          else if (typeof defaultOptions[key] === 'number') {
+          let value;
+          if (element.type === 'checkbox') {
+            value = element.checked;
+          } else if (element.type === 'number' || element.type === 'range') {
             const num = parseFloat(element.value);
-            currentOptions[key] = !isNaN(num) ? num : defaultOptions[key];
-          } else currentOptions[key] = element.value;
+            value = !isNaN(num) ? num : 0;
+          } else {
+            value = element.value;
+          }
+          
+          // Use the same setNestedProperty helper
+          setNestedProperty(currentOptions, nestedMap[elementId], value);
         }
       });
 
-      // Handle webhookEvents object separately for live preview
-      currentOptions.webhookEvents = {
-        chatMessages: webhookChatMessagesInput ? webhookChatMessagesInput.checked : defaultOptions.webhookEvents.chatMessages,
-        highlightMessages: webhookHighlightMessagesInput ? webhookHighlightMessagesInput.checked : defaultOptions.webhookEvents.highlightMessages,
-        gaugeUpdates: webhookGaugeUpdatesInput ? webhookGaugeUpdatesInput.checked : defaultOptions.webhookEvents.gaugeUpdates,
-        pollUpdates: webhookPollUpdatesInput ? webhookPollUpdatesInput.checked : defaultOptions.webhookEvents.pollUpdates,
-        leaderboardUpdates: webhookLeaderboardUpdatesInput ? webhookLeaderboardUpdatesInput.checked : defaultOptions.webhookEvents.leaderboardUpdates
+      // Handle webhookEvents object separately for live preview - use nested structure
+      if (!currentOptions.integrations) currentOptions.integrations = {};
+      if (!currentOptions.integrations.webhook) currentOptions.integrations.webhook = {};
+      currentOptions.integrations.webhook.events = {
+        chatMessages: webhookChatMessagesInput ? webhookChatMessagesInput.checked : currentDefaults.integrations?.webhook?.events?.chatMessages || false,
+        highlightMessages: webhookHighlightMessagesInput ? webhookHighlightMessagesInput.checked : currentDefaults.integrations?.webhook?.events?.highlightMessages || false,
+        gaugeUpdates: webhookGaugeUpdatesInput ? webhookGaugeUpdatesInput.checked : currentDefaults.integrations?.webhook?.events?.gaugeUpdates || false,
+        pollUpdates: webhookPollUpdatesInput ? webhookPollUpdatesInput.checked : currentDefaults.integrations?.webhook?.events?.pollUpdates || false,
+        leaderboardUpdates: webhookLeaderboardUpdatesInput ? webhookLeaderboardUpdatesInput.checked : currentDefaults.integrations?.webhook?.events?.leaderboardUpdates || false
       };
 
-      // Correctly read the value of the selected radio button for live updates.
+      // Correctly read the value of the selected radio button for live updates - use nested structure
+      if (!currentOptions.behavior) currentOptions.behavior = {};
       const selectedDockingRadio = document.querySelector('input[name="dockingBehavior"]:checked');
-      currentOptions.dockingBehavior = selectedDockingRadio ? selectedDockingRadio.value : defaultOptions.dockingBehavior;
+      currentOptions.behavior.dockingBehavior = selectedDockingRadio ? selectedDockingRadio.value : currentDefaults.behavior?.dockingBehavior || 'none';
 
-      populateForm(currentOptions); // This re-populates and updates previews
+      await populateForm(currentOptions); // This re-populates and updates previews
     };
     
     el.addEventListener('input', handler);
     el.addEventListener('change', handler);
   });
 
+  // --- Settings Validation ---
+  function validateImportedSettings(importedSettings, defaultSettings) {
+    const validatedSettings = {};
+    
+    // Only include settings that exist in the current schema
+    Object.keys(defaultSettings).forEach(key => {
+      if (importedSettings.hasOwnProperty(key)) {
+        // Basic type validation
+        const defaultValue = defaultSettings[key];
+        const importedValue = importedSettings[key];
+        
+        if (typeof defaultValue === typeof importedValue) {
+          validatedSettings[key] = importedValue;
+        } else {
+          console.warn(`[Settings Import] Type mismatch for ${key}, using default value`);
+          validatedSettings[key] = defaultValue;
+        }
+      } else {
+        validatedSettings[key] = defaultSettings[key];
+      }
+    });
+    
+    return validatedSettings;
+  }
+
   // --- Data Management Logic ---
-  exportButton.addEventListener('click', () => {
-    const keysToExport = [...Object.keys(defaultOptions)];
-    browser.storage.sync.get(keysToExport).then(settings => {
+  exportButton.addEventListener('click', async () => {
+    try {
+      const settings = await window.SettingsManager.getAllSettings();
       const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1370,19 +2012,27 @@ document.addEventListener('DOMContentLoaded', () => {
       a.download = 'plus2-settings.json';
       a.click();
       URL.revokeObjectURL(url);
-    });
+      showStatus('Settings exported successfully!');
+    } catch (error) {
+      console.error('Error exporting settings:', error);
+      showStatus('Error exporting settings. Please try again.');
+    }
   });
 
   importFileElement.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const importedSettings = JSON.parse(e.target.result);
         if (typeof importedSettings === 'object' && importedSettings !== null) {
-          populateForm(importedSettings);
-          saveOptions();
+          // Validate imported settings against current schema
+          const currentDefaults = await initializeSettings();
+          const validatedSettings = validateImportedSettings(importedSettings, currentDefaults);
+          
+          await populateForm(validatedSettings);
+          await saveOptions();
           showStatus('Settings imported successfully!');
         } else {
           alert('Error: Invalid settings file format.');
@@ -1427,8 +2077,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Initial load
-  browser.storage.sync.get(defaultOptions).then(options => {
-    populateForm(options);
+  initializeSettings().then(async defaultSettings => {
+    const options = await window.SettingsManager.getAllSettings();
+    await populateForm(options);
+    
+    // Load sentiment groups on initial page load
+    await loadSentimentGroups();
+    
+    // Initialize sentiment groups UI
+    initializeSentimentGroupsUI();
+    
     loadActiveStreamview(); // Always load streamview display regardless of enableStreamview setting
     initializeBrowserSourceStyle(options);
     
@@ -2023,21 +2681,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Auto-save function
-  function autoSaveBrowserSourceStyles() {
+  async function autoSaveBrowserSourceStyles() {
     const browserSourceOptions = getCurrentBrowserSourceOptions();
     
-    // Save to browser storage
-    browser.storage.sync.get(defaultOptions).then(currentOptions => {
-      const updatedOptions = {
-        ...currentOptions,
+    // Save via SettingsManager
+    try {
+      await window.SettingsManager.setSettings({
         browserSourceStyle: browserSourceOptions
-      };
-      
-      return browser.storage.sync.set(updatedOptions);
-    }).then(() => {
+      });
       // Optionally show a subtle save indicator
-    }).catch(error => {
-    });
+    } catch (error) {
+      console.error('Error auto-saving browser source styles:', error);
+    }
   }
 
   // Debounce function for performance
@@ -2416,22 +3071,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function saveBrowserSourceStyles() {
+  async function saveBrowserSourceStyles() {
     const browserSourceOptions = getCurrentBrowserSourceOptions();
     
-    // Save to browser storage
-    browser.storage.sync.get(defaultOptions).then(currentOptions => {
-      const updatedOptions = {
-        ...currentOptions,
+    // Save via SettingsManager
+    try {
+      await window.SettingsManager.setSettings({
         browserSourceStyle: browserSourceOptions
-      };
-      
-      return browser.storage.sync.set(updatedOptions);
-    }).then(() => {
+      });
       showStatus('Browser Source styles saved successfully!');
-    }).catch(error => {
+    } catch (error) {
       showStatus('Error saving styles. Please try again.');
-    });
+      console.error('Error saving browser source styles:', error);
+    }
   }
 
   // Utility functions

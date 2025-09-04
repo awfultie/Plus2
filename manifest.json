@@ -51,7 +51,7 @@
     "128": "icons/Plus2_128.png"
   },
   "web_accessible_resources": [{
-    "resources": ["icons/Plus2_128.png", "ui/popout.html"],
+    "resources": ["icons/Plus2_128.png", "ui/popout.html", "config/default-settings.json"],
     "matches": ["*://*.twitch.tv/*", "*://*.youtube.com/*"]
   }],
   "content_security_policy": {

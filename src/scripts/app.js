@@ -20,7 +20,7 @@
         const isYouTube = window.location.hostname.includes('youtube.com');
         
         if (isYouTube) {
-            if (!settings.enableYouTube) {
+            if (!settings.features?.enableYouTube) {
                 return null;
             }
             return new YouTubeAdapter(settings);
@@ -106,7 +106,7 @@
         let hoverTargetElement = null;
 
         if (platformAdapter.platform === 'twitch') {
-            if (settings.enable7TVCompat) {
+            if (settings.features?.enableSevenTVCompatibility) {
                 let seventvMessageRoot = addedNode.matches('.seventv-message') ? addedNode : addedNode.querySelector('.seventv-message');
                 if (seventvMessageRoot) {
                     chatMessageElement = seventvMessageRoot.querySelector(platformAdapter.selectors.chatMessage);
@@ -127,7 +127,7 @@
 
     function processNewChatMessage(messageElements) {
         if (platformAdapter.platform === 'twitch') {
-            if (settings.enable7TVCompat) {
+            if (settings.features?.enableSevenTVCompatibility) {
                 const messageId = messageElements.chatMessage.getAttribute('msg-id');
                 if (messageId && !messageProcessor.isProcessed(messageId)) {
                     messageProcessor.processNewMessage(messageElements.hoverTarget, messageElements.chatMessage, messageId);
@@ -159,14 +159,16 @@
         // Set up message listener for settings updates
         setupMessageForwarding();
         
-        // Get initial settings and initialize immediately (don't wait)
-        browser.storage.sync.get([
-            'requiredUrlSubstring', 'enable7TVCompat', 'enableModPostReplyHighlight', 'enableReplyTooltip',
-            'inactivityTimeoutDuration', 'maxPrunedCacheSize', 'enableYouTube', 'dockingBehavior', 'dockedViewHeight',
-            'enableFrankerFaceZCompat'
-        ]).then((items) => {
-            settings = items;
-            initializeWithSettings(settings);
+        // Get settings from background script (which uses SettingsManager)
+        browser.runtime.sendMessage({ type: 'GET_SETTINGS' }).then((response) => {
+            if (response && response.settings) {
+                settings = response.settings;
+                initializeWithSettings(settings);
+            } else {
+                console.error('[App] Failed to get settings from background script');
+            }
+        }).catch((error) => {
+            console.error('[App] Error getting settings:', error);
         });
     }
 

@@ -1,8 +1,8 @@
 // /Users/tyler/repos/plus2BS/scripts/background.js
 
-// Import modular polling system for Chrome service worker
+// Import modular polling system and settings manager for Chrome service worker
 try {
-    importScripts('polling/polling-utils.js', 'polling/generic-polling.js');
+    importScripts('config/settings-manager.js', 'polling/polling-utils.js', 'polling/generic-polling.js', 'polling/unified-polling.js');
 } catch (e) {
     // Firefox or other environments that don't support importScripts will load via script tags
     console.log('[Background] ImportScripts not available, modules loaded via HTML');
@@ -48,40 +48,7 @@ let isSavingLog = false; // Lock to prevent race conditions
 // Promise to ensure initialization is complete before handling messages
 let initializationPromise = null;
 
-// --- Default Settings (mirrors options.js for initialization) ---
-const defaultOptions = {
-    requiredUrlSubstring: "", displayTime: 10000, chromaKeyColor: '#b9e6b7', messageBGColor: '#111111', appendMessages: false,
-    stringToCount: "+2, lol, lmao, lul, lmfao, dangLUL",
-    decayInterval: 500, decayAmount: 1, exactMatchCounting: false, gaugeMaxValue: 30, enableCounting: false,
-    peakLabelLow: "Heh", peakLabelMid: "Funny!", peakLabelHigh: "Hilarious!!", peakLabelMax: "OFF THE CHARTS!!!",
-    recentMaxResetDelay: 2000, enable7TVCompat: false, enableYouTube: true, enableModPostReplyHighlight: true, enableYesNoPolling: false, enableGenericPolling: true,
-    pollClearTime: 12000, pollCooldownDuration: 5000, pollActivityThreshold: 1, pollActivityCheckInterval: 2000,
-    genericPollLookbackWindow: 6000, genericPollMaxLetterLength: 5, genericPollEndThreshold: 2,
-    genericPollLetterIndividualThreshold: 3, genericPollLetterTotalThreshold: 10, genericPollNumberThreshold: 7,
-    genericPollMinWidth: 250, genericPollSentimentDecayAmount: 1, genericPollSentimentMaxDisplayItems: 5,
-    genericPollSentimentDisplayThreshold: 10, genericPollSentimentMaxGrowthWidth: 150, genericPollSentimentMaxGaugeValue: 30,
-    pollDisplayThreshold: 15, inactivityTimeoutDuration: 5000, maxPrunedCacheSize: 500, gaugeTrackColor: '#e0e0e0',
-    gaugeTrackAlpha: 0, gaugeTrackBorderAlpha: 1, gaugeTrackBorderColor: '#505050', gaugeFillGradientStartColor: '#ffd700',
-    gaugeFillGradientEndColor: '#ff0000', recentMaxIndicatorColor: '#ff0000', peakLabelLowColor: '#ffffff',
-    peakLabelMidColor: '#ffff00', peakLabelHighColor: '#ffa500', peakLabelMaxColor: '#ff0000', yesPollBarColor: '#ff0000', noPollBarColor: '#0000ff',
-    pollTextColor: '#ffffff', enablePeakLabelAnimation: true, peakLabelAnimationDuration: 0.6, peakLabelAnimationIntensity: 2,
-    enableUsernameColoring: true, usernameDefaultColor: '#FF0000', paragraphTextColor: '#FFFFFF',
-    popoutDefaultWidth: 600, popoutDefaultHeight: 300, autoOpenPopout: false, popoutBaseFontSize: 18, enableReplyTooltip: true,
-    enableHighlightTracking: false, enableLeaderboard: false, leaderboardHighlightValue: 10, leaderboardTimeWindowDays: 7,
-    leaderboardHeaderText: 'Leaderboard', leaderboardBackgroundColor: '#000000', leaderboardBackgroundAlpha: 0, leaderboardTextColor: '#FFFFFF',
-    gaugeMinDisplayThreshold: 3,
-    // Webhook settings
-    enableWebhookIntegration: false, webhookEndpoint: "", webhookApiKey: "", webhookTimeout: 5000, webhookRetryAttempts: 3,
-    webhookEvents: { highlightMessages: true, gaugeUpdates: true, pollUpdates: true, leaderboardUpdates: true },
-    // Streamview settings
-    enableStreamview: false, streamviewBaseUrl: "https://streamview.channel", streamviewApiKey: "", currentStreamview: null,
-    // Streamview security options
-    streamviewGenerateApiKey: false,
-    // StreamView template storage
-    streamviewTemplates: {},
-    // Browser Source Style settings
-    browserSourceStyle: null
-};
+// SettingsManager instance will be initialized in loadSettings
 
 
 function openPopout() {
@@ -163,11 +130,11 @@ function getChannelNameFromUrl(url) {
 function broadcastToPopouts(message) {
     // Send to extension pages (popout windows)
     browser.runtime.sendMessage(message).catch(error => {
-        // This callback is used to check for an error.
-        // The "Receiving end does not exist" error is expected and harmless if the popout window is not open.
-        // We can safely ignore it by checking for chrome.runtime.lastError.
-        if (error.message.includes("Receiving end does not exist")) { /* Silently ignore */ }
-        else { }
+        // Silently ignore expected errors when popout is not open
+        if (error.message.includes("Receiving end does not exist") || 
+            error.message.includes("message port closed")) {
+            // Expected when no popout window is open - ignore silently
+        }
     });
 
     // Also send to content scripts in all tabs (for docked iframe support)
@@ -190,7 +157,6 @@ function broadcastGaugeUpdate() {
     const gaugeData = getGaugeState(); // Full data for popouts (with peakLabels)
     const webhookGaugeData = getWebhookGaugeState(); // Webhook data without peakLabels
     
-    console.log(`[Plus2 Gauge] Broadcasting update - Count: ${gaugeData.occurrenceCount}, RecentMax: ${gaugeData.recentMaxValue}, Threshold: ${settings.gaugeMinDisplayThreshold}`);
     broadcastToPopouts({ type: 'GAUGE_UPDATE', data: gaugeData });
     
     // Send to webhook - always send for streamview, check settings for legacy webhooks
@@ -220,92 +186,47 @@ function broadcastLeaderboardUpdate() {
     });
 }
 
-function buildNestedConfig(settings) {
-    // This function builds the nested configuration object that is used by popout.js
-    // and sent to the streamview server. It should be kept in sync with streamview-client.js.
-    return {
-        display: {
-            chromaKeyColor: settings.chromaKeyColor,
-            popoutBaseFontSize: settings.popoutBaseFontSize,
-            popoutDefaultWidth: settings.popoutDefaultWidth,
-            popoutDefaultHeight: settings.popoutDefaultHeight,
-            displayTime: settings.displayTime
-        },
-        features: {
-            enableCounting: settings.enableCounting,
-            enableYesNoPolling: settings.enableYesNoPolling,
-            enableLeaderboard: settings.enableLeaderboard,
-            enableHighlightTracking: settings.enableHighlightTracking,
-            appendMessages: settings.appendMessages
-        },
-        styling: {
-            messageBGColor: settings.messageBGColor,
-            paragraphTextColor: settings.paragraphTextColor,
-            enableUsernameColoring: settings.enableUsernameColoring,
-            usernameDefaultColor: settings.usernameDefaultColor,
-            gauge: {
-                gaugeMaxValue: settings.gaugeMaxValue,
-                gaugeMinDisplayThreshold: settings.gaugeMinDisplayThreshold,
-                gaugeTrackColor: settings.gaugeTrackColor,
-                gaugeTrackAlpha: settings.gaugeTrackAlpha,
-                gaugeTrackBorderColor: settings.gaugeTrackBorderColor,
-                gaugeTrackBorderAlpha: settings.gaugeTrackBorderAlpha,
-                gaugeFillGradientStartColor: settings.gaugeFillGradientStartColor,
-                gaugeFillGradientEndColor: settings.gaugeFillGradientEndColor,
-                recentMaxIndicatorColor: settings.recentMaxIndicatorColor,
-                peakLabels: {
-                    low: { text: settings.peakLabelLow, color: settings.peakLabelLowColor },
-                    mid: { text: settings.peakLabelMid, color: settings.peakLabelMidColor },
-                    high: { text: settings.peakLabelHigh, color: settings.peakLabelHighColor },
-                    max: { text: settings.peakLabelMax, color: settings.peakLabelMaxColor }
-                },
-                enablePeakLabelAnimation: settings.enablePeakLabelAnimation,
-                peakLabelAnimationDuration: settings.peakLabelAnimationDuration,
-                peakLabelAnimationIntensity: settings.peakLabelAnimationIntensity
-            },
-            polling: {
-                yesPollBarColor: settings.yesPollBarColor,
-                noPollBarColor: settings.noPollBarColor,
-                pollTextColor: settings.pollTextColor,
-                genericPollMinWidth: settings.genericPollMinWidth
-            },
-            leaderboard: {
-                leaderboardHeaderText: settings.leaderboardHeaderText,
-                leaderboardBackgroundColor: settings.leaderboardBackgroundColor,
-                leaderboardBackgroundAlpha: settings.leaderboardBackgroundAlpha,
-                leaderboardTextColor: settings.leaderboardTextColor
-            }
-        },
-        // Add sentiment polling settings at root level for backward compatibility
-        genericPollSentimentMaxGaugeValue: settings.genericPollSentimentMaxGaugeValue,
-        genericPollSentimentMaxGrowthWidth: settings.genericPollSentimentMaxGrowthWidth,
-        genericPollSentimentDecayAmount: settings.genericPollSentimentDecayAmount,
-        genericPollSentimentMaxDisplayItems: settings.genericPollSentimentMaxDisplayItems,
-        genericPollSentimentDisplayThreshold: settings.genericPollSentimentDisplayThreshold
-    };
-}
+// buildNestedConfig function removed - settings are now stored in nested format directly
 
 // --- State Packaging ---
 function getGaugeState() {
-    return {
-        occurrenceCount,
-        gaugeMaxValue: settings.gaugeMaxValue,
-        recentMaxValue,
-        isPollActive,
-        peakLabels: {
-            low: { text: settings.peakLabelLow, color: settings.peakLabelLowColor },
-            mid: { text: settings.peakLabelMid, color: settings.peakLabelMidColor },
-            high: { text: settings.peakLabelHigh, color: settings.peakLabelHighColor },
-            max: { text: settings.peakLabelMax, color: settings.peakLabelMaxColor }
-        }
-    };
+    // Check if unified polling is active and get gauge data from it
+    if (settings.polling?.unified?.enabled && unifiedPolling) {
+        const unifiedGaugeState = unifiedPolling.getUnifiedGaugeState();
+        return {
+            occurrenceCount: unifiedGaugeState.occurrenceCount,
+            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
+            recentMaxValue: unifiedGaugeState.recentMaxValue,
+            isPollActive,
+            peakLabels: {
+                low: { text: settings.styling?.gauge?.peakLabels?.low?.text, color: settings.styling?.gauge?.peakLabels?.low?.color },
+                mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text, color: settings.styling?.gauge?.peakLabels?.mid?.color },
+                high: { text: settings.styling?.gauge?.peakLabels?.high?.text, color: settings.styling?.gauge?.peakLabels?.high?.color },
+                max: { text: settings.styling?.gauge?.peakLabels?.max?.text, color: settings.styling?.gauge?.peakLabels?.max?.color }
+            }
+        };
+    } else {
+        // Legacy gauge state
+        return {
+            occurrenceCount,
+            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
+            recentMaxValue,
+            isPollActive,
+            peakLabels: {
+                low: { text: settings.styling?.gauge?.peakLabels?.low?.text, color: settings.styling?.gauge?.peakLabels?.low?.color },
+                mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text, color: settings.styling?.gauge?.peakLabels?.mid?.color },
+                high: { text: settings.styling?.gauge?.peakLabels?.high?.text, color: settings.styling?.gauge?.peakLabels?.high?.color },
+                max: { text: settings.styling?.gauge?.peakLabels?.max?.text, color: settings.styling?.gauge?.peakLabels?.max?.color }
+            }
+        };
+    }
 }
 
 // Webhook-specific gauge state without peakLabels (moved to StreamView visual config)
 function getWebhookGaugeState() {
     return {
         occurrenceCount,
-        gaugeMaxValue: settings.gaugeMaxValue,
+        gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
         recentMaxValue,
         isPollActive
     };
@@ -315,8 +236,8 @@ function getPollState() {
     const total = yesCount + noCount;
     let winnerMessage = "";
     if (isPollConcluded) {
-        if (yesCount > noCount) winnerMessage = `Yes! (${((yesCount/total)*100).toFixed(0)}%)`;
-        else if (noCount > yesCount) winnerMessage = `No! (${((noCount/total)*100).toFixed(0)}%)`;
+        if (yesCount > noCount) winnerMessage = `YES ${((yesCount/total)*100).toFixed(0)}%`;
+        else if (noCount > yesCount) winnerMessage = `NO ${((noCount/total)*100).toFixed(0)}%`;
         else winnerMessage = "Tie!";
     }
     return {
@@ -325,14 +246,14 @@ function getPollState() {
         total,
         isConcluded: isPollConcluded, // Correctly reference the global state variable
         winnerMessage,
-        shouldDisplay: isPollActive && (total >= settings.pollDisplayThreshold || isPollConcluded)
+        shouldDisplay: isPollActive && (total >= settings.polling?.yesNo?.displayThreshold || isPollConcluded)
     };
 }
 
 async function getLeaderboardData() {
     const storage = await browser.storage.local.get({ highlightLog: [] });
     const log = storage.highlightLog;
-    const cutoffTime = new Date(Date.now() - settings.leaderboardTimeWindowDays * 24 * 60 * 60 * 1000);
+    const cutoffTime = new Date(Date.now() - (settings.leaderboard?.timeWindowDays || 30) * 24 * 60 * 60 * 1000);
 
     const userScores = log
         .filter(entry => new Date(entry.timestamp) >= cutoffTime)
@@ -346,25 +267,57 @@ async function getLeaderboardData() {
 
     const topUsers = Object.entries(userScores).map(([username, data]) => ({
         username,
-        score: (data.highlightCount * settings.leaderboardHighlightValue) + data.plusTwoSum
+        score: (data.highlightCount * (settings.leaderboard?.highlightValue || 10)) + data.plusTwoSum
     })).sort((a, b) => b.score - a.score).slice(0, 3);
 
     const hasMessage = activeHighlightTrackers.size > 0 || currentNonAppendTrackerId !== null;
 
     return {
         topUsers,
-        isVisible: settings.enableLeaderboard && leaderboardDisplayMode === 'shown' && !hasMessage,
+        isVisible: settings.features?.enableLeaderboard && leaderboardDisplayMode === 'shown' && !hasMessage,
         mode: leaderboardDisplayMode,
-        headerText: settings.leaderboardHeaderText
+        headerText: settings.styling?.leaderboard?.leaderboardHeaderText
     };
 }
 
 // --- Core Logic ---
 
 async function loadSettings() {
-    const items = await browser.storage.sync.get(defaultOptions);
+    console.log('[Background] Loading settings...');
+    
+    // Wait a bit for SettingsManager to initialize, then check again
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log('[Background] SettingsManager available after wait:', typeof SettingsManager !== 'undefined');
+    
+    // Use SettingsManager for centralized configuration
+    if (typeof SettingsManager !== 'undefined' && SettingsManager.getAllSettings) {
+        try {
+            settings = await SettingsManager.getAllSettings();
+            console.log('[Background] Loaded settings via SettingsManager:', Object.keys(settings));
+            console.log('[Background] chromaKeyColor:', settings.display?.chromaKeyColor);
+        } catch (error) {
+            console.error('[Background] Error loading settings via SettingsManager:', error);
+            // Fallback to direct storage
+            settings = await browser.storage.sync.get();
+            console.log('[Background] Fallback: Loaded settings via direct storage access');
+        }
+    } else {
+        // Fallback for environments where SettingsManager is not available
+        // Get stored settings and merge with basic defaults to ensure we have chromaKeyColor
+        const storedSettings = await browser.storage.sync.get();
+        const basicDefaults = {
+            chromaKeyColor: '#00ff00',
+            enableCounting: true,
+            gaugeMaxValue: 30,
+            displayTime: 10000,
+            popoutBaseFontSize: 18
+        };
+        settings = { ...basicDefaults, ...storedSettings };
+        console.log('[Background] SettingsManager not available, loaded settings via direct storage access');
+        console.log('[Background] Loaded keys from direct storage:', Object.keys(settings));
+        console.log('[Background] chromaKeyColor from fallback:', settings.display?.chromaKeyColor);
+    }
     const oldSettings = { ...settings };
-    settings = items;
 
     // Initialize or update webhook client
     if (webhookClient) {
@@ -386,14 +339,14 @@ async function loadSettings() {
     }, 100);
 
     // If webhook settings changed, clear any pending retries
-    if (oldSettings.enableWebhookIntegration !== settings.enableWebhookIntegration ||
-        oldSettings.webhookEndpoint !== settings.webhookEndpoint ||
-        oldSettings.webhookApiKey !== settings.webhookApiKey) {
+    if (oldSettings.features?.enableWebhookIntegration !== settings.features?.enableWebhookIntegration ||
+        oldSettings.integrations?.webhook?.endpoint !== settings.integrations?.webhook?.endpoint ||
+        oldSettings.integrations?.webhook?.apiKey !== settings.integrations?.webhook?.apiKey) {
         webhookClient.clearRetries();
     }
 
     // If counting was just toggled, reset state and timers
-    if (oldSettings.enableCounting !== settings.enableCounting) {
+    if (oldSettings.core?.enableCounting !== settings.core?.enableCounting) {
         occurrenceCount = 0;
         recentMaxValue = 0;
         processedMessages.clear(); // Clear processed message history when toggling counting
@@ -401,19 +354,19 @@ async function loadSettings() {
         decayTimerId = null;
         if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
         resetRecentMaxTimerId = null;
-        if (settings.enableCounting) {
+        if (settings.core?.enableCounting) {
             setupDecayMechanism();
         }
         broadcastGaugeUpdate();
     }
 
     // If polling was just toggled
-    if (oldSettings.enableYesNoPolling !== settings.enableYesNoPolling) {
+    if (oldSettings.features?.enableYesNoPolling !== settings.features?.enableYesNoPolling) {
         clearYesNoPollData(); // This also broadcasts an update
     }
 
     // If leaderboard was just toggled
-    if (oldSettings.enableLeaderboard !== settings.enableLeaderboard) {
+    if (oldSettings.features?.enableLeaderboard !== settings.features?.enableLeaderboard) {
         broadcastLeaderboardUpdate();
     }
     
@@ -421,21 +374,26 @@ async function loadSettings() {
     if (genericPolling && genericPolling.updateSettings) {
         genericPolling.updateSettings(settings);
     }
+    
+    // Update unified polling system settings
+    if (unifiedPolling && unifiedPolling.updateUnifiedPollingSettings) {
+        unifiedPolling.updateUnifiedPollingSettings(settings);
+    }
 
-    broadcastToPopouts({ type: 'SETTINGS_UPDATE', data: buildNestedConfig(settings) });
+    broadcastToPopouts({ type: 'SETTINGS_UPDATE', data: settings });
 }
 
 function setupDecayMechanism() {
     if (decayTimerId) clearInterval(decayTimerId);
-    if (!settings.enableCounting || settings.decayInterval <= 0 || settings.decayAmount <= 0) return;
+    if (!settings.core?.enableCounting || settings.behavior?.decayInterval <= 0 || settings.behavior?.decayAmount <= 0) return;
 
     lastIncrementTime = Date.now();
     decayTimerId = setInterval(() => {
-        if (occurrenceCount > 0 && (Date.now() - lastIncrementTime >= settings.decayInterval)) {
+        if (occurrenceCount > 0 && (Date.now() - lastIncrementTime >= settings.behavior?.decayInterval)) {
             if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
             resetRecentMaxTimerId = null;
 
-            occurrenceCount = Math.max(0, occurrenceCount - settings.decayAmount);
+            occurrenceCount = Math.max(0, occurrenceCount - settings.behavior?.decayAmount);
             broadcastGaugeUpdate();
             lastIncrementTime = Date.now();
 
@@ -445,7 +403,7 @@ function setupDecayMechanism() {
                         recentMaxValue = 0;
                         broadcastGaugeUpdate();
                     }
-                }, settings.recentMaxResetDelay);
+                }, settings.behavior?.recentMaxResetDelay);
             }
         }
     }, 250); // Check frequently for responsiveness
@@ -470,52 +428,55 @@ function processChatMessage(data) {
             Array.from(processedMessages).some(entry => entry.startsWith(messageHash + '|TIMESTAMP|'));
         
         if (isDuplicate) {
-            console.log(`[Plus2 Dedup] DUPLICATE message blocked: "${text}" (User: ${username})`);
             return;
         }
         
         // Mark this message as processed
         processedMessages.add(messageKey);
-        console.log(`[Plus2 Dedup] Message processed: "${text}" (User: ${username}, Hash: ${messageHash})`);
     } else {
-        console.log(`[Plus2 Dedup] Testing user message (no dedup): "${text}"`);
     }
 
-    if (isModPost && settings.enableModPostReplyHighlight && modReplyContent) {
+    if (isModPost && settings.features?.enableModPostReplyHighlight && modReplyContent) {
         processHighlightRequest({ isModPost: true, html: modReplyContent, channelUrl });
-        // Don't return - let it continue to generic polling
+        // Don't return - let it continue to polling
     }
 
-    if (settings.enableCounting) {
-        const terms = settings.stringToCount.split(',').map(s => s.trim());
-        const check = settings.exactMatchCounting ?
-            (source, term) => source.split(/\s+/).includes(term) :
-            (source, term) => source.toLowerCase().includes(term.toLowerCase());
+    // Check if unified polling is enabled
+    if (settings.polling?.unified?.enabled && unifiedPolling) {
+        console.log('[Background] Using UNIFIED polling system for message:', text);
+        // Use new unified system (processes all: gauge, yes/no, generic polling)
+        unifiedPolling.processUnifiedMessage(text, images, { username, badges });
+    } else {
+        console.log('[Background] Using LEGACY polling systems for message:', text);
+        // Use legacy separate systems
+        if (settings.core?.enableCounting) {
+            const terms = settings.core?.stringToCount.split(',').map(s => s.trim());
+            const check = settings.core?.exactMatchCounting ?
+                (source, term) => source.split(/\s+/).includes(term) :
+                (source, term) => source.toLowerCase().includes(term.toLowerCase());
 
-        let matchFound = terms.some(term => check(text, term));
-        if (!matchFound) {
-            matchFound = images.some(imgAlt => terms.some(term => check(imgAlt, term)));
+            let matchFound = terms.some(term => check(text, term));
+            if (!matchFound) {
+                matchFound = images.some(imgAlt => terms.some(term => check(imgAlt, term)));
+            }
+
+            if (matchFound) {
+                if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
+                resetRecentMaxTimerId = null;
+                occurrenceCount++;
+                if (occurrenceCount > recentMaxValue) recentMaxValue = occurrenceCount;
+                lastIncrementTime = Date.now();
+                broadcastGaugeUpdate();
+            }
         }
 
-        if (matchFound) {
-            if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
-            resetRecentMaxTimerId = null;
-            occurrenceCount++;
-            if (occurrenceCount > recentMaxValue) recentMaxValue = occurrenceCount;
-            lastIncrementTime = Date.now();
-            console.log(`[Plus2 Gauge] Match found! Count: ${occurrenceCount}, RecentMax: ${recentMaxValue}, User: ${username}, Text: "${text}"`);
-            broadcastGaugeUpdate();
-        } else {
-            console.log(`[Plus2 Gauge] No match found for: "${text}" (User: ${username})`);
+        if (settings.features?.enableYesNoPolling) {
+            processMessageForYesNoPoll(text, images);
         }
-    }
 
-    if (settings.enableYesNoPolling) {
-        processMessageForYesNoPoll(text, images);
-    }
-
-    if (settings.enableGenericPolling) {
-        processMessageForGenericPoll(text, images);
+        if (settings.features?.enableGenericPolling) {
+            processMessageForGenericPoll(text, images);
+        }
     }
 
     if (activeHighlightTrackers.size > 0 && text.includes("+2")) {
@@ -548,7 +509,7 @@ function processHighlightRequest(data) {
     const isYouTube = channelUrl && channelUrl.includes('youtube.com');
 
     // Extract original username color for remote streamview (always extract, let streamview decide whether to use it)
-    let usernameColor = settings.usernameDefaultColor || '#FF0000'; // Fallback color
+    let usernameColor = settings.styling?.usernameDefaultColor || '#FF0000'; // Fallback color
     if (usernameHTML) {
         const colorMatch = usernameHTML.match(/color:\s*(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\))/);
         if (colorMatch) {
@@ -566,13 +527,13 @@ function processHighlightRequest(data) {
         }
         // Wrap the mod-posted message in the same structure as a regular message for consistent styling.
         finalHtmlString = `
-            <div class="plus2-popout-message-entry" style="background-color: ${settings.messageBGColor};">
+            <div class="plus2-popout-message-entry" style="background-color: ${settings.styling?.messageBGColor};">
                 <div class="plus2-popout-message-line plus2-mod-post">${processedHtml}</div>
             </div>`;
     } else {
         // If uniform coloring is enabled OR it's a YouTube message, strip the inline style attribute.
         // This allows the CSS variable in the popout to take precedence for Twitch, and forces the custom color for YouTube.
-        if ((settings.enableUsernameColoring || isYouTube) && usernameHTML) {
+        if ((settings.styling?.enableUsernameColoring || isYouTube) && usernameHTML) {
             usernameHTML = usernameHTML.replace(/ style=".*?"/i, '');
         }
 
@@ -581,7 +542,7 @@ function processHighlightRequest(data) {
             replyBlock = `<div class="plus2-popout-reply-block">${replyHTML}</div>`;
         }
         finalHtmlString = `
-            <div class="plus2-popout-message-entry" style="background-color: ${settings.messageBGColor};">
+            <div class="plus2-popout-message-entry" style="background-color: ${settings.styling?.messageBGColor};">
                 ${replyBlock}
                 <div class="plus2-popout-message-line">
                     ${badgesHTML}
@@ -592,7 +553,7 @@ function processHighlightRequest(data) {
     }
 
     let trackerId = null;
-    if (settings.enableHighlightTracking && username) {
+    if (settings.tracking?.enableHighlightTracking && username) {
         trackerId = nextTrackerId++;
         const logEntry = {
             username: username,
@@ -603,11 +564,10 @@ function processHighlightRequest(data) {
         activeHighlightTrackers.set(trackerId, { logEntry });
     }
 
-    if (!settings.appendMessages) {
+    if (!settings.features?.appendMessages) {
         if (currentNonAppendTrackerId !== null && activeHighlightTrackers.has(currentNonAppendTrackerId)) {
             saveLogEntry(activeHighlightTrackers.get(currentNonAppendTrackerId).logEntry);
             activeHighlightTrackers.delete(currentNonAppendTrackerId);
-            console.log(`[Highlight] Message replaced, broadcasting generic poll update`);
             broadcastGenericPollUpdate(); // Update generic poll display when highlight is replaced
         }
         currentNonAppendTrackerId = trackerId;
@@ -616,8 +576,8 @@ function processHighlightRequest(data) {
     const highlightData = {
         html: finalHtmlString,
         id: trackerId || 0,
-        isAppend: settings.appendMessages,
-        displayTime: settings.displayTime,
+        isAppend: settings.features?.appendMessages,
+        displayTime: settings.display?.displayTime,
         platform: isYouTube ? 'youtube' : 'twitch',
         username: username || 'unknown',
         usernameColor: usernameColor, // Add username color
@@ -648,15 +608,14 @@ function processHighlightRequest(data) {
             if (currentNonAppendTrackerId === trackerId) {
                 currentNonAppendTrackerId = null;
             }
-            console.log(`[Highlight] Message expired, broadcasting generic poll update`);
             broadcastLeaderboardUpdate(); // Update after message expires
             broadcastGenericPollUpdate(); // Update generic poll display after message expires
         }
-    }, settings.displayTime);
+    }, settings.display?.displayTime);
 }
 
 async function saveLogEntry(logEntry) {
-    if (!settings.enableHighlightTracking || isSavingLog) return;
+    if (!settings.tracking?.enableHighlightTracking || isSavingLog) return;
 
     isSavingLog = true; // Acquire lock
     try {
@@ -675,6 +634,7 @@ async function saveLogEntry(logEntry) {
 // --- Polling Logic ---
 
 function processMessageForYesNoPoll(text, images) {
+    // Block new votes during cooldown OR when poll is concluded (results locked)
     if (isPollOnCooldown || isPollConcluded) return;
 
     const yesTerms = ['yes', 'y'];
@@ -697,7 +657,7 @@ function processMessageForYesNoPoll(text, images) {
         pollStartTime = Date.now();
         lastTotalResponsesChecked = 0;
         if (pollActivityCheckTimerId) clearInterval(pollActivityCheckTimerId);
-        pollActivityCheckTimerId = setInterval(checkPollActivity, settings.pollActivityCheckInterval);
+        pollActivityCheckTimerId = setInterval(checkPollActivity, settings.polling?.yesNo?.activityCheckInterval);
     }
 
     if (isYes) yesCount++;
@@ -715,15 +675,26 @@ function checkPollActivity() {
 
     const currentTotal = yesCount + noCount;
     const growth = currentTotal - lastTotalResponsesChecked;
+    const pollAgeMs = Date.now() - pollStartTime;
+    const minimumPollDuration = 10000; // Minimum 10 seconds before poll can end
 
-    if (currentTotal >= settings.pollDisplayThreshold) {
-        if (growth < settings.pollActivityThreshold) {
+    // Only check for ending if poll has been running for minimum duration
+    if (pollAgeMs < minimumPollDuration) {
+        lastTotalResponsesChecked = currentTotal;
+        return;
+    }
+
+    if (currentTotal >= settings.polling?.yesNo?.displayThreshold) {
+        // Poll has enough responses - check if activity has dropped significantly
+        if (growth < settings.polling?.yesNo?.activityThreshold) {
             endYesNoPoll();
         } else {
             lastTotalResponsesChecked = currentTotal;
         }
     } else {
-        if (growth < settings.pollActivityThreshold && pollStartTime > 0) {
+        // Poll doesn't have enough responses yet - be more lenient about ending
+        if (growth === 0 && pollAgeMs > minimumPollDuration * 2) {
+            // Only clear if no activity for extended time (20+ seconds)
             clearYesNoPollData();
         } else {
             lastTotalResponsesChecked = currentTotal;
@@ -737,16 +708,18 @@ function endYesNoPoll() {
     isPollConcluded = true;
     broadcastPollUpdate();
 
+    // Lock results for display duration
     if (pollClearTimerId) clearTimeout(pollClearTimerId);
-    pollClearTimerId = setTimeout(clearYesNoPollData, settings.pollClearTime);
+    pollClearTimerId = setTimeout(clearYesNoPollData, settings.polling?.yesNo?.resultDisplayTime);
 
-    if (settings.pollCooldownDuration > 0) {
-        isPollOnCooldown = true;
-        if (pollCooldownTimerId) clearTimeout(pollCooldownTimerId);
-        pollCooldownTimerId = setTimeout(() => {
-            isPollOnCooldown = false;
-        }, settings.pollCooldownDuration);
-    }
+    // Start cooldown immediately (prevents new polls during result display + cooldown)
+    const totalCooldownTime = settings.polling?.yesNo?.resultDisplayTime + (settings.polling?.yesNo?.cooldownDuration || 3000);
+    
+    isPollOnCooldown = true;
+    if (pollCooldownTimerId) clearTimeout(pollCooldownTimerId);
+    pollCooldownTimerId = setTimeout(() => {
+        isPollOnCooldown = false;
+    }, totalCooldownTime);
 }
 
 function clearYesNoPollData() {
@@ -763,11 +736,12 @@ function clearYesNoPollData() {
 }
 
 
-// --- Generic Polling System (Modularized) ---
+// --- Polling Systems (Modularized) ---
 // Generic polling functionality has been moved to polling/generic-polling.js
-// Initialize it after settings are loaded
+// Unified polling system in polling/unified-polling.js (new)
 
 let genericPolling = null;
+let unifiedPolling = null;
 
 function initializeGenericPolling() {
     if (typeof GenericPolling !== 'undefined' && !genericPolling) {
@@ -778,6 +752,34 @@ function initializeGenericPolling() {
             webhookClient: webhookClient
         });
         console.log('[Background] Generic Polling module initialized');
+    }
+}
+
+function initializeUnifiedPolling() {
+    console.log('[Background] Attempting to initialize unified polling...');
+    console.log('[Background] UnifiedPolling available:', typeof UnifiedPolling !== 'undefined');
+    console.log('[Background] Current unifiedPolling:', !!unifiedPolling);
+    
+    if (typeof UnifiedPolling !== 'undefined' && !unifiedPolling) {
+        unifiedPolling = UnifiedPolling;
+        unifiedPolling.initializeUnifiedPolling({
+            settings: settings,
+            broadcastToPopouts: broadcastToPopouts,
+            broadcastGaugeUpdate: broadcastGaugeUpdate,
+            webhookClient: webhookClient
+        });
+        console.log('[Background] ✅ Unified Polling system initialized successfully');
+        console.log('[Background] Unified polling enabled in settings:', settings.polling?.unified?.enabled);
+        
+        // Run a quick test if enabled
+        if (settings.polling?.unified?.enabled) {
+            console.log('[Background] 🧪 Running quick categorization test...');
+            unifiedPolling.testMessageCategorization();
+        }
+    } else if (typeof UnifiedPolling === 'undefined') {
+        console.warn('[Background] ⚠️ UnifiedPolling module not loaded');
+    } else if (unifiedPolling) {
+        console.log('[Background] ℹ️ Unified polling already initialized');
     }
 }
 
@@ -804,7 +806,7 @@ function broadcastGenericPollUpdate() {
     broadcastToPopouts({ type: 'GENERIC_POLL_UPDATE', data: pollData });
     
     // Send to webhook if enabled
-    if (webhookClient && settings.webhookEvents?.genericPollUpdates) {
+    if (webhookClient && settings.integrations?.webhook?.events?.pollUpdates) {
         webhookClient.sendEvent('generic_poll_update', pollData);
     }
 }
@@ -815,27 +817,44 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
         case 'CHAT_MESSAGE_FOUND':
             processChatMessage(message.data);
+            sendResponse({ success: true });
             break;
 
         case 'HIGHLIGHT_MESSAGE_REQUEST':
             processHighlightRequest(message.data);
+            sendResponse({ success: true }); // Send acknowledgment response
             break;
 
         case 'REQUEST_INITIAL_STATE':
+            console.log('[Background] REQUEST_INITIAL_STATE received!');
             // Wait for the initial setup to complete before responding to prevent a race condition
             initializationPromise.then(() => {
+                console.log('[Background] initializationPromise resolved, getting leaderboard data');
                 getLeaderboardData().then(leaderboardData => {
-                    sendResponse({
-                        settings: buildNestedConfig(settings),
+                    console.log('[Background] About to send settings with keys:', typeof settings, Object.keys(settings).length);
+                    console.log('[Background] Sending initial state to popout');
+                    console.log('[Background] Settings keys:', Object.keys(settings));
+                    console.log('[Background] Settings display:', settings.display);
+                    const response = {
+                        settings: settings,
                         gauge: getGaugeState(),
                         poll: getPollState(),
                         genericPoll: getGenericPollState(),
                         leaderboard: leaderboardData
-                    });
+                    };
+                    
+                    // Add unified poll state if unified system is enabled
+                    if (settings.polling?.unified?.enabled && unifiedPolling) {
+                        response.unifiedPoll = unifiedPolling.getUnifiedPollState();
+                    }
+                    
+                    sendResponse(response);
                 }).catch(error => {
+                    console.error('[Background] Error getting leaderboard data:', error);
                     sendResponse({ error: error.message });
                 });
             }).catch(error => {
+                console.error('[Background] Error in initializationPromise:', error);
                 sendResponse({ error: error.message });
             });
             return true; // Keep message channel open for the async response
@@ -869,12 +888,26 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             initializationPromise.then(() => {
                 browser.tabs.sendMessage(sender.tab.id, {
                     type: 'SETTINGS_UPDATE',
-                    data: buildNestedConfig(settings)
+                    data: settings
                 }).catch(() => {
                     // Tab might not be ready to receive messages yet, ignore silently
                 });
+                // Send success response
+                sendResponse({ success: true });
+            }).catch(error => {
+                console.error('[Background] Error in REQUEST_SETTINGS:', error);
+                sendResponse({ success: false, error: error.message });
             });
-            break;
+            return true; // Keep message channel open for async response
+
+        case 'GET_SETTINGS': // Direct settings request
+            initializationPromise.then(() => {
+                sendResponse({ settings: settings });
+            }).catch(error => {
+                console.error('[Background] Error in GET_SETTINGS:', error);
+                sendResponse({ error: error.message });
+            });
+            return true; // Keep message channel open for async response
 
         case 'OPEN_OPTIONS_PAGE': // Sent from content script
             browser.runtime.openOptionsPage();
@@ -882,6 +915,52 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'OPEN_POPOUT_WINDOW': // Sent from new in-chat button
             openPopout();
+            break;
+            
+        case 'TEST_UNIFIED_POLLING': // Test command
+            console.log('[Background] Testing unified polling system...');
+            if (unifiedPolling) {
+                // Run categorization test
+                unifiedPolling.testMessageCategorization();
+                
+                // Test some sample messages
+                const testMessages = [
+                    { text: "yes", images: [] },
+                    { text: "no", images: [] },
+                    { text: "5", images: [] },
+                    { text: "a", images: [] },
+                    { text: "+2", images: [] },
+                    { text: "lol", images: [] }
+                ];
+                
+                console.log('[Background] Testing message processing...');
+                testMessages.forEach(msg => {
+                    console.log(`[Background] Processing test message: "${msg.text}"`);
+                    unifiedPolling.processUnifiedMessage(msg.text, msg.images, { username: 'test_user' });
+                });
+                
+                // Get current state
+                const pollState = unifiedPolling.getUnifiedPollState();
+                const gaugeState = unifiedPolling.getUnifiedGaugeState();
+                
+                console.log('[Background] Current poll state:', pollState);
+                console.log('[Background] Current gauge state:', gaugeState);
+                
+                sendResponse({ success: true, pollState, gaugeState });
+            } else {
+                console.log('[Background] Unified polling not available');
+                sendResponse({ success: false, error: 'Unified polling not initialized' });
+            }
+            return true;
+            
+        case 'RESET_UNIFIED_POLLING': // Reset command
+            console.log('[Background] Resetting unified polling system...');
+            if (unifiedPolling) {
+                unifiedPolling.clearPollData();
+                sendResponse({ success: true });
+            } else {
+                sendResponse({ success: false, error: 'Unified polling not initialized' });
+            }
             break;
 
         case 'CREATE_STREAMVIEW': // Sent from options page
@@ -909,7 +988,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 
     const isTwitch = tab.url.includes("twitch.tv");
-    const isYouTube = tab.url.includes("youtube.com") && settings.enableYouTube;
+    const isYouTube = tab.url.includes("youtube.com") && settings.features?.enableYouTube;
 
     // When a supported chat page loads, reset the state to keep it clean between streams.
     if (isTwitch || isYouTube) {
@@ -923,13 +1002,13 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         broadcastLeaderboardUpdate();
 
         // Auto-open logic for popout chat windows
-        if (settings.autoOpenPopout) {
+        if (settings.behavior?.autoOpenPopout) {
             const isTwitchPopout = isTwitch && tab.url.includes("/popout/");
             const isYouTubePopout = isYouTube && tab.url.includes("/live_chat");
 
             // For Twitch, only auto-open if the URL substring matches (or is not set).
             // For YouTube, always auto-open if the setting is enabled, as the substring check doesn't apply.
-            const shouldOpenForTwitch = isTwitchPopout && (!settings.requiredUrlSubstring || tab.url.includes(settings.requiredUrlSubstring));
+            const shouldOpenForTwitch = isTwitchPopout && (!settings.behavior?.requiredUrlSubstring || tab.url.includes(settings.behavior?.requiredUrlSubstring));
             const shouldOpenForYouTube = isYouTubePopout;
 
             if (shouldOpenForTwitch || shouldOpenForYouTube) {
@@ -949,12 +1028,13 @@ browser.windows.onRemoved.addListener((windowId) => {
 
 async function initialize() {
     await loadSettings();
-    if (settings.enableCounting) {
+    if (settings.core?.enableCounting) {
         setupDecayMechanism();
     }
     
     // Initialize modular components
     initializeGenericPolling();
+    initializeUnifiedPolling();
 }
 
 initializationPromise = initialize();

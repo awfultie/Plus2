@@ -9,12 +9,14 @@ let messageTarget;
 let gaugeContainerElement, gaugeFillElement, recentMaxIndicatorElement, maxLevelReachedLabelElement;
 let yesNoPollDisplayContainerElement, yesBarElement, noBarElement, yesPollLabelElement, noPollLabelElement, pollWinnerTextElement;
 let genericPollDisplayContainerElement;
+let unifiedPollDisplayContainerElement; // New unified container
 let leaderboardContainerElement;
 let activeMessageTimeouts = new Map(); // To manage timeouts for individual messages in append mode
 
 // --- Component Instances ---
 let gaugeComponent;
-let pollingComponent;
+let pollingComponent; // Legacy component - will be replaced by unifiedPollingComponent
+let unifiedPollingComponent; // New unified component
 let leaderboardComponent;
 
 // --- Helper Functions ---
@@ -188,6 +190,18 @@ function buildHighlightContainerStructure() {
     highlightedMessageContainer.insertBefore(genericPollDisplayContainerElement, messageTarget);
     console.log('[Popout] Created genericPollDisplayContainer:', genericPollDisplayContainerElement.id);
 
+    // Unified Poll Container - replaces both yes/no and generic polls when unified system is enabled
+    unifiedPollDisplayContainerElement = document.createElement('div');
+    unifiedPollDisplayContainerElement.id = 'unifiedPollDisplayContainer';
+    Object.assign(unifiedPollDisplayContainerElement.style, {
+        display: 'none', padding: '10px', margin: '10px 0', boxSizing: 'border-box',
+        backgroundColor: '#111111', textAlign: 'left', borderRadius: '8px', minWidth: '250px',
+        width: 'calc(100% - 20px)', alignSelf: 'center'
+    });
+    // Insert before messageTarget so it appears above it, but after generic container
+    highlightedMessageContainer.insertBefore(unifiedPollDisplayContainerElement, messageTarget);
+    console.log('[Popout] Created unifiedPollDisplayContainer:', unifiedPollDisplayContainerElement.id);
+
     document.body.appendChild(highlightedMessageContainer);
 
     // Components will be initialized after settings are loaded
@@ -202,7 +216,7 @@ function initializeComponents() {
         maxLevelReachedLabelElement
     );
     
-    // Initialize PollingComponent
+    // Initialize PollingComponent (Legacy)
     const yesNoElements = {
         container: yesNoPollDisplayContainerElement,
         yesBar: yesBarElement,
@@ -213,6 +227,10 @@ function initializeComponents() {
     };
     pollingComponent = new window.popoutUtils.PollingComponent();
     pollingComponent.initialize(yesNoElements, genericPollDisplayContainerElement, settings);
+    
+    // Initialize Unified Polling Display Component
+    unifiedPollingComponent = new window.popoutUtils.UnifiedPollingDisplayComponent();
+    unifiedPollingComponent.initialize(unifiedPollDisplayContainerElement, settings);
     
     // Initialize LeaderboardComponent
     leaderboardComponent = new window.popoutUtils.LeaderboardComponent(leaderboardContainerElement);
@@ -249,6 +267,14 @@ function updateYesNoPollDisplay(pollData) {
 function updateGenericPollDisplay(genericPollData) {
     if (pollingComponent) {
         pollingComponent.updateGenericDisplay(genericPollData);
+    }
+}
+
+// Unified polling display update function
+function updateUnifiedPollDisplay(unifiedPollData) {
+    console.log('[Popout] Updating unified poll display:', unifiedPollData);
+    if (unifiedPollingComponent) {
+        unifiedPollingComponent.updateUnifiedPollDisplay(unifiedPollData);
     }
 }
 
@@ -407,8 +433,8 @@ function applyAllStyles(newSettings) {
     document.body.style.backgroundColor = settings.display?.chromaKeyColor;
     
     // Apply minimum width to generic poll display
-    if (genericPollDisplayContainerElement && settings.genericPollMinWidth) {
-        genericPollDisplayContainerElement.style.minWidth = `${settings.genericPollMinWidth}px`;
+    if (genericPollDisplayContainerElement && settings.styling?.polling?.genericPollMinWidth) {
+        genericPollDisplayContainerElement.style.minWidth = `${settings.styling.polling.genericPollMinWidth}px`;
     }
     if (gaugeContainerElement) {
         gaugeContainerElement.style.backgroundColor = hexToRgba(settings.styling?.gauge?.gaugeTrackColor, settings.styling?.gauge?.gaugeTrackAlpha);
@@ -448,6 +474,9 @@ function handleIncomingMessage(message) {
       if (pollingComponent) {
         pollingComponent.updateSettings(message.data);
       }
+      if (unifiedPollingComponent) {
+        unifiedPollingComponent.updateSettings(message.data);
+      }
       if (leaderboardComponent) {
         leaderboardComponent.updateSettings(message.data);
       }
@@ -469,6 +498,10 @@ function handleIncomingMessage(message) {
     case 'GENERIC_POLL_UPDATE':
       console.log('[Popout] Received generic poll update:', message.data);
       updateGenericPollDisplay(message.data);
+      break;
+    case 'UNIFIED_POLL_UPDATE':
+      console.log('[Popout] Received unified poll update:', message.data);
+      updateUnifiedPollDisplay(message.data);
       break;
     case 'LEADERBOARD_UPDATE':
       updateLeaderboardDisplay(message.data);
@@ -505,9 +538,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (isExtensionContext) {
         // Request the initial full state from the background script
+        console.log('[Popout] Sending REQUEST_INITIAL_STATE message...');
         browser.runtime.sendMessage({ type: 'REQUEST_INITIAL_STATE' }).then(response => {
+            console.log('[Popout] Received initial state response:', response);
             if (response && response.settings) {
                 settings = response.settings;
+                console.log('[Popout] Settings received:', settings);
+                console.log('[Popout] Display settings:', settings.display);
+                console.log('[Popout] ChromaKeyColor:', settings.display?.chromaKeyColor);
                 pollState = response.poll; // Store initial poll state
                 
                 // Initialize components now that we have settings
@@ -520,6 +558,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateYesNoPollDisplay(response.poll);
                 updateGenericPollDisplay(response.genericPoll);
                 updateLeaderboardDisplay(response.leaderboard);
+                
+                // Update unified poll display if enabled
+                if (response.unifiedPoll) {
+                    updateUnifiedPollDisplay(response.unifiedPoll);
+                }
             } else {
                  if (messageTarget) messageTarget.innerHTML = `<div style="color: red; padding: 20px;">Received invalid data from the extension. Please try reloading.</div>`;
             }

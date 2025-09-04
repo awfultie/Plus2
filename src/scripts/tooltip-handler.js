@@ -7,7 +7,7 @@ class TooltipHandler {
     }
 
     addHoverListeners(chatLineHoverTarget) {
-        if (!this.settings.enableReplyTooltip) return;
+        if (!this.settings.features?.enableReplyTooltip) return;
         
         chatLineHoverTarget.addEventListener('mouseenter', (event) => 
             this.showReplyTooltip(chatLineHoverTarget, event)
@@ -26,7 +26,7 @@ class TooltipHandler {
 
     showReplyTooltip(chatLineHoverTarget, event) {
         // Guards for feature enabled and element still in DOM
-        if (!this.settings.enableReplyTooltip || !chatLineHoverTarget || !chatLineHoverTarget.isConnected) {
+        if (!this.settings.features?.enableReplyTooltip || !chatLineHoverTarget || !chatLineHoverTarget.isConnected) {
             return;
         }
 
@@ -47,7 +47,7 @@ class TooltipHandler {
     }
 
     _findTwitchReplyElement(chatLineHoverTarget) {
-        if (this.settings.enable7TVCompat) {
+        if (this.settings.features?.enableSevenTVCompatibility) {
             return chatLineHoverTarget.querySelector('div.seventv-reply-message-part');
         } else {
             // Standard Twitch - find reply paragraph by text content
@@ -62,7 +62,7 @@ class TooltipHandler {
     }
 
     _extractReplyText(replyElement) {
-        if (this.settings.enable7TVCompat) {
+        if (this.settings.features?.enableSevenTVCompatibility) {
             const replyBody = replyElement.querySelector('.seventv-chat-message-body');
             return replyBody ? replyBody.textContent.trim() : '';
         } else {

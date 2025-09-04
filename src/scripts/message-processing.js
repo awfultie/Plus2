@@ -16,7 +16,7 @@ class MessageProcessor {
         if (!chatContainer) return;
     
         if (this.adapter.platform === 'twitch') {
-            if (this.settings.enable7TVCompat) {
+            if (this.settings.features?.enableSevenTVCompatibility) {
                 this._processSevenTVMessages(chatContainer);
             } else {
                 this._processStandardTwitchMessages(chatContainer);
@@ -31,7 +31,7 @@ class MessageProcessor {
         if (!chatContainer) return;
     
         if (this.adapter.platform === 'twitch') {
-            if (this.settings.enable7TVCompat) {
+            if (this.settings.features?.enableSevenTVCompatibility) {
                 this._processSevenTVMessagesUIOnly(chatContainer);
             } else {
                 this._processStandardTwitchMessagesUIOnly(chatContainer);
@@ -159,14 +159,14 @@ class MessageProcessor {
     }
 
     _handleModPostHighlight(hoverTargetElement, chatMessageElementForContent) {
-        if (!this.settings.enableModPostReplyHighlight) return;
+        if (!this.settings.features?.enableModPostReplyHighlight) return;
 
         const modBadge = hoverTargetElement.querySelector('img.chat-badge[alt="Moderator"], img.chat-badge[alt="Broadcaster"], div.seventv-chat-badge img[alt="Moderator"], div.seventv-chat-badge img[alt="Broadcaster"]');
         const messageBody = chatMessageElementForContent.querySelector(this.adapter.selectors.messageContent);
 
         if (modBadge && messageBody && /\bpost\b/i.test(messageBody.textContent)) {
             let replyElement = null;
-            if (this.settings.enable7TVCompat) {
+            if (this.settings.features?.enableSevenTVCompatibility) {
                 replyElement = hoverTargetElement.querySelector('div.seventv-reply-message-part');
             } else {
                 const allParagraphs = hoverTargetElement.querySelectorAll('p');
@@ -190,7 +190,7 @@ class MessageProcessor {
     _markAsProcessed(itemToMarkAsProcessed) {
         if (!itemToMarkAsProcessed) return;
 
-        if (this.adapter.platform === 'twitch' && this.settings.enable7TVCompat && typeof itemToMarkAsProcessed === 'string') {
+        if (this.adapter.platform === 'twitch' && this.settings.features?.enableSevenTVCompatibility && typeof itemToMarkAsProcessed === 'string') {
             this.processedMessageIDs.add(itemToMarkAsProcessed);
         } else if (typeof itemToMarkAsProcessed === 'object') {
             this.processedMessageElements.add(itemToMarkAsProcessed);

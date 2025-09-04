@@ -8,7 +8,7 @@ class AutoScroll {
     }
 
     initialize() {
-        if (this.settings.inactivityTimeoutDuration > 0) {
+        if (this.settings.behavior?.inactivityTimeoutDuration > 0) {
             this.setupInactivityResumer();
         }
     }
@@ -35,7 +35,7 @@ class AutoScroll {
             } else if (seventvNotice) {
                 seventvNotice.click();
             }
-        }, this.settings.inactivityTimeoutDuration);
+        }, this.settings.behavior?.inactivityTimeoutDuration);
     }
 
     cleanup() {
