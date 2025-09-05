@@ -1,3 +1,15 @@
+/**
+ * OPTIONS PAGE - DIRECT NESTED STRUCTURE APPROACH
+ * 
+ * IMPORTANT: When adding new settings:
+ * 1. Add to src/config/default-settings.json in nested location
+ * 2. Add to FORM_ELEMENT_PATHS mapping (around line 388)  
+ * 3. Create HTML form element with matching ID
+ * 
+ * DO NOT use legacy nestedMap approaches found in some functions below!
+ * Refer to CLAUDE.md for full architecture guidelines.
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
   // --- Sidebar Navigation Logic ---
   const navLinks = document.querySelectorAll('.options-nav .nav-link');
@@ -117,7 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingSentimentThresholdInput = document.getElementById('unifiedPollingSentimentThreshold');
   const unifiedPollingSentimentMaxDisplayItemsInput = document.getElementById('unifiedPollingSentimentMaxDisplayItems');
   const unifiedPollingSentimentMaxGrowthWidthInput = document.getElementById('unifiedPollingSentimentMaxGrowthWidth');
+  const unifiedPollingSentimentLabelHeightInput = document.getElementById('unifiedPollingSentimentLabelHeight');
   const unifiedPollingSentimentMaxGaugeValueInput = document.getElementById('unifiedPollingSentimentMaxGaugeValue');
+  const unifiedPollingSentimentBaseColorInput = document.getElementById('unifiedPollingSentimentBaseColor');
   const unifiedPollingSentimentBlockListInput = document.getElementById('unifiedPollingSentimentBlockList');
   const unifiedPollingSentimentGroupsInput = document.getElementById('unifiedPollingSentimentGroups');
   
@@ -203,7 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
   async function initializeSettings() {
     if (!defaultOptions && window.SettingsManager) {
       defaultOptions = await window.SettingsManager.getDefaultSettings();
-      console.log('[Options] Loaded default options from SettingsManager');
     }
     return defaultOptions || {};
   }
@@ -358,10 +371,187 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leaderboardPreviewSectionBackground && chromaKey) leaderboardPreviewSectionBackground.style.backgroundColor = chromaKey;
   }
 
+  // --- Nested Structure Helpers ---
+  
+  /**
+   * Get a nested value from an object using dot notation
+   */
+  function getNestedValue(obj, path) {
+    return path.split('.').reduce((current, key) => current && current[key], obj);
+  }
+
+  /**
+   * Set a nested value in an object using dot notation
+   */
+  function setNestedValue(obj, path, value) {
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    const target = keys.reduce((current, key) => {
+      if (!(key in current)) current[key] = {};
+      return current[key];
+    }, obj);
+    target[lastKey] = value;
+  }
+
+  /**
+   * Map form elements to their nested paths for direct structure usage
+   */
+  const FORM_ELEMENT_PATHS = {
+    // Core
+    'stringToCount': 'core.stringToCount',
+    'exactMatchCounting': 'core.exactMatchCounting', 
+    'enableCounting': 'core.enableCounting',
+    
+    // Display
+    'chromaKeyColor': 'display.chromaKeyColor',
+    'popoutBaseFontSize': 'display.popoutBaseFontSize',
+    'popoutDefaultWidth': 'display.popoutDefaultWidth',
+    'popoutDefaultHeight': 'display.popoutDefaultHeight',
+    'displayTime': 'display.displayTime',
+    
+    // Features
+    'enableHighlightTracking': 'features.enableHighlightTracking',
+    'appendMessages': 'features.appendMessages',
+    'enableLeaderboard': 'features.enableLeaderboard',
+    'enableWebhookIntegration': 'features.enableWebhookIntegration',
+    'enableYouTube': 'features.enableYouTube',
+    'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+    'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+    'enableReplyTooltip': 'features.enableReplyTooltip',
+    'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
+    'enableChannelIdOverride': 'features.enableChannelIdOverride',
+    
+    // Unified Polling
+    'enableUnifiedPolling': 'polling.unified.enabled',
+    'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
+    'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
+    'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
+    'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
+    'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
+    
+    // Yes/No Polling
+    'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
+    'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
+    'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
+    'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
+    'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+    
+    // Numbers Polling
+    'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
+    'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
+    'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
+    'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+    
+    // Letters Polling
+    'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
+    'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
+    'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
+    'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+    
+    // Sentiment Polling
+    'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
+    'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
+    'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
+    'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+    'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
+    'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+    'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
+    'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
+    'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+    
+    // Highlight Gauge
+    'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
+    'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
+    'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
+    'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
+    
+    // Integrations
+    'enableStreamview': 'integrations.streamview.enabled',
+    'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
+    'streamviewBaseUrl': 'integrations.streamview.baseUrl',
+    'webhookEndpoint': 'integrations.webhook.endpoint',
+    'webhookApiKey': 'integrations.webhook.apiKey',
+    
+    // Styling
+    'messageBGColor': 'styling.messageBGColor',
+    'paragraphTextColor': 'styling.paragraphTextColor',
+    'enableUsernameColoring': 'styling.enableUsernameColoring',
+    'usernameDefaultColor': 'styling.usernameDefaultColor',
+    
+    // Gauge Styling
+    'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
+    'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
+    'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
+    'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
+    'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
+    'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
+    'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
+    'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
+    'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
+    'peakLabelLow': 'styling.gauge.peakLabels.low.text',
+    'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
+    'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
+    'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
+    'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
+    'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
+    'peakLabelMax': 'styling.gauge.peakLabels.max.text',
+    'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
+    'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
+    'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
+    'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
+    
+    // Leaderboard Styling
+    'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
+    'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
+    'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
+    'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
+    
+    // Behavior
+    'decayInterval': 'behavior.decayInterval',
+    'decayAmount': 'behavior.decayAmount',
+    'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
+    'dockingBehavior': 'behavior.dockingBehavior',
+    'autoOpenPopout': 'behavior.autoOpenPopout',
+    'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
+    'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
+    'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
+    
+    // Leaderboard
+    'leaderboardHighlightValue': 'leaderboard.highlightValue',
+    'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays'
+  };
+
   async function populateForm(options) {
+    // Use the nested structure directly instead of flat mapping
+    Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
+      const element = document.getElementById(elementId);
+      if (!element) return;
+      
+      const value = getNestedValue(options, nestedPath);
+      if (value !== undefined && value !== null) {
+        if (element.type === 'checkbox') {
+          element.checked = Boolean(value);
+        } else {
+          element.value = value;
+        }
+      }
+    });
+    
+    // Update UI sections based on settings
+    toggleSection(enableCountingInput, countingOptionsContainer);
+    toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer);
+    toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
+    toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
+    toggleSection(enableWebhookIntegrationInput, webhookOptionsContainer);
+    
+    updateStylePreviews(options);
+  }
+
+  // Legacy populateForm for backward compatibility (unused now)
+  async function populateFormLegacy(options) {
     const currentDefaults = await initializeSettings();
     
-    // Map flat keys to nested paths
+    // Map flat keys to nested paths (LEGACY - no longer used)
     const nestedMap = {
           'chromaKeyColor': 'display.chromaKeyColor',
           'popoutBaseFontSize': 'display.popoutBaseFontSize',
@@ -396,7 +586,9 @@ document.addEventListener('DOMContentLoaded', () => {
           'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
           'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
           'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+          'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
           'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+          'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
           'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
           'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
           'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
@@ -572,6 +764,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function saveOptions() {
     const optionsToSave = {};
+    
+    // Build nested structure directly from form elements
+    Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
+      const element = document.getElementById(elementId);
+      if (!element) return;
+      
+      let value;
+      if (element.type === 'checkbox') {
+        value = element.checked;
+      } else if (element.type === 'number') {
+        value = Number(element.value);
+      } else {
+        value = element.value;
+      }
+      
+      setNestedValue(optionsToSave, nestedPath, value);
+    });
+    
+    // Preserve existing integrations.streamview.current if it exists
+    const existingSettings = await window.SettingsManager.getAllSettings();
+    if (existingSettings.integrations?.streamview?.current) {
+      setNestedValue(optionsToSave, 'integrations.streamview.current', existingSettings.integrations.streamview.current);
+    }
+    
+    await window.SettingsManager.setSettings(optionsToSave);
+    showStatus('Options saved!');
+  }
+
+  // Legacy saveOptions for backward compatibility (unused now) 
+  async function saveOptionsLegacy() {
+    const optionsToSave = {};
     const currentDefaults = await initializeSettings();
     
     // Mapping from flat form element IDs to nested paths (reuse from populateForm)
@@ -609,7 +832,9 @@ document.addEventListener('DOMContentLoaded', () => {
       'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
       'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
       'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+      'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
       'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+      'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
       'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
       'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
       'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
@@ -739,16 +964,16 @@ document.addEventListener('DOMContentLoaded', () => {
   
   async function loadSentimentGroups(settings) {
     try {
-      // Use SettingsManager if available, fallback to passed settings
+      // Use SettingsManager with nested structure approach
       let sentimentGroupsJson;
       if (window.SettingsManager) {
-        sentimentGroupsJson = await window.SettingsManager.getSetting('unifiedPollingSentimentGroups');
+        const allSettings = await window.SettingsManager.getAllSettings();
+        sentimentGroupsJson = getNestedValue(allSettings, 'polling.unifiedPolling.sentiment.groups');
       } else {
-        sentimentGroupsJson = settings.polling?.types?.sentiment?.groups;
+        sentimentGroupsJson = settings?.polling?.unifiedPolling?.sentiment?.groups;
       }
       
       sentimentGroups = JSON.parse(sentimentGroupsJson || '[]');
-      console.log('[Options] Loaded sentiment groups:', sentimentGroups);
     } catch (e) {
       console.error('Error parsing sentiment groups:', e);
       sentimentGroups = [];
@@ -765,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Save using nested structure
         const nestedUpdate = {
           polling: {
-            generic: {
+            unifiedPolling: {
               sentiment: {
                 groups: groupsJson
               }
@@ -773,7 +998,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         };
         await window.SettingsManager.setSettings(nestedUpdate);
-        console.log('[Options] Saved sentiment groups via SettingsManager');
       } else {
         const currentOptions = await browser.storage.sync.get();
         const updatedOptions = {
@@ -781,7 +1005,6 @@ document.addEventListener('DOMContentLoaded', () => {
           unifiedPollingSentimentGroups: groupsJson
         };
         await browser.storage.sync.set(updatedOptions);
-        console.log('[Options] Saved sentiment groups via direct storage');
       }
       
       showStatus('Sentiment groups saved!');
@@ -798,16 +1021,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  function addSentimentGroup() {
-    const newGroup = {
-      label: '',
-      words: [],
-      partialMatch: false
-    };
-    sentimentGroups.push(newGroup);
-    renderSentimentGroups();
-    saveSentimentGroups();
-  }
   
   function renderSentimentGroups() {
     const container = document.getElementById('sentimentGroupsList');
@@ -915,6 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     sentimentGroups.push(newGroup);
     renderSentimentGroups();
+    saveSentimentGroups();
     
     // Focus on the new group's label field
     setTimeout(() => {
@@ -1872,7 +2086,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
         'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
         'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+        'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
         'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+        'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
         'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
         'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
         'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',

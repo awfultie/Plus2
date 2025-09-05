@@ -234,7 +234,11 @@
 
         // 5. Emotes from images
         images.forEach(img => {
-            categories.push({ type: 'emote', value: img.alt || img.src });
+            categories.push({ 
+                type: 'emote', 
+                value: img.alt || img.src,  // Keep alt text for matching
+                emoteData: img  // Store full emote object for display
+            });
         });
 
         return categories;
@@ -354,7 +358,32 @@
             console.log(`[Unified Poll] ${typeKey} relevant messages: ${messageTexts}`);
         }
         
-        if (relevantMessages.length >= threshold) {
+        // Special handling for letter polls - need at least 2 letters above individual threshold
+        if (typeKey === 'letters' && relevantMessages.length >= threshold) {
+            // Count individual letter frequencies
+            const letterCounts = {};
+            relevantMessages.forEach(msg => {
+                const letter = msg.category.value;
+                letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+            });
+            
+            // Check how many letters exceed the individual threshold
+            const individualThreshold = config.lettersActivation?.individualThreshold || 3;
+            const lettersAboveIndividualThreshold = Object.values(letterCounts)
+                .filter(count => count >= individualThreshold).length;
+            
+            console.log(`[Unified Poll] Letters individual threshold check: ${lettersAboveIndividualThreshold} letters above individual threshold (${individualThreshold})`);
+            console.log(`[Unified Poll] Letter counts:`, letterCounts);
+            
+            if (lettersAboveIndividualThreshold >= 2) {
+                console.log(`[Unified Poll] ✅ ${typeKey} poll threshold met! ${lettersAboveIndividualThreshold} letters above individual threshold. Activating...`);
+                activatePoll(pollType, relevantMessages);
+                return true;
+            } else {
+                console.log(`[Unified Poll] ❌ ${typeKey} poll individual threshold not met (${lettersAboveIndividualThreshold}/2 letters above ${individualThreshold})`);
+                return false;
+            }
+        } else if (relevantMessages.length >= threshold) {
             console.log(`[Unified Poll] ✅ ${typeKey} poll threshold met! Activating...`);
             activatePoll(pollType, relevantMessages);
             return true;
@@ -655,19 +684,51 @@
         }
 
         const sentimentCategories = message.categories.filter(c => c.type === 'sentiment');
-        if (sentimentCategories.length === 0) return;
+        const emoteCategories = message.categories.filter(c => c.type === 'emote');
+        
+        // Combine sentiment and emote categories for processing
+        const allSentimentItems = [
+            ...sentimentCategories,
+            ...emoteCategories.map(emote => ({
+                type: 'sentiment',
+                value: emote.value, // This is the alt text or src
+                emoteData: emote.emoteData // Pass through emote data for display
+            }))
+        ];
+        
+        if (allSentimentItems.length === 0) return;
 
-        console.log('[Unified Poll] 💭 Processing sentiment categories:', sentimentCategories);
+        console.log('[Unified Poll] 💭 Processing sentiment categories:', sentimentCategories.length, 'and emote categories:', emoteCategories.length);
+
+        // Deduplicate items - each unique term should only count once per message
+        const uniqueItems = new Map();
+        allSentimentItems.forEach(item => {
+            if (!uniqueItems.has(item.value)) {
+                uniqueItems.set(item.value, item);
+            }
+        });
+        
+        const deduplicatedItems = Array.from(uniqueItems.values());
+        console.log('[Unified Poll] 💭 Deduplicated from', allSentimentItems.length, 'to', deduplicatedItems.length, 'unique items');
 
         const currentTime = Date.now();
         
-        sentimentCategories.forEach(category => {
+        deduplicatedItems.forEach(category => {
             const term = category.value;
             
             // Skip blocked terms
             if (config.sentiment.blockList?.includes(term.toLowerCase())) {
                 console.log('[Unified Poll] 💭 Blocked sentiment term:', term);
                 return;
+            }
+
+            // Skip yes/no terms if a yes/no poll is active to avoid confusion
+            if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {
+                const yesNoTerms = ['yes', 'y', 'no', 'n'];
+                if (yesNoTerms.includes(term.toLowerCase())) {
+                    console.log('[Unified Poll] 💭 Skipping yes/no term during active yes/no poll:', term);
+                    return;
+                }
             }
 
             // Check if term belongs to a custom group
@@ -695,7 +756,8 @@
                 sentimentState.items[trackingKey] = {
                     count: 0,
                     lastSeen: 0,
-                    isGroup: !!groupMatch
+                    isGroup: !!groupMatch,
+                    emoteData: category.emoteData // Store emote data if available
                 };
             }
 
@@ -780,7 +842,8 @@
             items: displayItems.map(([term, data]) => ({
                 term,
                 count: data.count,
-                percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100)
+                percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100),
+                emoteData: data.emoteData // Pass through emote data for display
             })),
             maxDisplayItems: config.sentiment?.maxDisplayItems || 5,
             maxGrowthWidth: config.sentiment?.maxGrowthWidth || 150
@@ -800,7 +863,20 @@
         const maxItems = config.sentiment?.maxDisplayItems || 5;
         
         const displayItems = Object.entries(sentimentState.items)
-            .filter(([term, data]) => data.count >= threshold)
+            .filter(([term, data]) => {
+                // Filter by threshold
+                if (data.count < threshold) return false;
+                
+                // Skip yes/no terms if a yes/no poll is active
+                if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {
+                    const yesNoTerms = ['yes', 'y', 'no', 'n'];
+                    if (yesNoTerms.includes(term.toLowerCase())) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            })
             .sort((a, b) => b[1].count - a[1].count)
             .slice(0, maxItems);
 
@@ -811,7 +887,8 @@
             items: displayItems.map(([term, data]) => ({
                 term,
                 count: data.count,
-                percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100)
+                percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100),
+                emoteData: data.emoteData // Pass through emote data for display
             })),
             allItems: sentimentState.items, // For debugging
             maxDisplayItems: config.sentiment?.maxDisplayItems || 5,

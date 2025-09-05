@@ -283,7 +283,6 @@ async function getLeaderboardData() {
 // --- Core Logic ---
 
 async function loadSettings() {
-    console.log('[Background] Loading settings...');
     
     // Wait a bit for SettingsManager to initialize, then check again
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -293,13 +292,10 @@ async function loadSettings() {
     if (typeof SettingsManager !== 'undefined' && SettingsManager.getAllSettings) {
         try {
             settings = await SettingsManager.getAllSettings();
-            console.log('[Background] Loaded settings via SettingsManager:', Object.keys(settings));
-            console.log('[Background] chromaKeyColor:', settings.display?.chromaKeyColor);
         } catch (error) {
             console.error('[Background] Error loading settings via SettingsManager:', error);
             // Fallback to direct storage
             settings = await browser.storage.sync.get();
-            console.log('[Background] Fallback: Loaded settings via direct storage access');
         }
     } else {
         // Fallback for environments where SettingsManager is not available
@@ -313,9 +309,6 @@ async function loadSettings() {
             popoutBaseFontSize: 18
         };
         settings = { ...basicDefaults, ...storedSettings };
-        console.log('[Background] SettingsManager not available, loaded settings via direct storage access');
-        console.log('[Background] Loaded keys from direct storage:', Object.keys(settings));
-        console.log('[Background] chromaKeyColor from fallback:', settings.display?.chromaKeyColor);
     }
     const oldSettings = { ...settings };
 
@@ -756,9 +749,6 @@ function initializeGenericPolling() {
 }
 
 function initializeUnifiedPolling() {
-    console.log('[Background] Attempting to initialize unified polling...');
-    console.log('[Background] UnifiedPolling available:', typeof UnifiedPolling !== 'undefined');
-    console.log('[Background] Current unifiedPolling:', !!unifiedPolling);
     
     if (typeof UnifiedPolling !== 'undefined' && !unifiedPolling) {
         unifiedPolling = UnifiedPolling;

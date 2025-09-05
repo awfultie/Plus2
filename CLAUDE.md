@@ -58,6 +58,36 @@ The build system handles browser-specific differences:
 
 **Settings Architecture**: Centralized settings system with default values in `background.js`, managed through `options.html`, and synchronized across all components.
 
+### Options Page Architecture (CRITICAL)
+
+**IMPORTANT**: The options page (`src/scripts/options.js`) uses a direct nested structure approach that MUST be followed for all new settings:
+
+#### When Adding New Settings:
+
+1. **Add to Default Settings**: First add the setting to `src/config/default-settings.json` in the appropriate nested location (e.g., `polling.unifiedPolling.newFeature.enabled`)
+
+2. **Add to FORM_ELEMENT_PATHS**: Add the form element ID to nested path mapping in the `FORM_ELEMENT_PATHS` constant:
+   ```javascript
+   'newFeatureEnabled': 'polling.unifiedPolling.newFeature.enabled',
+   ```
+
+3. **Create HTML Form Element**: Add the form control in `src/ui/options.html` with the ID that matches your mapping
+
+4. **NO FLAT MAPPINGS**: Do NOT add entries to any `nestedMap` objects or flat mapping approaches - these are legacy and being phased out
+
+#### Architecture Benefits:
+- **Direct SettingsManager Integration**: Settings save/load directly to/from nested structure
+- **Single Source of Truth**: No conversion between flat and nested formats
+- **Maintainable**: Easy to understand which form elements map to which settings
+- **Performance**: No redundant mapping operations
+
+#### Functions That Handle This:
+- `populateForm()` - Reads nested values using `getNestedValue()`
+- `saveOptions()` - Saves nested values using `setNestedValue()`
+- `FORM_ELEMENT_PATHS` - Central mapping from form IDs to nested paths
+
+**DO NOT** use the legacy `nestedMap` approach found in some older functions - this will be removed in future cleanup.
+
 ## Development Notes
 
 - Extension requires `storage`, `tabs`, `alarms`, and `scripting` permissions

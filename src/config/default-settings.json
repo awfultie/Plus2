@@ -177,6 +177,8 @@
         "maxDisplayItems": 5,
         "maxGrowthWidth": 150,
         "maxGaugeValue": 30,
+        "labelHeight": 18,
+        "baseColor": "#2196F3",
         "blockList": "",
         "groups": "[]"
       }

@@ -164,7 +164,7 @@ class MessageProcessor {
         const modBadge = hoverTargetElement.querySelector('img.chat-badge[alt="Moderator"], img.chat-badge[alt="Broadcaster"], div.seventv-chat-badge img[alt="Moderator"], div.seventv-chat-badge img[alt="Broadcaster"]');
         const messageBody = chatMessageElementForContent.querySelector(this.adapter.selectors.messageContent);
 
-        if (modBadge && messageBody && /\bpost\b/i.test(messageBody.textContent)) {
+        if (modBadge && messageBody && messageBody.textContent.trim().toLowerCase() === 'post') {
             let replyElement = null;
             if (this.settings.features?.enableSevenTVCompatibility) {
                 replyElement = hoverTargetElement.querySelector('div.seventv-reply-message-part');

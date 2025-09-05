@@ -1126,10 +1126,22 @@
               <input type="number" id="unifiedPollingSentimentMaxGrowthWidth" min="0" max="500" step="10">
 
               <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentLabelHeight">Label Height (px)</label>
+                <span class="tooltip-icon" data-tooltip="Height of emote images and text labels in sentiment gauges.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentLabelHeight" min="12" max="50" step="2">
+
+              <div class="label-with-tooltip">
                 <label for="unifiedPollingSentimentMaxGaugeValue">Max Gauge Value</label>
                 <span class="tooltip-icon" data-tooltip="Maximum value for sentiment gauge calculations. Gauges are 100% full at this count.">?</span>
               </div>
               <input type="number" id="unifiedPollingSentimentMaxGaugeValue" min="1" max="100">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentBaseColor">Base Color</label>
+                <span class="tooltip-icon" data-tooltip="Base color for sentiment gauge fills. This will be the primary color of the gauge bars.">?</span>
+              </div>
+              <input type="color" id="unifiedPollingSentimentBaseColor">
 
               <div class="label-with-tooltip">
                 <label for="unifiedPollingSentimentBlockList">Block List</label>

@@ -9,7 +9,6 @@ class UnifiedPollingDisplayComponent {
     constructor() {
         this.container = null;
         this.settings = {};
-        console.log('[Unified Poll Display] Component initialized');
     }
 
     /**
@@ -18,7 +17,6 @@ class UnifiedPollingDisplayComponent {
     initialize(container, settings) {
         this.container = container;
         this.settings = settings;
-        console.log('[Unified Poll Display] Initialized with container:', container);
     }
 
     /**
@@ -26,7 +24,6 @@ class UnifiedPollingDisplayComponent {
      */
     updateSettings(newSettings) {
         this.settings = newSettings;
-        console.log('[Unified Poll Display] Settings updated');
     }
 
     /**
@@ -35,12 +32,6 @@ class UnifiedPollingDisplayComponent {
     updateUnifiedPollDisplay(unifiedPollData) {
         if (!this.container) return;
         
-        console.log('[Unified Poll Display] 🎨 UPDATING DISPLAY:');
-        console.log('  - shouldDisplay:', unifiedPollData.shouldDisplay);
-        console.log('  - isActive:', unifiedPollData.isActive);
-        console.log('  - isConcluded:', unifiedPollData.isConcluded);
-        console.log('  - pollType:', unifiedPollData.pollType);
-        console.log('  - counts:', unifiedPollData.counts);
         
         const { shouldDisplay, isActive, isConcluded, pollType } = unifiedPollData;
 
@@ -87,17 +78,44 @@ class UnifiedPollingDisplayComponent {
 
         // Route to appropriate renderer based on poll type and state
         // Priority: concluded polls first, then active, then sentiment
+        let hasRenderedMainContent = false;
+
         if (isConcluded) {
-            console.log('[Unified Poll Display] 🏁 Rendering CONCLUDED poll - RESULTS should show here!');
             this.renderConcludedPoll(unifiedPollData, titleElement, contentElement);
+            hasRenderedMainContent = true;
         } else if (isActive) {
-            console.log('[Unified Poll Display] 🟢 Rendering ACTIVE poll');
             this.renderActivePoll(unifiedPollData, titleElement, contentElement);
-        } else if (unifiedPollData.sentimentData?.shouldDisplay) {
-            console.log('[Unified Poll Display] 💭 Rendering sentiment tracking');
-            // Handle ongoing sentiment tracking (not an active poll)
-            this.renderSentimentTracking(unifiedPollData.sentimentData, titleElement, contentElement);
+            hasRenderedMainContent = true;
+        }
+
+        // Always check for sentiment tracking - it can display alongside or independently
+        if (unifiedPollData.sentimentData?.shouldDisplay) {
+            
+            if (hasRenderedMainContent) {
+                // Add sentiment below the main poll content
+                // Check for existing sentiment container first to avoid duplicates
+                let sentimentContainer = contentElement.querySelector('.sentiment-container');
+                if (!sentimentContainer) {
+                    sentimentContainer = document.createElement('div');
+                    sentimentContainer.className = 'sentiment-container';
+                    sentimentContainer.style.cssText = 'margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);';
+                    contentElement.appendChild(sentimentContainer);
+                }
+                this.renderSentimentTracking(unifiedPollData.sentimentData, document.createElement('div'), sentimentContainer);
+            } else {
+                // No main poll, sentiment takes the full space
+                this.renderSentimentTracking(unifiedPollData.sentimentData, titleElement, contentElement);
+                hasRenderedMainContent = true;
+            }
         } else {
+            // Clean up any existing sentiment container when sentiment shouldn't display
+            const existingSentimentContainer = contentElement.querySelector('.sentiment-container');
+            if (existingSentimentContainer) {
+                existingSentimentContainer.remove();
+            }
+        }
+
+        if (!hasRenderedMainContent) {
             console.log('[Unified Poll Display] ❓ No rendering condition met - poll will be empty');
             // Log sentiment state for debugging
             console.log('[Debug] Sentiment data:', unifiedPollData.sentimentData);
@@ -134,13 +152,18 @@ class UnifiedPollingDisplayComponent {
     renderActivePoll(pollData, titleElement, contentElement) {
         const { pollType, counts } = pollData;
         
-        // Add live indicator
-        titleElement.innerHTML = `
-            <span style="font-size: 16px;">Live Polling... (${pollType.toUpperCase()})</span>
-            <span style="display: inline-block; width: 8px; height: 8px; background: #00ff00; 
-                       border-radius: 50%; margin-left: 8px; animation: pulse 1s infinite;">
-            </span>
-        `;
+        // Remove titles for numbers and letters polls during live polling
+        if (pollType === 'numbers' || pollType === 'letters') {
+            titleElement.innerHTML = '';
+        } else {
+            // Add live indicator for other poll types
+            titleElement.innerHTML = `
+                <span style="font-size: 16px;">Live Polling... (${pollType.toUpperCase()})</span>
+                <span style="display: inline-block; width: 8px; height: 8px; background: #00ff00; 
+                           border-radius: 50%; margin-left: 8px; animation: pulse 1s infinite;">
+                </span>
+            `;
+        }
 
         switch (pollType) {
             case 'yesno':
@@ -186,7 +209,6 @@ class UnifiedPollingDisplayComponent {
     renderSentimentTracking(sentimentData, titleElement, contentElement) {
         titleElement.textContent = '';
         
-        console.log('[Unified Poll Display] 💭 Rendering sentiment tracking with data:', sentimentData);
         
         // Handle unified polling sentiment data format
         if (sentimentData && sentimentData.items && sentimentData.items.length > 0) {
@@ -194,11 +216,14 @@ class UnifiedPollingDisplayComponent {
             const maxDisplayItems = this.settings.polling?.unifiedPolling?.sentiment?.maxDisplayItems || 
                                    sentimentData.maxDisplayItems || 5;
             
-            // sentimentData.items is already an array of {term, count, percentage}
+            // sentimentData.items is already an array of {term, count, percentage, emoteData}
             const sortedData = sentimentData.items
                 .sort((a, b) => b.count - a.count)
                 .slice(0, maxDisplayItems)
-                .map(item => ({ value: item.term, count: item.count }));
+                .map(item => ({ 
+                    value: item.emoteData || item.term, // Use emote data if available, otherwise use term
+                    count: item.count 
+                }));
                 
             console.log('[Unified Poll Display] 💭 Processed sortedData:', sortedData);
             this.updateSentimentGauges(contentElement, sortedData);
@@ -326,7 +351,6 @@ class UnifiedPollingDisplayComponent {
      * Render concluded Numbers poll with statistics
      */
     renderConcludedNumbers(results, titleElement, contentElement) {
-        console.log('[Unified Poll Display] 🔢 Rendering concluded NUMBERS poll with results:', results);
         
         // Clear the content element to show only results
         contentElement.innerHTML = '';
@@ -359,7 +383,7 @@ class UnifiedPollingDisplayComponent {
             const outlierInfo = results.outliersRemoved > 0 ? ` | Outliers: ${results.outliersRemoved}` : '';
             
             contentElement.innerHTML = `
-                <div style="font-size: 12px; margin-bottom: 8px; color: #ccc; text-align: center;">Top Response: ${modeText}</div>
+                <div style="font-size: 12px; margin-bottom: 8px; color: #ccc; text-align: center;">Average: ${results.average} Top: ${modeText}</div>
                 <div style="font-size: 12px;">${histogramHtml}</div>
                 <div style="font-size: 10px; margin-top: 5px; color: #ccc; text-align: right;">Total: ${results.totalVotes} votes${outlierInfo}</div>
             `;
@@ -416,7 +440,8 @@ class UnifiedPollingDisplayComponent {
             
             const modeText = mode.join(', ');
             
-            titleElement.textContent = `Average: ${average.toFixed(1)}`;
+            // Consolidate title to show "Average: x Top: y" format
+            titleElement.textContent = `Average: ${average.toFixed(1)} Top: ${modeText}`;
             
             // Prepare data for bar chart
             const entries = Object.entries(filteredData);
@@ -440,15 +465,10 @@ class UnifiedPollingDisplayComponent {
             const statsDiv = document.createElement('div');
             statsDiv.style.cssText = 'padding: 4px; max-width: 100%; box-sizing: border-box;';
             
-            // Add statistics header
-            const statsHeader = document.createElement('div');
-            statsHeader.style.cssText = 'font-size: 11px; margin-bottom: 8px; color: #ccc; text-align: center; word-wrap: break-word;';
-            statsHeader.innerHTML = `Most Common: ${modeText}<br>Median: ${median}`;
-            
             // Add bars container
             const barsContainer = document.createElement('div');
             
-            // Add totals footer
+            // Add single totals footer (keep only the one with outlier info)
             const footerText = outliersRemoved > 0 
                 ? `Total: ${filteredTotal} votes | Outliers removed: ${outliersRemoved}`
                 : `Total: ${filteredTotal} votes`;
@@ -456,14 +476,13 @@ class UnifiedPollingDisplayComponent {
             statsFooter.style.cssText = 'font-size: 10px; margin-top: 5px; color: #ccc; text-align: center;';
             statsFooter.textContent = footerText;
             
-            // Assemble the display
-            statsDiv.appendChild(statsHeader);
+            // Assemble the display (removed statsHeader with duplicate stats)
             statsDiv.appendChild(barsContainer);
             statsDiv.appendChild(statsFooter);
             contentElement.appendChild(statsDiv);
             
             // Render the bar chart
-            this.renderBarChart(displayData, barsContainer, { showPercentages: true, total: filteredTotal });
+            this.renderBarChart(displayData, barsContainer, { showPercentages: true, total: filteredTotal, hideTotal: true });
         }
     }
 
@@ -552,7 +571,7 @@ class UnifiedPollingDisplayComponent {
      * Render bar chart for numbers/letters
      */
     renderBarChart(displayData, contentElement, options = {}) {
-        const { showPercentages = false, total = 0 } = options;
+        const { showPercentages = false, total = 0, hideTotal = false } = options;
         const maxCount = Math.max(...displayData.map(d => d.count));
         
         const barsHtml = displayData.map(({ label, count }) => {
@@ -576,7 +595,7 @@ class UnifiedPollingDisplayComponent {
         contentElement.innerHTML = `
             <div style="padding: 4px; max-width: 100%; box-sizing: border-box;">
                 <div style="font-size: 12px; min-width: 0;">${barsHtml}</div>
-                <div style="font-size: 10px; margin-top: 4px; opacity: 0.7; color: #ccc; text-align: center;">${totalText}</div>
+                ${!hideTotal ? `<div style="font-size: 10px; margin-top: 4px; opacity: 0.7; color: #ccc; text-align: center;">${totalText}</div>` : ''}
             </div>
         `;
     }
@@ -950,16 +969,27 @@ class UnifiedPollingDisplayComponent {
                                  this.settings.polling?.generic?.sentiment?.maxGaugeValue || 30;
         const sentimentMaxGrowthWidth = this.settings.polling?.unifiedPolling?.sentiment?.maxGrowthWidth || 
                                        this.settings.polling?.generic?.sentiment?.maxGrowthWidth || 150;
+        const sentimentBaseColor = this.settings.polling?.unifiedPolling?.sentiment?.baseColor || '#2196F3';
         
         // Get existing gauge elements to reuse them for smooth animations
+        // Refresh the gauge list each time to account for any DOM changes
         const existingGauges = Array.from(contentElement.querySelectorAll('.sentiment-gauge'));
         const existingGaugeMap = new Map();
         
         // Create a map of existing gauges by their data value
+        // Also remove any gauges that might be duplicates during this process
+        const seenValues = new Set();
         existingGauges.forEach(gauge => {
             const dataValue = gauge.getAttribute('data-value');
             if (dataValue) {
-                existingGaugeMap.set(dataValue, gauge);
+                if (seenValues.has(dataValue)) {
+                    // Remove duplicate gauge
+                    console.log('[Sentiment Gauge] Removing duplicate gauge for value:', dataValue);
+                    gauge.remove();
+                } else {
+                    seenValues.add(dataValue);
+                    existingGaugeMap.set(dataValue, gauge);
+                }
             }
         });
         
@@ -981,16 +1011,25 @@ class UnifiedPollingDisplayComponent {
             }
             
             const isAtMaxWidth = fillWidthPx >= sentimentMaxGrowthWidth;
+            
+            // Create lighter shade for gradient end
+            const hex = sentimentBaseColor.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            const lighterColor = `#${Math.min(255, r + 40).toString(16).padStart(2, '0')}${Math.min(255, g + 40).toString(16).padStart(2, '0')}${Math.min(255, b + 40).toString(16).padStart(2, '0')}`;
+            
             const gaugeColor = isAtMaxWidth ? 
                 'linear-gradient(90deg, #FF4444, #CC0000)' : 
-                'linear-gradient(90deg, #2196F3, #64B5F6)';
+                `linear-gradient(90deg, ${sentimentBaseColor}, ${lighterColor})`;
             
             // Create display label
             let displayLabel;
             if (value && typeof value === 'object' && (value.src || value.url)) {
                 const imgSrc = value.src || value.url;
                 const imgAlt = value.alt || value.name || 'emote';
-                displayLabel = `<img src="${imgSrc}" alt="${imgAlt}" style="height: 18px; width: auto; vertical-align: middle;" onerror="this.style.display='none';this.nextSibling.style.display='inline'"><span style="display:none">${imgAlt}</span>`;
+                const labelHeight = this.settings.polling?.unifiedPolling?.sentiment?.labelHeight || 18;
+                displayLabel = `<img src="${imgSrc}" alt="${imgAlt}" style="height: ${labelHeight}px; width: auto; vertical-align: middle;" onerror="this.style.display='none';this.nextSibling.style.display='inline'"><span style="display:none">${imgAlt}</span>`;
             } else {
                 const textValue = typeof value === 'object' ? (value.alt || value.name || value.toString()) : String(value);
                 displayLabel = textValue.charAt(0).toUpperCase() + textValue.slice(1);
@@ -998,17 +1037,21 @@ class UnifiedPollingDisplayComponent {
             
             // Calculate label width to ensure gauge-bar fits content
             let labelWidthPx = 0;
+            const labelHeight = this.settings.polling?.unifiedPolling?.sentiment?.labelHeight || 18;
+            const gaugeHeight = Math.max(20, labelHeight + 2);
+            const fontSize = Math.max(9, Math.floor(gaugeHeight * 0.55));
+            
             if (displayLabel && !displayLabel.includes('<img')) {
                 // Create temporary element to measure text width
                 const tempElement = document.createElement('div');
-                tempElement.style.cssText = 'position: absolute; visibility: hidden; font-size: 11px; font-weight: 500; white-space: nowrap; padding-left: 6px;';
+                tempElement.style.cssText = `position: absolute; visibility: hidden; font-size: ${fontSize}px; font-weight: 500; white-space: nowrap; padding-left: 6px;`;
                 tempElement.textContent = displayLabel;
                 document.body.appendChild(tempElement);
                 labelWidthPx = tempElement.offsetWidth;
                 document.body.removeChild(tempElement);
             } else if (displayLabel && displayLabel.includes('<img')) {
-                // For emotes, estimate width (18px image + some padding)
-                labelWidthPx = 30;
+                // For emotes, estimate width based on height + some padding
+                labelWidthPx = labelHeight + 12; // Height + padding
             }
             
             // Use the maximum of fill width and label width for gauge-bar
@@ -1022,10 +1065,13 @@ class UnifiedPollingDisplayComponent {
                 // Reuse existing element - just update the fill width and color
                 usedGauges.add(gaugeElement);
                 
-                // Update the gauge bar width (the outer container)
+                // Update the gauge bar width and height (the outer container)
                 const gaugeBar = gaugeElement.querySelector('.gauge-bar');
                 if (gaugeBar) {
+                    const labelHeight = this.settings.polling?.unifiedPolling?.sentiment?.labelHeight || 18;
+                    const gaugeHeight = Math.max(20, labelHeight + 2); // At least 20px, or label height + padding
                     gaugeBar.style.width = `${gaugeBarWidthPx}px`;
+                    gaugeBar.style.height = `${gaugeHeight}px`;
                 }
                 
                 // Update the fill element with smooth transition
@@ -1042,7 +1088,14 @@ class UnifiedPollingDisplayComponent {
                 }
                 
                 // Ensure proper order by moving to correct position
-                if (contentElement.children[index] !== gaugeElement) {
+                // Only move if the element is not already in the correct position
+                const currentPosition = Array.from(contentElement.children).indexOf(gaugeElement);
+                if (currentPosition !== index) {
+                    // Remove element first to avoid any potential duplication issues
+                    if (gaugeElement.parentNode === contentElement) {
+                        gaugeElement.remove();
+                    }
+                    // Insert at correct position
                     if (index < contentElement.children.length) {
                         contentElement.insertBefore(gaugeElement, contentElement.children[index]);
                     } else {
@@ -1050,6 +1103,10 @@ class UnifiedPollingDisplayComponent {
                     }
                 }
             } else {
+                // Before creating new gauge element, ensure no duplicates exist
+                const duplicateElements = contentElement.querySelectorAll(`[data-value="${valueKey}"]`);
+                duplicateElements.forEach(dup => dup.remove());
+                
                 // Create new gauge element
                 gaugeElement = document.createElement('div');
                 gaugeElement.className = 'sentiment-gauge';
@@ -1067,7 +1124,7 @@ class UnifiedPollingDisplayComponent {
                 gaugeElement.innerHTML = `
                     <div class="gauge-bar" style="
                         width: ${gaugeBarWidthPx}px; 
-                        height: 20px; 
+                        height: ${gaugeHeight}px; 
                         background: shadow; 
                         border-radius: 3px; 
                         position: relative;
@@ -1085,7 +1142,7 @@ class UnifiedPollingDisplayComponent {
                             transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.3s ease;
                             border-radius: 3px;
                         "></div>
-                        <div class="gauge-label" style="position: relative; z-index: 1; font-size: 11px; color: white; font-weight: 500; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); white-space: nowrap; padding-left: 6px;">${displayLabel}</div>
+                        <div class="gauge-label" style="position: relative; z-index: 1; font-size: ${fontSize}px; color: white; font-weight: 500; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); white-space: nowrap; padding-left: 6px;">${displayLabel}</div>
                     </div>
                 `;
                 
