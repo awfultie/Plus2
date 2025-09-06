@@ -56,7 +56,7 @@ async function build(browser) {
                     "lib/browser-polyfill.min.js", 
                     "scripts/config/settings-manager.js",
                     "scripts/polling/polling-utils.js",
-                    "scripts/polling/generic-polling.js",
+                    "scripts/polling/unified-polling.js",
                     "scripts/webhook-client.js", 
                     "scripts/streamview-client.js", 
                     "scripts/background.js"
@@ -88,7 +88,7 @@ async function build(browser) {
             // but for the service worker, we need to import it and the clients.
             const bgPath = path.join(browserDistDir, 'scripts', 'background.js');
             const bgContent = await fs.readFile(bgPath, 'utf-8');
-            await fs.writeFile(bgPath, `importScripts('../lib/browser-polyfill.min.js', 'webhook-client.js', 'streamview-client.js');\n\n${bgContent}`);
+            await fs.writeFile(bgPath, `importScripts('../lib/browser-polyfill.min.js', 'config/settings-manager.js', 'polling/polling-utils.js', 'polling/unified-polling.js', 'webhook-client.js', 'streamview-client.js');\n\n${bgContent}`);
         }
 
         // Write the final manifest file

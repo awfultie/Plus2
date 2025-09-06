@@ -4,19 +4,16 @@
 let settings = {};
 let highlightedMessageContainer;
 let pollState = {}; // To hold the current state of the poll
-let genericPollState = {}; // To hold the current state of the generic poll
 let messageTarget;
-let gaugeContainerElement, gaugeFillElement, recentMaxIndicatorElement, maxLevelReachedLabelElement;
-let yesNoPollDisplayContainerElement, yesBarElement, noBarElement, yesPollLabelElement, noPollLabelElement, pollWinnerTextElement;
-let genericPollDisplayContainerElement;
+// Legacy gauge elements removed - unified polling handles display
+// Legacy yes/no poll elements removed - unified polling handles all polls
+// Legacy genericPollDisplayContainerElement removed - functionality replaced by unified polling
 let unifiedPollDisplayContainerElement; // New unified container
 let leaderboardContainerElement;
 let activeMessageTimeouts = new Map(); // To manage timeouts for individual messages in append mode
 
 // --- Component Instances ---
-let gaugeComponent;
-let pollingComponent; // Legacy component - will be replaced by unifiedPollingComponent
-let unifiedPollingComponent; // New unified component
+let unifiedPollingComponent;
 let leaderboardComponent;
 
 // --- Helper Functions ---
@@ -93,18 +90,7 @@ function buildHighlightContainerStructure() {
     });
     highlightedMessageContainer.appendChild(messageTarget);
 
-    // Gauge Container
-    gaugeContainerElement = document.createElement('div');
-    gaugeContainerElement.id = 'occurrenceGaugeContainer';
-    Object.assign(gaugeContainerElement.style, {
-        position: 'relative',
-        width: 'calc(100% - 20px)',
-        margin: '0 10px',
-        height: '20px',
-        boxSizing: 'border-box',
-        flexShrink: '0' // Prevent it from shrinking
-    });
-    highlightedMessageContainer.appendChild(gaugeContainerElement);
+    // Legacy gauge container removed - unified polling handles display
 
     // Leaderboard Container
     leaderboardContainerElement = document.createElement('div');
@@ -125,70 +111,11 @@ function buildHighlightContainerStructure() {
     leaderboardContainerElement.innerHTML = `<h4 style="margin: 0 0 4px 0; padding: 0; font-size: 13px; text-align: left; font-weight: bold; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;"></h4><ol id="plus2LeaderboardList" style="margin: 0; padding: 0; list-style-type: none; display: flex; flex-direction: column; align-items: center;"></ol>`;
     highlightedMessageContainer.appendChild(leaderboardContainerElement);
 
-    // Gauge Fill
-    gaugeFillElement = document.createElement('div');
-    gaugeFillElement.id = 'occurrenceGaugeFill';
-    Object.assign(gaugeFillElement.style, {
-        height: '100%',
-        width: '0%',
-        borderRadius: '0px',
-        transition: 'width 0.7s ease-out'
-    });
-    gaugeContainerElement.appendChild(gaugeFillElement);
+    // Legacy gauge fill, indicator, and label elements removed - unified polling handles display
 
-    // Recent Max Indicator
-    recentMaxIndicatorElement = document.createElement('div');
-    recentMaxIndicatorElement.id = 'recentMaxIndicator';
-    Object.assign(recentMaxIndicatorElement.style, {
-        position: 'absolute', top: '0', bottom: '0', width: '2px',
-        zIndex: '1003', left: '0%', display: 'none', transition: 'left 0.7s ease-out'
-    });
-    gaugeContainerElement.appendChild(recentMaxIndicatorElement);
+    // Legacy yes/no poll container and elements removed - unified polling handles all polls
 
-    // Max Level Label
-    maxLevelReachedLabelElement = document.createElement('div');
-    maxLevelReachedLabelElement.id = 'maxLevelReachedLabel';
-    Object.assign(maxLevelReachedLabelElement.style, {
-        position: 'absolute', top: '0', left: '0', width: '100%', height: '100%',
-        display: 'none', justifyContent: 'center', alignItems: 'center', zIndex: '1005'
-    });
-    gaugeContainerElement.appendChild(maxLevelReachedLabelElement);
-
-    // Yes/No Poll Container
-    yesNoPollDisplayContainerElement = document.createElement('div');
-    yesNoPollDisplayContainerElement.id = 'yesNoPollDisplayContainer';
-    Object.assign(yesNoPollDisplayContainerElement.style, {
-        position: 'absolute', bottom: '0px', left: '0', width: '100%', height: '100%',
-        display: 'none', zIndex: '1010', flexDirection: 'row'
-    });
-    gaugeContainerElement.appendChild(yesNoPollDisplayContainerElement);
-
-    // Poll Elements
-    yesBarElement = document.createElement('div'); yesBarElement.id = 'yesBar';
-    noBarElement = document.createElement('div'); noBarElement.id = 'noBar';
-    yesPollLabelElement = document.createElement('div'); yesPollLabelElement.id = 'yesPollLabel';
-    noPollLabelElement = document.createElement('div'); noPollLabelElement.id = 'noPollLabel';
-    pollWinnerTextElement = document.createElement('div'); pollWinnerTextElement.id = 'pollWinnerText';
-
-    Object.assign(yesBarElement.style, { height: '100%', width: '0%', transition: 'width 0.5s ease-out' });
-    Object.assign(noBarElement.style, { height: '100%', width: '0%', transition: 'width 0.5s ease-out' });
-    Object.assign(yesPollLabelElement.style, { position: 'absolute', left: '5px', top: '50%', transform: 'translateY(-50%)', textShadow: '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black', fontSize: '12px', whiteSpace: 'nowrap', zIndex: '1' });
-    Object.assign(noPollLabelElement.style, { position: 'absolute', right: '5px', top: '50%', transform: 'translateY(-50%)', textShadow: '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black', fontSize: '12px', whiteSpace: 'nowrap', zIndex: '1' });
-    Object.assign(pollWinnerTextElement.style, { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textShadow: '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black', fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', zIndex: '2', display: 'none' });
-
-    yesNoPollDisplayContainerElement.append(yesBarElement, noBarElement, yesPollLabelElement, noPollLabelElement, pollWinnerTextElement);
-
-    // Generic Poll Container - positioned above messageTarget
-    genericPollDisplayContainerElement = document.createElement('div');
-    genericPollDisplayContainerElement.id = 'genericPollDisplayContainer';
-    Object.assign(genericPollDisplayContainerElement.style, {
-        display: 'none', padding: '10px', margin: '10px 0', boxSizing: 'border-box',
-        backgroundColor: '#111111', textAlign: 'left', borderRadius: '8px', minWidth: '250px',
-        width: 'calc(100% - 20px)', alignSelf: 'center'
-    });
-    // Insert before messageTarget so it appears above it
-    highlightedMessageContainer.insertBefore(genericPollDisplayContainerElement, messageTarget);
-    console.log('[Popout] Created genericPollDisplayContainer:', genericPollDisplayContainerElement.id);
+    // Legacy generic poll container creation removed - functionality replaced by unified polling
 
     // Unified Poll Container - replaces both yes/no and generic polls when unified system is enabled
     unifiedPollDisplayContainerElement = document.createElement('div');
@@ -200,7 +127,6 @@ function buildHighlightContainerStructure() {
     });
     // Insert before messageTarget so it appears above it, but after generic container
     highlightedMessageContainer.insertBefore(unifiedPollDisplayContainerElement, messageTarget);
-    console.log('[Popout] Created unifiedPollDisplayContainer:', unifiedPollDisplayContainerElement.id);
 
     document.body.appendChild(highlightedMessageContainer);
 
@@ -208,25 +134,7 @@ function buildHighlightContainerStructure() {
 }
 
 function initializeComponents() {
-    // Initialize GaugeComponent
-    gaugeComponent = new window.popoutUtils.GaugeComponent(
-        gaugeContainerElement,
-        gaugeFillElement,
-        recentMaxIndicatorElement,
-        maxLevelReachedLabelElement
-    );
-    
-    // Initialize PollingComponent (Legacy)
-    const yesNoElements = {
-        container: yesNoPollDisplayContainerElement,
-        yesBar: yesBarElement,
-        noBar: noBarElement,
-        yesLabel: yesPollLabelElement,
-        noLabel: noPollLabelElement,
-        winnerText: pollWinnerTextElement
-    };
-    pollingComponent = new window.popoutUtils.PollingComponent();
-    pollingComponent.initialize(yesNoElements, genericPollDisplayContainerElement, settings);
+    // Legacy GaugeComponent removed - unified polling handles display
     
     // Initialize Unified Polling Display Component
     unifiedPollingComponent = new window.popoutUtils.UnifiedPollingDisplayComponent();
@@ -236,43 +144,20 @@ function initializeComponents() {
     leaderboardComponent = new window.popoutUtils.LeaderboardComponent(leaderboardContainerElement);
 }
 
-function updateGaugeDisplay(gaugeData) {
-    if (gaugeComponent) {
-        gaugeComponent.updateReferences(settings, pollState);
-        gaugeComponent.updateDisplay(gaugeData);
-    }
-}
+// Legacy updateGaugeDisplay removed - unified polling handles display
 
-function updateRecentMaxIndicator(gaugeData) {
-    if (gaugeComponent) {
-        gaugeComponent.updateReferences(settings, pollState);
-        gaugeComponent.updateRecentMaxIndicator(gaugeData);
-    }
-}
+// Legacy updateRecentMaxIndicator removed - unified polling handles display
 
-// This function is now handled by the GaugeComponent
-function updateGaugeContainerVisibility(gaugeData) {
-    // Redirected to updateGaugeDisplay which calls the component
-    updateGaugeDisplay(gaugeData);
-}
+// Legacy updateGaugeContainerVisibility removed - unified polling handles display
 
-function updateYesNoPollDisplay(pollData) {
-    if (pollingComponent) {
-        pollingComponent.updateYesNoDisplay(pollData);
-    }
-}
+// Legacy updateYesNoPollDisplay removed - functionality replaced by unified polling
 
 // Helper function moved to PollingComponent
 
-function updateGenericPollDisplay(genericPollData) {
-    if (pollingComponent) {
-        pollingComponent.updateGenericDisplay(genericPollData);
-    }
-}
+// Legacy updateGenericPollDisplay removed - functionality replaced by unified polling
 
 // Unified polling display update function
 function updateUnifiedPollDisplay(unifiedPollData) {
-    console.log('[Popout] Updating unified poll display:', unifiedPollData);
     if (unifiedPollingComponent) {
         unifiedPollingComponent.updateUnifiedPollDisplay(unifiedPollData);
     }
@@ -297,16 +182,7 @@ function adjustFontSizeToFit(messageElement) {
         const containerWidth = messageTarget.clientWidth - 10; // -10 for padding
         let availableHeight = messageTarget.clientHeight;
 
-        // If either the counter or poll features are enabled, the gauge might appear.
-        // We need to reserve space for it if it's not currently visible.
-        if (settings.features?.enableCounting || settings.features?.enableYesNoPolling) {
-            // If the gauge is currently hidden, its space is being occupied by messageTarget.
-            // We must manually subtract its height to get the true available space for the message.
-            if (gaugeContainerElement && gaugeContainerElement.style.display === 'none') {
-                const gaugeHeight = 20; // The fixed height of the gauge container
-                availableHeight -= gaugeHeight;
-            }
-        }
+        // Legacy gauge space reservation removed - unified polling handles sizing
 
         if (containerWidth <= 0 || availableHeight <= 0) return;
 
@@ -345,21 +221,7 @@ function adjustFontSizeToFit(messageElement) {
     }, 0);
 }
 
-function checkAndUpdateGenericPollVisibility() {
-    // When no highlighted messages are present, trigger a generic poll update
-    // so the polling component can determine if it should be displayed
-    if (genericPollDisplayContainerElement && messageTarget && messageTarget.children.length === 0) {
-        console.log('[Popout] MessageTarget is empty, requesting generic poll update');
-        // Request fresh generic poll data to update visibility
-        if (typeof chrome !== 'undefined' && chrome.runtime) {
-            chrome.runtime.sendMessage({ action: 'GET_GENERIC_POLL_STATE' }, (response) => {
-                if (response && response.genericPoll && pollingComponent) {
-                    pollingComponent.updateGenericDisplay(response.genericPoll);
-                }
-            });
-        }
-    }
-}
+// Legacy checkAndUpdateGenericPollVisibility removed - functionality replaced by unified polling
 
 function renderHighlightedMessage(messageData) {
     if (!messageTarget) return;
@@ -393,7 +255,7 @@ function renderHighlightedMessage(messageData) {
         const timeoutId = setTimeout(() => {
             if (messageElement.parentNode === messageTarget) {
                 messageTarget.removeChild(messageElement);
-                checkAndUpdateGenericPollVisibility();
+                // Legacy generic poll visibility check removed - unified polling handles visibility
             }
             activeMessageTimeouts.delete(id);
         }, displayTime);
@@ -408,7 +270,7 @@ function renderHighlightedMessage(messageData) {
         const timeoutId = setTimeout(() => {
             if (messageElement.parentNode === messageTarget) {
                 messageTarget.removeChild(messageElement);
-                checkAndUpdateGenericPollVisibility();
+                // Legacy generic poll visibility check removed - unified polling handles visibility
             }
             activeMessageTimeouts.delete(id);
         }, displayTime);
@@ -432,21 +294,7 @@ function applyAllStyles(newSettings) {
     document.documentElement.style.fontSize = `${settings.display?.popoutBaseFontSize}px`;
     document.body.style.backgroundColor = settings.display?.chromaKeyColor;
     
-    // Apply minimum width to generic poll display
-    if (genericPollDisplayContainerElement && settings.styling?.polling?.genericPollMinWidth) {
-        genericPollDisplayContainerElement.style.minWidth = `${settings.styling.polling.genericPollMinWidth}px`;
-    }
-    if (gaugeContainerElement) {
-        gaugeContainerElement.style.backgroundColor = hexToRgba(settings.styling?.gauge?.gaugeTrackColor, settings.styling?.gauge?.gaugeTrackAlpha);
-        gaugeContainerElement.style.border = `2px solid ${hexToRgba(settings.styling?.gauge?.gaugeTrackBorderColor, settings.styling?.gauge?.gaugeTrackBorderAlpha)}`;
-    }
-    if (gaugeFillElement) gaugeFillElement.style.background = `linear-gradient(to right, ${settings.styling?.gauge?.gaugeFillGradientStartColor}, ${settings.styling?.gauge?.gaugeFillGradientEndColor})`;
-    if (recentMaxIndicatorElement) recentMaxIndicatorElement.style.backgroundColor = settings.styling?.gauge?.recentMaxIndicatorColor;
-    if (yesBarElement) yesBarElement.style.backgroundColor = settings.styling?.polling?.yesPollBarColor;
-    if (noBarElement) noBarElement.style.backgroundColor = settings.styling?.polling?.noPollBarColor;
-    if (yesPollLabelElement) yesPollLabelElement.style.color = settings.styling?.polling?.pollTextColor;
-    if (noPollLabelElement) noPollLabelElement.style.color = settings.styling?.polling?.pollTextColor;
-    if (pollWinnerTextElement) pollWinnerTextElement.style.color = settings.styling?.polling?.pollTextColor;
+    // Legacy gauge and yes/no poll styling removed - unified polling handles all styling
     if (leaderboardContainerElement) {
         leaderboardContainerElement.style.backgroundColor = hexToRgba(settings.styling?.leaderboard?.leaderboardBackgroundColor, settings.styling?.leaderboard?.leaderboardBackgroundAlpha);
         leaderboardContainerElement.style.color = settings.styling?.leaderboard?.leaderboardTextColor;
@@ -463,44 +311,29 @@ function handleIncomingMessage(message) {
     case 'FULL_STATE_UPDATE':
       pollState = message.data.poll; // Store poll state
       applyAllStyles(message.data.settings);
-      updateGaugeDisplay(message.data.gauge);
-      updateRecentMaxIndicator(message.data.gauge);
-      updateYesNoPollDisplay(message.data.poll);
+      // Legacy gauge updates removed - unified polling handles display
       updateLeaderboardDisplay(message.data.leaderboard);
       break;
     case 'SETTINGS_UPDATE':
       applyAllStyles(message.data);
       // Update all components with new settings
-      if (pollingComponent) {
-        pollingComponent.updateSettings(message.data);
-      }
       if (unifiedPollingComponent) {
         unifiedPollingComponent.updateSettings(message.data);
       }
       if (leaderboardComponent) {
         leaderboardComponent.updateSettings(message.data);
       }
-      if (gaugeComponent) {
-        gaugeComponent.updateReferences(message.data, pollState);
-      }
+      // Legacy gaugeComponent removed - unified polling handles gauge display
       break;
     case 'GAUGE_UPDATE':
-      updateGaugeDisplay(message.data);
-      updateRecentMaxIndicator(message.data);
+      // Legacy gauge updates removed - unified polling handles display
       break;
     case 'POLL_UPDATE':
       pollState = message.data; // Store poll state
-      updateYesNoPollDisplay(message.data);
-      // A poll update can affect gauge visibility
-      updateGaugeDisplay(message.gaugeData);
-      updateRecentMaxIndicator(message.gaugeData);
+      // Legacy gauge and poll updates removed - unified polling handles all displays
       break;
-    case 'GENERIC_POLL_UPDATE':
-      console.log('[Popout] Received generic poll update:', message.data);
-      updateGenericPollDisplay(message.data);
-      break;
+    // Legacy GENERIC_POLL_UPDATE handler removed - functionality replaced by unified polling
     case 'UNIFIED_POLL_UPDATE':
-      console.log('[Popout] Received unified poll update:', message.data);
       updateUnifiedPollDisplay(message.data);
       break;
     case 'LEADERBOARD_UPDATE':
@@ -513,8 +346,19 @@ function handleIncomingMessage(message) {
       messageTarget.innerHTML = '';
       activeMessageTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
       activeMessageTimeouts.clear();
-      checkAndUpdateGenericPollVisibility();
+      // Legacy generic poll visibility check removed - unified polling handles visibility
       break;
+    case 'HIDE_POLL_TYPE_DISPLAY':
+      hidePollTypeDisplay(message.pollType);
+      break;
+  }
+}
+
+function hidePollTypeDisplay(pollType) {
+  const unifiedPollDisplayContainerElement = document.getElementById('unified-poll-display-container');
+  if (unifiedPollDisplayContainerElement) {
+    // Clear the unified poll display container to hide the current poll
+    unifiedPollDisplayContainerElement.innerHTML = '';
   }
 }
 
@@ -538,14 +382,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (isExtensionContext) {
         // Request the initial full state from the background script
-        console.log('[Popout] Sending REQUEST_INITIAL_STATE message...');
         browser.runtime.sendMessage({ type: 'REQUEST_INITIAL_STATE' }).then(response => {
-            console.log('[Popout] Received initial state response:', response);
             if (response && response.settings) {
                 settings = response.settings;
-                console.log('[Popout] Settings received:', settings);
-                console.log('[Popout] Display settings:', settings.display);
-                console.log('[Popout] ChromaKeyColor:', settings.display?.chromaKeyColor);
                 pollState = response.poll; // Store initial poll state
                 
                 // Initialize components now that we have settings
@@ -553,10 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // The UI structure is already built, now apply all the styles and data.
                 applyAllStyles(response.settings);
-                updateGaugeDisplay(response.gauge);
-                updateRecentMaxIndicator(response.gauge);
-                updateYesNoPollDisplay(response.poll);
-                updateGenericPollDisplay(response.genericPoll);
+                // Legacy gauge updates removed - unified polling handles display
                 updateLeaderboardDisplay(response.leaderboard);
                 
                 // Update unified poll display if enabled
@@ -574,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Running in standalone mode (streamview) - use default settings
         settings = getDefaultSettings();
         pollState = { shouldDisplay: false, yesCount: 0, noCount: 0, total: 0, isConcluded: false, winnerMessage: '' };
-        genericPollState = { shouldDisplay: false, isActive: false, isConcluded: false, monitoringType: null, tracker: null };
+        // Legacy genericPollState removed - unified polling handles all state
         
         // Initialize components for standalone mode
         initializeComponents();
@@ -589,10 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.head.appendChild(streamviewStyle);
         
         applyAllStyles(settings);
-        updateGaugeDisplay({ occurrenceCount: 0, gaugeMaxValue: settings.styling.gauge.gaugeMaxValue, recentMaxValue: 0, peakLabels: getDefaultPeakLabels() });
-        updateRecentMaxIndicator({ occurrenceCount: 0, gaugeMaxValue: settings.styling.gauge.gaugeMaxValue, recentMaxValue: 0, peakLabels: getDefaultPeakLabels() });
-        updateYesNoPollDisplay(pollState);
-        updateGenericPollDisplay(genericPollState);
+        // Legacy gauge updates removed - unified polling handles display
         updateLeaderboardDisplay({ topUsers: [], isVisible: false, mode: 'hidden', headerText: settings.styling.leaderboard.leaderboardHeaderText || 'Leaderboard' });
     }
 });

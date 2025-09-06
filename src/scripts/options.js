@@ -51,13 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const chromaKeyColorInput = document.getElementById('chromaKeyColor');
   const messageBGColorInput = document.getElementById('messageBGColor');
   const appendMessagesInput = document.getElementById('appendMessages');
-  const stringToCountInput = document.getElementById('stringToCount');
+  // Legacy message counter form elements removed - functionality replaced by unified polling
   const decayIntervalInput = document.getElementById('decayInterval');
   const decayAmountInput = document.getElementById('decayAmount');
   const gaugeMaxValueInput = document.getElementById('gaugeMaxValue');
   const gaugeMinDisplayThresholdInput = document.getElementById('gaugeMinDisplayThreshold');
-  const exactMatchCountingInput = document.getElementById('exactMatchCounting');
-  const enableCountingInput = document.getElementById('enableCounting');
   const peakLabelLowInput = document.getElementById('peakLabelLow');
   const peakLabelMidInput = document.getElementById('peakLabelMid');
   const peakLabelHighInput = document.getElementById('peakLabelHigh');
@@ -68,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const enableYouTubeInput = document.getElementById('enableYouTube');
   const ffzDisabledNote = document.getElementById('ffzDisabledNote');
   const enableModPostReplyHighlightInput = document.getElementById('enableModPostReplyHighlight');
+  const modPostApprovedUsersInput = document.getElementById('modPostApprovedUsers');
   const enableUsernameColoringInput = document.getElementById('enableUsernameColoring');
   const usernameDefaultColorInput = document.getElementById('usernameDefaultColor');
   const paragraphTextColorInput = document.getElementById('paragraphTextColor');
@@ -97,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetButton = document.getElementById('resetToDefaults');
   const exportButton = document.getElementById('exportSettings');
   const importFileElement = document.getElementById('importSettingsFile');
-  const countingOptionsContainer = document.getElementById('countingOptionsContainer');
+  // Legacy countingOptionsContainer removed - functionality replaced by unified polling
   
   // Unified Polling Elements
   const enableUnifiedPollingInput = document.getElementById('enableUnifiedPolling');
@@ -118,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingNumbersEnabledInput = document.getElementById('unifiedPollingNumbersEnabled');
   const unifiedPollingNumbersThresholdInput = document.getElementById('unifiedPollingNumbersThreshold');
   const unifiedPollingNumbersMaxDisplayInput = document.getElementById('unifiedPollingNumbersMaxDisplay');
-  const unifiedPollingNumbersMaxBinsInput = document.getElementById('unifiedPollingNumbersMaxBins');
+  const unifiedPollingNumbersMaxDigitsInput = document.getElementById('unifiedPollingNumbersMaxDigits');
   
   const unifiedPollingLettersEnabledInput = document.getElementById('unifiedPollingLettersEnabled');
   const unifiedPollingLettersThresholdInput = document.getElementById('unifiedPollingLettersThreshold');
@@ -132,6 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingSentimentLabelHeightInput = document.getElementById('unifiedPollingSentimentLabelHeight');
   const unifiedPollingSentimentMaxGaugeValueInput = document.getElementById('unifiedPollingSentimentMaxGaugeValue');
   const unifiedPollingSentimentBaseColorInput = document.getElementById('unifiedPollingSentimentBaseColor');
+  const unifiedPollingSentimentDecayIntervalInput = document.getElementById('unifiedPollingSentimentDecayInterval');
+  const unifiedPollingSentimentDecayAmountInput = document.getElementById('unifiedPollingSentimentDecayAmount');
   const unifiedPollingSentimentBlockListInput = document.getElementById('unifiedPollingSentimentBlockList');
   const unifiedPollingSentimentGroupsInput = document.getElementById('unifiedPollingSentimentGroups');
   
@@ -397,10 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
    * Map form elements to their nested paths for direct structure usage
    */
   const FORM_ELEMENT_PATHS = {
-    // Core
-    'stringToCount': 'core.stringToCount',
-    'exactMatchCounting': 'core.exactMatchCounting', 
-    'enableCounting': 'core.enableCounting',
+    // Legacy core settings removed - functionality replaced by unified polling
     
     // Display
     'chromaKeyColor': 'display.chromaKeyColor',
@@ -417,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'enableYouTube': 'features.enableYouTube',
     'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
     'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+    'modPostApprovedUsers': 'features.modPostApprovedUsers',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
     'enableChannelIdOverride': 'features.enableChannelIdOverride',
@@ -439,8 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Numbers Polling
     'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
     'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
-    'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
-    'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+    'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
+    'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
     
     // Letters Polling
     'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
@@ -456,6 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
     'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
     'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
+    'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
+    'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
     'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
     'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
     
@@ -538,13 +539,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Update UI sections based on settings
-    toggleSection(enableCountingInput, countingOptionsContainer);
+    // Legacy counting section toggle removed - functionality replaced by unified polling
     toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer);
     toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
     toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
     toggleSection(enableWebhookIntegrationInput, webhookOptionsContainer);
     
-    updateStylePreviews(options);
+    updateAllPreviews(options);
   }
 
   // Legacy populateForm for backward compatibility (unused now)
@@ -558,9 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
           'popoutDefaultWidth': 'display.popoutDefaultWidth',
           'popoutDefaultHeight': 'display.popoutDefaultHeight',
           'displayTime': 'display.displayTime',
-          'stringToCount': 'core.stringToCount',
-          'exactMatchCounting': 'core.exactMatchCounting',
-          'enableCounting': 'core.enableCounting',
+          // Legacy core settings removed - functionality replaced by unified polling
           'enableHighlightTracking': 'features.enableHighlightTracking',
           'appendMessages': 'features.appendMessages',
           'enableUnifiedPolling': 'polling.unified.enabled',
@@ -724,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Toggle visibility of conditional sections
-    toggleSection(enableCountingInput, countingOptionsContainer);
+    // Legacy counting section toggle removed - functionality replaced by unified polling
     toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer);
     toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
     toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
@@ -804,9 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'popoutDefaultWidth': 'display.popoutDefaultWidth',
       'popoutDefaultHeight': 'display.popoutDefaultHeight',
       'displayTime': 'display.displayTime',
-      'stringToCount': 'core.stringToCount',
-      'exactMatchCounting': 'core.exactMatchCounting',
-      'enableCounting': 'core.enableCounting',
+      // Legacy core settings removed - functionality replaced by unified polling
       'enableHighlightTracking': 'features.enableHighlightTracking',
       'appendMessages': 'features.appendMessages',
       'enableUnifiedPolling': 'polling.unified.enabled',
@@ -974,6 +971,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       sentimentGroups = JSON.parse(sentimentGroupsJson || '[]');
+      
+      // Migrate existing groups to include color if missing
+      let needsSave = false;
+      sentimentGroups = sentimentGroups.map(group => {
+        if (!group.color) {
+          needsSave = true;
+          return {
+            ...group,
+            color: '#2196F3' // Default blue color for existing groups
+          };
+        }
+        return group;
+      });
+      
+      // Save the migrated groups if needed
+      if (needsSave) {
+        console.log('[Options] Migrated sentiment groups to include colors, saving...');
+        setTimeout(() => saveSentimentGroups(), 100); // Delay to avoid race conditions
+      }
     } catch (e) {
       console.error('Error parsing sentiment groups:', e);
       sentimentGroups = [];
@@ -1052,6 +1068,13 @@ document.addEventListener('DOMContentLoaded', () => {
           <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #555;">Words/Phrases (comma-separated):</label>
           <textarea class="group-words" data-index="${index}" placeholder="e.g., awesome, amazing, great, nice job, well done" style="width: 100%; height: 70px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; font-family: inherit; font-size: 14px;">${(group.words || []).join(', ')}</textarea>
         </div>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #555;">Gauge Fill Color:</label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="color" class="group-color" data-index="${index}" value="${group.color || '#2196F3'}" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+            <span style="color: #666; font-size: 14px;">This color will be used for the sentiment gauge fill for this group</span>
+          </div>
+        </div>
         <div style="margin-bottom: 8px;">
           <label style="display: flex; align-items: center; font-weight: 500; color: #555;">
             <input type="checkbox" class="group-partial-match" data-index="${index}" ${group.partialMatch ? 'checked' : ''} style="margin-right: 8px;">
@@ -1094,6 +1117,8 @@ document.addEventListener('DOMContentLoaded', () => {
       sentimentGroups[index].words = words;
     } else if (e.target.classList.contains('group-partial-match')) {
       sentimentGroups[index].partialMatch = e.target.checked;
+    } else if (e.target.classList.contains('group-color')) {
+      sentimentGroups[index].color = e.target.value;
     }
     
     // Update hidden textarea immediately
@@ -1124,7 +1149,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const newGroup = {
       label: '',
       words: [],
-      partialMatch: false
+      partialMatch: false,
+      color: '#2196F3' // Default blue color
     };
     sentimentGroups.push(newGroup);
     renderSentimentGroups();
@@ -1138,16 +1164,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Initialize sentiment groups functionality
-  const addSentimentGroupBtn = document.getElementById('addSentimentGroup');
+  const addSentimentGroupBtn = document.getElementById('addSentimentGroupBtn');
   if (addSentimentGroupBtn) {
     addSentimentGroupBtn.addEventListener('click', addSentimentGroup);
     
     // Add hover effects (moved from inline handlers to fix CSP violation)
     addSentimentGroupBtn.addEventListener('mouseover', function() {
-      this.style.backgroundColor = '#45a049';
+      this.style.backgroundColor = '#218838';
     });
     addSentimentGroupBtn.addEventListener('mouseout', function() {
-      this.style.backgroundColor = '#4CAF50';
+      this.style.backgroundColor = '#28a745';
     });
   }
 
@@ -1177,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   enable7TVCompatInput.addEventListener('change', handleCompatibilityToggles);
-  enableCountingInput.addEventListener('change', () => toggleSection(enableCountingInput, countingOptionsContainer));
+  // Legacy enableCountingInput event listener removed - functionality replaced by unified polling
   enableUnifiedPollingInput.addEventListener('change', () => toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer));
   enableHighlightTrackingInput.addEventListener('change', () => {
       toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
@@ -2058,9 +2084,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'popoutDefaultWidth': 'display.popoutDefaultWidth',
         'popoutDefaultHeight': 'display.popoutDefaultHeight',
         'displayTime': 'display.displayTime',
-        'stringToCount': 'core.stringToCount',
-        'exactMatchCounting': 'core.exactMatchCounting',
-        'enableCounting': 'core.enableCounting',
+        // Legacy core settings removed - functionality replaced by unified polling
         'enableHighlightTracking': 'features.enableHighlightTracking',
         'appendMessages': 'features.appendMessages',
         'enableUnifiedPolling': 'polling.unified.enabled',
@@ -2076,8 +2100,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
         'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
         'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
-        'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
-        'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+        'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
+        'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
         'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
         'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
         'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
@@ -2091,6 +2115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
         'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
         'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+        'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
+        'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
         'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
         'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
         'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
@@ -2100,6 +2126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'enableYouTube': 'features.enableYouTube',
         'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
         'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+        'modPostApprovedUsers': 'features.modPostApprovedUsers',
         'enableReplyTooltip': 'features.enableReplyTooltip',
         'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
         'enableStreamview': 'integrations.streamview.enabled',
@@ -2298,7 +2325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await populateForm(options);
     
     // Load sentiment groups on initial page load
-    await loadSentimentGroups();
+    await loadSentimentGroups(options);
     
     // Initialize sentiment groups UI
     initializeSentimentGroupsUI();

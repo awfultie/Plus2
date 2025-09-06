@@ -159,6 +159,7 @@ class UIInjection {
             { id: 'menu-toggle-popin', text: this.isPoppedIn ? 'Undock View' : 'Dock View Here', action: () => this.togglePoppedInView() },
             { id: 'menu-copy-url', text: 'Copy Browser Source', action: (btn) => this._copyBrowserSourceUrl(btn), requires: ['enableStreamview', 'currentStreamview'] },
             { id: 'menu-toggle-leaderboard', text: this.leaderboardDisplayMode === 'shown' ? 'Hide Leaderboard' : 'Show Leaderboard', action: () => this._sendMessage({ type: 'TOGGLE_LEADERBOARD_MODE' }), requires: ['enableHighlightTracking', 'enableLeaderboard'] },
+            { id: 'menu-poll-toggles', text: 'Polls on/off >', action: () => {}, submenu: true, hover: true },
             { id: 'menu-open-options', text: 'Options', action: () => this._sendMessage({ type: 'OPEN_OPTIONS_PAGE' }) }
         ];
 
@@ -192,12 +193,35 @@ class UIInjection {
                     display: 'block', width: '100%', padding: '8px', border: 'none',
                     backgroundColor: 'transparent', color: '#efeff1', textAlign: 'left', cursor: 'pointer'
                 });
-                button.onmouseenter = () => button.style.backgroundColor = '#3a3a3d';
-                button.onmouseleave = () => button.style.backgroundColor = 'transparent';
+                // Handle hover for submenu items
+                if (itemData.hover) {
+                    button.onmouseenter = () => {
+                        button.style.backgroundColor = '#3a3a3d';
+                        this.createPollSubmenu(button);
+                    };
+                    button.onmouseleave = () => {
+                        button.style.backgroundColor = 'transparent';
+                        // Add delay before closing submenu to allow moving to it
+                        this._submenuCloseTimer = setTimeout(() => {
+                            this.closePollSubmenu();
+                        }, 300);
+                    };
+                } else {
+                    button.onmouseenter = () => {
+                        button.style.backgroundColor = '#3a3a3d';
+                        // Close any open submenu when hovering other items
+                        this.closePollSubmenu();
+                    };
+                    button.onmouseleave = () => button.style.backgroundColor = 'transparent';
+                }
 
-                button.addEventListener('click', () => {
-                    itemData.action(button);
-                    this.closeCustomMenu();
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!itemData.submenu || !itemData.hover) {
+                        itemData.action(button);
+                        this.closeCustomMenu();
+                    }
                 });
                 this.customPopupMenu.appendChild(button);
             }
@@ -231,7 +255,174 @@ class UIInjection {
         this.leaderboardDisplayMode = mode;
     }
 
+    createPollSubmenu(hoverButton) {
+        // Close existing submenu if any
+        this.closePollSubmenu();
+        
+        // Clear any pending close timer
+        if (this._submenuCloseTimer) {
+            clearTimeout(this._submenuCloseTimer);
+            this._submenuCloseTimer = null;
+        }
+        
+        // Get position from hover button or main menu
+        const rect = hoverButton ? hoverButton.getBoundingClientRect() : this.customPopupMenu.getBoundingClientRect();
+        
+        // Create submenu (separate from main menu)
+        const menuWidth = 200;
+        this.pollSubmenu = document.createElement('div');
+        // Better positioning logic with full screen bounds checking
+        let submenuTop = rect.top;
+        let submenuLeft = rect.right + 5;
+        
+        // Check horizontal positioning
+        if (submenuLeft + menuWidth > window.innerWidth) {
+            // Try positioning to the left of main menu
+            const leftPosition = rect.left - menuWidth - 5;
+            if (leftPosition >= 0) {
+                submenuLeft = leftPosition;
+            } else {
+                // If neither left nor right works, center it within viewport
+                submenuLeft = Math.max(5, (window.innerWidth - menuWidth) / 2);
+            }
+        }
+        
+        // Check vertical positioning - ensure submenu doesn't go below viewport
+        // More accurate height calculation: 4 buttons (40px each) + padding + margins
+        const submenuHeight = (4 * 40) + 20; // 4 buttons at ~40px each + 20px padding/margins
+        if (submenuTop + submenuHeight > window.innerHeight) {
+            // Move submenu up to fit in viewport, with more generous bottom margin
+            submenuTop = Math.max(5, window.innerHeight - submenuHeight - 10);
+        }
+        
+        // Ensure submenu doesn't go above viewport
+        submenuTop = Math.max(5, submenuTop);
+        
+        Object.assign(this.pollSubmenu.style, {
+            position: 'absolute',
+            backgroundColor: '#1e1e21',
+            border: '1px solid #555',
+            borderRadius: '4px',
+            padding: '5px',
+            zIndex: '10001', // Higher than main menu
+            width: `${menuWidth}px`,
+            top: `${submenuTop}px`,
+            left: `${submenuLeft}px`
+        });
+        
+        // Add hover handlers to prevent closing
+        this.pollSubmenu.onmouseenter = () => {
+            if (this._submenuCloseTimer) {
+                clearTimeout(this._submenuCloseTimer);
+                this._submenuCloseTimer = null;
+            }
+        };
+        this.pollSubmenu.onmouseleave = () => {
+            this._submenuCloseTimer = setTimeout(() => {
+                this.closePollSubmenu();
+            }, 300);
+        };
+        
+        // No back button needed since main menu stays open
+        
+        // Poll toggle items
+        const pollItems = [
+            { 
+                id: 'toggle-yesno', 
+                text: `Yes/No Polls: ${this.settings.polling?.unifiedPolling?.yesno?.enabled ? 'ON' : 'OFF'}`,
+                action: () => this.togglePollSetting('polling.unifiedPolling.yesno.enabled')
+            },
+            { 
+                id: 'toggle-numbers', 
+                text: `Number Polls: ${this.settings.polling?.unifiedPolling?.numbers?.enabled ? 'ON' : 'OFF'}`,
+                action: () => this.togglePollSetting('polling.unifiedPolling.numbers.enabled')
+            },
+            { 
+                id: 'toggle-letters', 
+                text: `Letter Polls: ${this.settings.polling?.unifiedPolling?.letters?.enabled ? 'ON' : 'OFF'}`,
+                action: () => this.togglePollSetting('polling.unifiedPolling.letters.enabled')
+            },
+            { 
+                id: 'toggle-sentiment', 
+                text: `Sentiment Tracking: ${this.settings.polling?.unifiedPolling?.sentiment?.enabled ? 'ON' : 'OFF'}`,
+                action: () => this.togglePollSetting('polling.unifiedPolling.sentiment.enabled')
+            }
+        ];
+        
+        pollItems.forEach(item => {
+            const button = document.createElement('button');
+            button.textContent = item.text;
+            Object.assign(button.style, {
+                display: 'block', width: '100%', padding: '8px', border: 'none',
+                backgroundColor: 'transparent', color: '#efeff1', textAlign: 'left', cursor: 'pointer'
+            });
+            button.onmouseenter = () => button.style.backgroundColor = '#3a3a3d';
+            button.onmouseleave = () => button.style.backgroundColor = 'transparent';
+            button.addEventListener('click', () => {
+                item.action();
+                // Recreate submenu with updated states
+                setTimeout(() => this.createPollSubmenu(hoverButton), 100);
+            });
+            this.pollSubmenu.appendChild(button);
+        });
+        
+        document.body.appendChild(this.pollSubmenu);
+    }
+    
+    togglePollSetting(settingPath) {
+        const pathParts = settingPath.split('.');
+        let current = this.settings;
+        
+        // Navigate to the parent object
+        for (let i = 0; i < pathParts.length - 1; i++) {
+            if (!current[pathParts[i]]) current[pathParts[i]] = {};
+            current = current[pathParts[i]];
+        }
+        
+        // Toggle the final property
+        const finalKey = pathParts[pathParts.length - 1];
+        const oldValue = current[finalKey];
+        current[finalKey] = !current[finalKey];
+        
+        // If we're disabling a poll type, send message to hide its displays
+        if (current[finalKey] === false) {
+            const pollType = this.getPollTypeFromPath(settingPath);
+            if (pollType) {
+                this._sendMessage({
+                    type: 'HIDE_POLL_DISPLAY',
+                    pollType: pollType
+                });
+            }
+        }
+        
+        // Send message to background script to save settings
+        this._sendMessage({
+            type: 'SAVE_SETTINGS',
+            settings: this.settings
+        });
+    }
+    
+    getPollTypeFromPath(settingPath) {
+        if (settingPath.includes('yesno')) return 'yesno';
+        if (settingPath.includes('numbers')) return 'numbers';
+        if (settingPath.includes('letters')) return 'letters';
+        if (settingPath.includes('sentiment')) return 'sentiment';
+        return null;
+    }
+
+    closePollSubmenu() {
+        if (this.pollSubmenu) {
+            this.pollSubmenu.remove();
+            this.pollSubmenu = null;
+        }
+        if (this._submenuCloseTimer) {
+            clearTimeout(this._submenuCloseTimer);
+            this._submenuCloseTimer = null;
+        }
+    }
+
     closeCustomMenu() {
+        this.closePollSubmenu(); // Also close submenu
         if (this.customPopupMenu) {
             this.customPopupMenu.remove();
             this.customPopupMenu = null;
@@ -241,7 +432,13 @@ class UIInjection {
 
     _closeCustomMenuOnClickOutside(event) {
         const popoutButton = document.getElementById('plus2-popout-button');
-        if (this.customPopupMenu && !this.customPopupMenu.contains(event.target) && !popoutButton?.contains(event.target)) {
+        const headerMenuButton = document.getElementById('plus2-header-menu-button');
+        
+        const isClickInMainMenu = this.customPopupMenu && this.customPopupMenu.contains(event.target);
+        const isClickInSubmenu = this.pollSubmenu && this.pollSubmenu.contains(event.target);
+        const isClickOnMenuButton = popoutButton?.contains(event.target) || headerMenuButton?.contains(event.target);
+        
+        if (this.customPopupMenu && !isClickInMainMenu && !isClickInSubmenu && !isClickOnMenuButton) {
             this.closeCustomMenu();
         }
     }

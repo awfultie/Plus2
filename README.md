@@ -99,10 +99,13 @@ Here's a breakdown of the key features offered by Plus 2:
     *   Searches through recently pruned messages as well as live chat.
 *   **Moderator "Post" Reply Highlighting:**
     *   When a moderator replies to a message with the word "post", the extension automatically highlights the message they replied to in the popout window.
-*   **Yes/No Polling:**
-    *   Allows for quick Yes/No polls based on chat responses ("y", "yes", "n", "no").
-    *   Displays results in the popout as a two-part bar showing the percentage of "Yes" vs. "No" responses.
-    *   Highly configurable, including colors, display thresholds, and activity detection.
+*   **Unified Polling System:**
+    *   Automatically detects and displays multiple poll types: Yes/No, Numbers, Letters, and Sentiment tracking.
+    *   **Yes/No polls:** Quick polls based on chat responses ("y", "yes", "n", "no") with visual result bars.
+    *   **Number polls:** Collects numeric responses and displays distribution charts.
+    *   **Letter polls:** Gathers letter responses (A, B, C, etc.) with configurable thresholds.
+    *   **Sentiment tracking:** Real-time sentiment gauges for words and emotes with customizable grouping.
+    *   Priority-based activation ensures the most relevant poll type is shown first.
 *   **Auto-Resume Scroll on Inactivity:**
     *   When you scroll up in Twitch chat, it typically pauses auto-scrolling.
     *   This feature automatically clicks the "Resume Scrolling" button if there's no user activity on the page (mouse movement, clicks, typing, scrolling) for a configurable duration.
@@ -159,8 +162,10 @@ For a complete reference of all available options, see the [OPTIONS.md](OPTIONS.
 ### Chat Message Counting Bar:
 *   Enable the gauge and configure everything from the terms it counts to its visual appearance and behavior.
 
-### Yes No Polling:
-*   Enable polling and set up its timing, thresholds, and colors.
+### Unified Polling:
+*   Configure multiple poll types: Yes/No, Numbers, Letters, and Sentiment tracking.
+*   Set activation thresholds, display timing, colors, and priority for each poll type.
+*   Advanced sentiment grouping and filtering options available.
 
 ### Compatibility Mode:
 *   Check this if you use the 7TV browser extension.

@@ -74,19 +74,30 @@ This document provides a comprehensive overview of all configuration options ava
 | `peakLabelAnimationDuration` | Number | `0.6` | Duration of label animations in seconds |
 | `peakLabelAnimationIntensity` | Number | `2` | Intensity multiplier for label animations |
 
-## Yes/No Polling
+## Unified Polling System
 
+The unified polling system automatically detects and displays yes/no polls, number polls, letter polls, and sentiment tracking.
+
+### General Configuration
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enableYesNoPolling` | Boolean | `false` | Enable automatic yes/no polls based on chat responses |
-| `pollActivityThreshold` | Number | `1` | Minimum new responses per check to keep poll active |
-| `pollActivityCheckInterval` | Number | `2000` | Time in milliseconds between poll activity checks |
-| `pollDisplayThreshold` | Number | `15` | Minimum total responses before showing poll results |
-| `pollClearTime` | Number | `12000` | Time in milliseconds before clearing concluded poll |
-| `pollCooldownDuration` | Number | `5000` | Cooldown period in milliseconds between polls |
-| `yesPollBarColor` | String | `#ff0000` | Color for "Yes" responses in poll bar |
-| `noPollBarColor` | String | `#0000ff` | Color for "No" responses in poll bar |
-| `pollTextColor` | String | `#ffffff` | Color for poll text labels |
+| `polling.unified.enabled` | Boolean | `true` | Enable the unified polling system |
+| `polling.unified.lookbackWindow` | Number | `10000` | Time window in ms to analyze messages for polls |
+| `polling.unified.resultDisplayTime` | Number | `15000` | How long to show poll results |
+| `polling.unified.cooldownDuration` | Number | `8000` | Cooldown between polls |
+
+### Poll Type Configuration
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `polling.unifiedPolling.yesno.enabled` | Boolean | `true` | Enable yes/no polls |
+| `polling.unifiedPolling.yesno.activationThreshold` | Number | `3` | Minimum responses to start yes/no poll |
+| `polling.unifiedPolling.numbers.enabled` | Boolean | `true` | Enable number polls |
+| `polling.unifiedPolling.numbers.activationThreshold` | Number | `7` | Minimum responses to start number poll |
+| `polling.unifiedPolling.letters.enabled` | Boolean | `true` | Enable letter polls |
+| `polling.unifiedPolling.letters.activationThreshold` | Number | `10` | Minimum total responses to start letter poll |
+| `polling.unifiedPolling.letters.individualThreshold` | Number | `3` | Minimum responses per letter (2+ letters must meet this) |
+| `polling.unifiedPolling.sentiment.enabled` | Boolean | `true` | Enable sentiment tracking |
+| `polling.unifiedPolling.sentiment.activationThreshold` | Number | `15` | Minimum responses to display sentiment |
 
 ## Highlight Tracking & Leaderboard
 

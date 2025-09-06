@@ -163,8 +163,15 @@ class MessageProcessor {
 
         const modBadge = hoverTargetElement.querySelector('img.chat-badge[alt="Moderator"], img.chat-badge[alt="Broadcaster"], div.seventv-chat-badge img[alt="Moderator"], div.seventv-chat-badge img[alt="Broadcaster"]');
         const messageBody = chatMessageElementForContent.querySelector(this.adapter.selectors.messageContent);
+        const usernameContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.username);
+        const username = usernameContainer ? (usernameContainer.textContent || "").trim() : '';
+        
+        // Check if user is approved either by badge or username list
+        const hasModBadge = !!modBadge;
+        const isApprovedUser = this.isUserInApprovedList(username);
+        const isAuthorized = hasModBadge || isApprovedUser;
 
-        if (modBadge && messageBody && messageBody.textContent.trim().toLowerCase() === 'post') {
+        if (isAuthorized && messageBody && messageBody.textContent.trim().toLowerCase() === 'post') {
             let replyElement = null;
             if (this.settings.features?.enableSevenTVCompatibility) {
                 replyElement = hoverTargetElement.querySelector('div.seventv-reply-message-part');
@@ -185,6 +192,15 @@ class MessageProcessor {
                 }).catch(e => { /* Silently ignore */ });
             }
         }
+    }
+    
+    isUserInApprovedList(username) {
+        if (!username) return false;
+        
+        const approvedUsers = this.settings.features?.modPostApprovedUsers || '';
+        const userList = approvedUsers.split(',').map(user => user.trim().toLowerCase()).filter(user => user.length > 0);
+        
+        return userList.includes(username.toLowerCase());
     }
 
     _markAsProcessed(itemToMarkAsProcessed) {

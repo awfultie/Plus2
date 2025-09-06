@@ -1,24 +1,15 @@
 // /Users/tyler/repos/plus2BS/scripts/background.js
 
 // Import modular polling system and settings manager for Chrome service worker
-try {
-    importScripts('config/settings-manager.js', 'polling/polling-utils.js', 'polling/generic-polling.js', 'polling/unified-polling.js');
-} catch (e) {
-    // Firefox or other environments that don't support importScripts will load via script tags
-    console.log('[Background] ImportScripts not available, modules loaded via HTML');
-}
+// Chrome: modules loaded via build script importScripts
+// Firefox: modules loaded via manifest.json background.scripts array
 
 // --- Service Worker State ---
 let settings = {};
 let webhookClient = null;
 let streamviewClient = null;
 
-// Gauge State
-let occurrenceCount = 0;
-let recentMaxValue = 0;
-let lastIncrementTime = 0;
-let decayTimerId = null;
-let resetRecentMaxTimerId = null;
+// Legacy gauge state removed - functionality replaced by unified sentiment tracking
 
 // Message deduplication - track processed messages to prevent double counting
 let processedMessages = new Set();
@@ -153,17 +144,7 @@ function broadcastToPopouts(message) {
     });
 }
 
-function broadcastGaugeUpdate() {
-    const gaugeData = getGaugeState(); // Full data for popouts (with peakLabels)
-    const webhookGaugeData = getWebhookGaugeState(); // Webhook data without peakLabels
-    
-    broadcastToPopouts({ type: 'GAUGE_UPDATE', data: gaugeData });
-    
-    // Send to webhook - always send for streamview, check settings for legacy webhooks
-    if (webhookClient) {
-        webhookClient.sendEvent('gauge_update', webhookGaugeData);
-    }
-}
+// Legacy broadcastGaugeUpdate removed - unified polling handles gauge updates
 
 function broadcastPollUpdate() {
     const pollData = getPollState();
@@ -190,33 +171,33 @@ function broadcastLeaderboardUpdate() {
 
 // --- State Packaging ---
 function getGaugeState() {
-    // Check if unified polling is active and get gauge data from it
-    if (settings.polling?.unified?.enabled && unifiedPolling) {
+    // Always use unified polling for gauge state
+    if (unifiedPolling) {
         const unifiedGaugeState = unifiedPolling.getUnifiedGaugeState();
         return {
             occurrenceCount: unifiedGaugeState.occurrenceCount,
-            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
+            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue || 30,
             recentMaxValue: unifiedGaugeState.recentMaxValue,
             isPollActive,
             peakLabels: {
-                low: { text: settings.styling?.gauge?.peakLabels?.low?.text, color: settings.styling?.gauge?.peakLabels?.low?.color },
-                mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text, color: settings.styling?.gauge?.peakLabels?.mid?.color },
-                high: { text: settings.styling?.gauge?.peakLabels?.high?.text, color: settings.styling?.gauge?.peakLabels?.high?.color },
-                max: { text: settings.styling?.gauge?.peakLabels?.max?.text, color: settings.styling?.gauge?.peakLabels?.max?.color }
+                low: { text: settings.styling?.gauge?.peakLabels?.low?.text || "Heh", color: settings.styling?.gauge?.peakLabels?.low?.color || "#ffffff" },
+                mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text || "Funny!", color: settings.styling?.gauge?.peakLabels?.mid?.color || "#ffff00" },
+                high: { text: settings.styling?.gauge?.peakLabels?.high?.text || "Hilarious!!", color: settings.styling?.gauge?.peakLabels?.high?.color || "#ffa500" },
+                max: { text: settings.styling?.gauge?.peakLabels?.max?.text || "OFF THE CHARTS!!!", color: settings.styling?.gauge?.peakLabels?.max?.color || "#ff0000" }
             }
         };
     } else {
-        // Legacy gauge state
+        // Fallback when unified polling not initialized
         return {
-            occurrenceCount,
-            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
-            recentMaxValue,
-            isPollActive,
+            occurrenceCount: 0,
+            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue || 30,
+            recentMaxValue: 0,
+            isPollActive: false,
             peakLabels: {
-                low: { text: settings.styling?.gauge?.peakLabels?.low?.text, color: settings.styling?.gauge?.peakLabels?.low?.color },
-                mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text, color: settings.styling?.gauge?.peakLabels?.mid?.color },
-                high: { text: settings.styling?.gauge?.peakLabels?.high?.text, color: settings.styling?.gauge?.peakLabels?.high?.color },
-                max: { text: settings.styling?.gauge?.peakLabels?.max?.text, color: settings.styling?.gauge?.peakLabels?.max?.color }
+                low: { text: "Heh", color: "#ffffff" },
+                mid: { text: "Funny!", color: "#ffff00" },
+                high: { text: "Hilarious!!", color: "#ffa500" },
+                max: { text: "OFF THE CHARTS!!!", color: "#ff0000" }
             }
         };
     }
@@ -224,10 +205,22 @@ function getGaugeState() {
 
 // Webhook-specific gauge state without peakLabels (moved to StreamView visual config)
 function getWebhookGaugeState() {
+    // Use unified polling for gauge data
+    if (unifiedPolling) {
+        const unifiedGaugeState = unifiedPolling.getUnifiedGaugeState();
+        return {
+            occurrenceCount: unifiedGaugeState.occurrenceCount,
+            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
+            recentMaxValue: unifiedGaugeState.recentMaxValue,
+            isPollActive
+        };
+    }
+    
+    // Fallback when unified polling not available
     return {
-        occurrenceCount,
+        occurrenceCount: 0,
         gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
-        recentMaxValue,
+        recentMaxValue: 0,
         isPollActive
     };
 }
@@ -303,7 +296,6 @@ async function loadSettings() {
         const storedSettings = await browser.storage.sync.get();
         const basicDefaults = {
             chromaKeyColor: '#00ff00',
-            enableCounting: true,
             gaugeMaxValue: 30,
             displayTime: 10000,
             popoutBaseFontSize: 18
@@ -338,20 +330,7 @@ async function loadSettings() {
         webhookClient.clearRetries();
     }
 
-    // If counting was just toggled, reset state and timers
-    if (oldSettings.core?.enableCounting !== settings.core?.enableCounting) {
-        occurrenceCount = 0;
-        recentMaxValue = 0;
-        processedMessages.clear(); // Clear processed message history when toggling counting
-        if (decayTimerId) clearInterval(decayTimerId);
-        decayTimerId = null;
-        if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
-        resetRecentMaxTimerId = null;
-        if (settings.core?.enableCounting) {
-            setupDecayMechanism();
-        }
-        broadcastGaugeUpdate();
-    }
+    // Legacy counter state removed - unified polling handles state management
 
     // If polling was just toggled
     if (oldSettings.features?.enableYesNoPolling !== settings.features?.enableYesNoPolling) {
@@ -363,10 +342,7 @@ async function loadSettings() {
         broadcastLeaderboardUpdate();
     }
     
-    // Update generic polling module settings
-    if (genericPolling && genericPolling.updateSettings) {
-        genericPolling.updateSettings(settings);
-    }
+    // Legacy generic polling settings update removed - handled by unified polling
     
     // Update unified polling system settings
     if (unifiedPolling && unifiedPolling.updateUnifiedPollingSettings) {
@@ -376,31 +352,7 @@ async function loadSettings() {
     broadcastToPopouts({ type: 'SETTINGS_UPDATE', data: settings });
 }
 
-function setupDecayMechanism() {
-    if (decayTimerId) clearInterval(decayTimerId);
-    if (!settings.core?.enableCounting || settings.behavior?.decayInterval <= 0 || settings.behavior?.decayAmount <= 0) return;
-
-    lastIncrementTime = Date.now();
-    decayTimerId = setInterval(() => {
-        if (occurrenceCount > 0 && (Date.now() - lastIncrementTime >= settings.behavior?.decayInterval)) {
-            if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
-            resetRecentMaxTimerId = null;
-
-            occurrenceCount = Math.max(0, occurrenceCount - settings.behavior?.decayAmount);
-            broadcastGaugeUpdate();
-            lastIncrementTime = Date.now();
-
-            if (occurrenceCount === 0) {
-                resetRecentMaxTimerId = setTimeout(() => {
-                    if (occurrenceCount === 0) {
-                        recentMaxValue = 0;
-                        broadcastGaugeUpdate();
-                    }
-                }, settings.behavior?.recentMaxResetDelay);
-            }
-        }
-    }, 250); // Check frequently for responsiveness
-}
+// Legacy setupDecayMechanism removed - functionality replaced by unified sentiment tracking
 
 function processChatMessage(data) {
     const { text, images, isModPost, modReplyContent, channelUrl, username, badges } = data;
@@ -435,40 +387,15 @@ function processChatMessage(data) {
     }
 
     // Check if unified polling is enabled
-    if (settings.polling?.unified?.enabled && unifiedPolling) {
-        console.log('[Background] Using UNIFIED polling system for message:', text);
-        // Use new unified system (processes all: gauge, yes/no, generic polling)
+    if (settings.polling?.unifiedPolling && unifiedPolling) {
+        // Use unified system (processes all: gauge, yes/no, sentiment tracking)
         unifiedPolling.processUnifiedMessage(text, images, { username, badges });
     } else {
-        console.log('[Background] Using LEGACY polling systems for message:', text);
         // Use legacy separate systems
-        if (settings.core?.enableCounting) {
-            const terms = settings.core?.stringToCount.split(',').map(s => s.trim());
-            const check = settings.core?.exactMatchCounting ?
-                (source, term) => source.split(/\s+/).includes(term) :
-                (source, term) => source.toLowerCase().includes(term.toLowerCase());
-
-            let matchFound = terms.some(term => check(text, term));
-            if (!matchFound) {
-                matchFound = images.some(imgAlt => terms.some(term => check(imgAlt, term)));
-            }
-
-            if (matchFound) {
-                if (resetRecentMaxTimerId) clearTimeout(resetRecentMaxTimerId);
-                resetRecentMaxTimerId = null;
-                occurrenceCount++;
-                if (occurrenceCount > recentMaxValue) recentMaxValue = occurrenceCount;
-                lastIncrementTime = Date.now();
-                broadcastGaugeUpdate();
-            }
-        }
+        // Legacy message counting removed - functionality replaced by unified sentiment tracking
 
         if (settings.features?.enableYesNoPolling) {
             processMessageForYesNoPoll(text, images);
-        }
-
-        if (settings.features?.enableGenericPolling) {
-            processMessageForGenericPoll(text, images);
         }
     }
 
@@ -561,7 +488,7 @@ function processHighlightRequest(data) {
         if (currentNonAppendTrackerId !== null && activeHighlightTrackers.has(currentNonAppendTrackerId)) {
             saveLogEntry(activeHighlightTrackers.get(currentNonAppendTrackerId).logEntry);
             activeHighlightTrackers.delete(currentNonAppendTrackerId);
-            broadcastGenericPollUpdate(); // Update generic poll display when highlight is replaced
+            // Legacy generic poll update removed - unified polling handles display updates
         }
         currentNonAppendTrackerId = trackerId;
     }
@@ -602,7 +529,7 @@ function processHighlightRequest(data) {
                 currentNonAppendTrackerId = null;
             }
             broadcastLeaderboardUpdate(); // Update after message expires
-            broadcastGenericPollUpdate(); // Update generic poll display after message expires
+            // Legacy generic poll update removed - unified polling handles display updates
         }
     }, settings.display?.displayTime);
 }
@@ -730,23 +657,9 @@ function clearYesNoPollData() {
 
 
 // --- Polling Systems (Modularized) ---
-// Generic polling functionality has been moved to polling/generic-polling.js
-// Unified polling system in polling/unified-polling.js (new)
+// Unified polling system in polling/unified-polling.js
 
-let genericPolling = null;
 let unifiedPolling = null;
-
-function initializeGenericPolling() {
-    if (typeof GenericPolling !== 'undefined' && !genericPolling) {
-        genericPolling = GenericPolling;
-        genericPolling.initialize({
-            settings: settings,
-            broadcastToPopouts: broadcastToPopouts,
-            webhookClient: webhookClient
-        });
-        console.log('[Background] Generic Polling module initialized');
-    }
-}
 
 function initializeUnifiedPolling() {
     
@@ -755,14 +668,14 @@ function initializeUnifiedPolling() {
         unifiedPolling.initializeUnifiedPolling({
             settings: settings,
             broadcastToPopouts: broadcastToPopouts,
-            broadcastGaugeUpdate: broadcastGaugeUpdate,
+            broadcastPollUpdate: broadcastPollUpdate, // Use broadcastPollUpdate instead of removed broadcastGaugeUpdate
             webhookClient: webhookClient
         });
         console.log('[Background] ✅ Unified Polling system initialized successfully');
-        console.log('[Background] Unified polling enabled in settings:', settings.polling?.unified?.enabled);
+        console.log('[Background] Unified polling enabled in settings:', !!settings.polling?.unifiedPolling);
         
         // Run a quick test if enabled
-        if (settings.polling?.unified?.enabled) {
+        if (settings.polling?.unifiedPolling) {
             console.log('[Background] 🧪 Running quick categorization test...');
             unifiedPolling.testMessageCategorization();
         }
@@ -773,33 +686,9 @@ function initializeUnifiedPolling() {
     }
 }
 
-// Wrapper functions to maintain backward compatibility
-function processMessageForGenericPoll(text, images) {
-    if (genericPolling) {
-        genericPolling.processMessage(text, images);
-    } else {
-        console.log('[Background] Generic polling not initialized yet');
-    }
-}
+// Legacy wrapper functions removed - functionality replaced by unified polling
 
-function getGenericPollState() {
-    return genericPolling ? genericPolling.getState() : {
-        isActive: false,
-        isConcluded: false,
-        monitoringType: 'sentiment',
-        shouldDisplay: false
-    };
-}
-
-function broadcastGenericPollUpdate() {
-    const pollData = getGenericPollState();
-    broadcastToPopouts({ type: 'GENERIC_POLL_UPDATE', data: pollData });
-    
-    // Send to webhook if enabled
-    if (webhookClient && settings.integrations?.webhook?.events?.pollUpdates) {
-        webhookClient.sendEvent('generic_poll_update', pollData);
-    }
-}
+// Legacy broadcastGenericPollUpdate removed - functionality replaced by unified polling
 
 // --- Event Listeners ---
 
@@ -829,12 +718,11 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         settings: settings,
                         gauge: getGaugeState(),
                         poll: getPollState(),
-                        genericPoll: getGenericPollState(),
                         leaderboard: leaderboardData
                     };
                     
                     // Add unified poll state if unified system is enabled
-                    if (settings.polling?.unified?.enabled && unifiedPolling) {
+                    if (settings.polling?.unifiedPolling && unifiedPolling) {
                         response.unifiedPoll = unifiedPolling.getUnifiedPollState();
                     }
                     
@@ -907,6 +795,34 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             openPopout();
             break;
             
+        case 'SAVE_SETTINGS': // Save settings from UI
+            settings = message.settings;
+            
+            // Use SettingsManager if available, otherwise direct storage
+            const savePromise = (typeof SettingsManager !== 'undefined' && SettingsManager.setSettings) 
+                ? SettingsManager.setSettings(settings)
+                : browser.storage.sync.set(settings);
+                
+            savePromise.then(() => {
+                console.log('[Background] Settings saved from UI');
+                
+                // Reinitialize unified polling with new settings
+                if (unifiedPolling) {
+                    console.log('[Background] Updating unified polling with new settings');
+                    unifiedPolling.updateUnifiedPollingSettings(settings);
+                } else {
+                    console.log('[Background] Initializing unified polling for first time');
+                    initializeUnifiedPolling();
+                }
+                
+                sendResponse({ success: true });
+            }).catch(error => {
+                console.error('[Background] Failed to save settings:', error);
+                console.error('[Background] Settings size:', JSON.stringify(settings).length, 'characters');
+                sendResponse({ success: false, error: error.message });
+            });
+            return true; // Keep message channel open for async response
+            
         case 'TEST_UNIFIED_POLLING': // Test command
             console.log('[Background] Testing unified polling system...');
             if (unifiedPolling) {
@@ -952,6 +868,36 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success: false, error: 'Unified polling not initialized' });
             }
             break;
+            
+        case 'HIDE_POLL_DISPLAY': // Hide displays when poll type is disabled
+            if (unifiedPolling && message.pollType) {
+                // Send message to all tabs to hide the specific poll type display
+                browser.tabs.query({}, (tabs) => {
+                    tabs.forEach(tab => {
+                        browser.tabs.sendMessage(tab.id, {
+                            type: 'HIDE_POLL_TYPE_DISPLAY',
+                            pollType: message.pollType
+                        }).catch(() => {
+                            // Tab might not have content script, ignore error
+                        });
+                    });
+                });
+                
+                // Also send to popout if it exists
+                if (popoutTabId) {
+                    browser.tabs.sendMessage(popoutTabId, {
+                        type: 'HIDE_POLL_TYPE_DISPLAY',
+                        pollType: message.pollType
+                    }).catch(() => {
+                        // Popout might be closed, ignore error
+                    });
+                }
+                
+                sendResponse({ success: true });
+            } else {
+                sendResponse({ success: false, error: 'Unified polling not initialized or missing poll type' });
+            }
+            break;
 
         case 'CREATE_STREAMVIEW': // Sent from options page
             streamviewClient.createStreamview().then(result => {
@@ -982,13 +928,10 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
     // When a supported chat page loads, reset the state to keep it clean between streams.
     if (isTwitch || isYouTube) {
-        occurrenceCount = 0;
-        recentMaxValue = 0;
         clearYesNoPollData();
         activeHighlightTrackers.clear();
         currentNonAppendTrackerId = null;
         processedMessages.clear(); // Clear processed message history for new stream
-        broadcastGaugeUpdate();
         broadcastLeaderboardUpdate();
 
         // Auto-open logic for popout chat windows
@@ -1017,14 +960,15 @@ browser.windows.onRemoved.addListener((windowId) => {
 // --- Initialization ---
 
 async function initialize() {
-    await loadSettings();
-    if (settings.core?.enableCounting) {
-        setupDecayMechanism();
+    try {
+        await loadSettings();
+        
+        // Initialize modular components
+        initializeUnifiedPolling();
+    } catch (error) {
+        console.error('[Background] Initialization failed:', error);
+        throw error;
     }
-    
-    // Initialize modular components
-    initializeGenericPolling();
-    initializeUnifiedPolling();
 }
 
 initializationPromise = initialize();

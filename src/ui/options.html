@@ -730,7 +730,7 @@
       <nav id="options-nav-menu">
         <a href="#" class="nav-link" data-target="panel-general">General</a>
         <a href="#" class="nav-link" data-target="panel-popout">Popout Window</a>
-        <a href="#" class="nav-link" data-target="panel-message-counter">Message Counter</a>
+        <!-- Message Counter panel removed - functionality replaced by unified polling -->
         <a href="#" class="nav-link" data-target="panel-unified-polling">Unified Polling</a>
         <a href="#" class="nav-link" data-target="panel-tracking">Tracking & Leaderboard</a>
         <a href="#" class="nav-link" data-target="panel-streamview">Browser Source Config</a>
@@ -777,6 +777,13 @@
           <input type="checkbox" id="enableModPostReplyHighlight" value="true">
           <label for="enableModPostReplyHighlight">Enable highlighting when a Moderator replies "post" to a message.</label>
         </div>
+        
+        <div class="label-with-tooltip">
+          <label for="modPostApprovedUsers">Approved Users</label>
+          <span class="tooltip-icon" data-tooltip="Comma-separated list of usernames who can use the mod posting feature (in addition to moderators/broadcasters).">?</span>
+        </div>
+        <input type="text" id="modPostApprovedUsers" placeholder="user1, user2, user3"
+               style="width: 100%; max-width: 400px; margin-bottom: 15px;">
 
         <h3>Compatibility</h3>
         <div class="form-inline-group">
@@ -882,87 +889,7 @@
         </div>
       </div>
 
-      <!-- Message Counter Panel -->
-      <div id="panel-message-counter" class="options-panel">
-        <h2>Chat Message Counting Bar</h2>
-        <p>This feature displays a dynamic gauge in the popout window that tracks the frequency of specified keywords or emotes in chat.</p>
-        <div class="form-inline-group">
-          <input type="checkbox" id="enableCounting">
-          <label for="enableCounting">Enable Message Counting Bar</label>
-        </div>
-        <div id="countingOptionsContainer" style="display: none;">
-          <div class="label-with-tooltip">
-            <label for="stringToCount">Words/emotes to count</label>
-            <span class="tooltip-icon" data-tooltip="A comma-separated list of words or emotes to count. This is case-insensitive unless 'Exact Match' is enabled.">?</span>
-          </div>
-          <textarea rows="3" id="stringToCount">+2, lol, lmao, lul, lmfao</textarea>
-          <div class="form-inline-group">
-            <input type="checkbox" id="exactMatchCounting">
-            <div class="label-with-tooltip">
-              <label for="exactMatchCounting">Enable Exact Match</label>
-              <span class="tooltip-icon" data-tooltip="If enabled, counting will be case-sensitive and match the whole word only.">?</span>
-            </div>
-          </div>
-          <div class="label-with-tooltip">
-            <label for="gaugeMaxValue">Gauge Max Value</label>
-            <span class="tooltip-icon" data-tooltip="The highest value on the gauge. A larger value makes the gauge fill up slower.">?</span>
-          </div>
-          <input type="number" id="gaugeMaxValue" value="30">
-          <div class="label-with-tooltip">
-            <label for="gaugeMinDisplayThreshold">Minimum Display Threshold</label>
-            <span class="tooltip-icon" data-tooltip="Only display the gauge when the count reaches this value or higher. Default is 3.">?</span>
-          </div>
-          <input type="number" id="gaugeMinDisplayThreshold" value="3" min="0">
-          <div class="label-with-tooltip">
-            <label for="decayInterval">Decay Interval (ms)</label>
-            <span class="tooltip-icon" data-tooltip="If a new matching word isn't seen in this amount of time, the count will start to decrease.">?</span>
-          </div>
-          <input type="number" id="decayInterval" value="500">
-          <div class="label-with-tooltip">
-            <label for="decayAmount">Decay Amount</label>
-            <span class="tooltip-icon" data-tooltip="How much to reduce the count by at each decay step. A larger value makes the gauge empty faster.">?</span>
-          </div>
-          <input type="number" id="decayAmount" value="1">
-          <div class="label-with-tooltip">
-            <label for="recentMaxResetDelay">Peak Label Visibility (ms)</label>
-            <span class="tooltip-icon" data-tooltip="How long the peak level label (e.g., 'Hilarious!!') stays visible after the gauge has reset to zero.">?</span>
-          </div>
-          <input type="number" id="recentMaxResetDelay" value="2000">
-
-          <details>
-            <summary>Gauge Preview &amp; Customization</summary>
-            <div>
-              <div id="gaugePreviewSectionBackground" class="preview-section">
-                <div id="previewGaugeContainer" style="position: relative; width: 250px; height: 25px; border: 2px solid silver; background-color: rgba(0,0,0,0.3); margin-bottom: 5px; box-sizing: border-box;">
-                  <div id="previewGaugeFill" style="height: 100%; width: 60%; background: linear-gradient(to right, gold, red); border-radius: 2px;"></div>
-                  <div id="previewRecentMaxIndicator" style="position: absolute; top: 0; bottom: 0; left: 80%; width: 2px; background-color: red;"></div>
-                </div>
-                <h4>Peak Label Preview:</h4>
-                <div id="previewPeakLabelLow" style="color: white; font-size: 16px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview Low Peak (15%)</div>
-                <div id="previewPeakLabelMid" style="color: yellow; font-size: 18px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview Mid Peak (45%)</div>
-                <div id="previewPeakLabelHigh" style="color: orange; font-size: 20px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview High Peak (75%)</div>
-                <div id="previewPeakLabelMax" style="color: red; font-size: 20px; font-weight: bold; text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;">Preview Max Peak (100%)</div>
-              </div>
-              
-              <h3 style="margin-top: 20px;">Gauge Colors</h3>
-              <div class="input-group"><label for="gaugeTrackColor">Background:</label><input type="color" id="gaugeTrackColor"><input type="range" id="gaugeTrackAlpha" min="0" max="1" step="0.01"><span id="gaugeTrackAlphaValue">1.00</span></div>
-              <div class="input-group"><label for="gaugeTrackBorderColor">Border:</label><input type="color" id="gaugeTrackBorderColor"><input type="range" id="gaugeTrackBorderAlpha" min="0" max="1" step="0.01"><span id="gaugeTrackBorderAlphaValue">1.00</span></div>
-              <div class="input-group"><label for="gaugeFillGradientStartColor">Fill Start:</label><input type="color" id="gaugeFillGradientStartColor"><label for="gaugeFillGradientEndColor">Fill End:</label><input type="color" id="gaugeFillGradientEndColor"></div>
-              <div class="input-group"><label for="recentMaxIndicatorColor">Highmark:</label><input type="color" id="recentMaxIndicatorColor"></div>
-
-              <h3>Peak Labels &amp; Animation</h3>
-              <div class="input-group"><label for="peakLabelLow">Low (15%):</label><input type="color" id="peakLabelLowColor"><input type="text" id="peakLabelLow"></div>
-              <div class="input-group"><label for="peakLabelMid">Mid (45%):</label><input type="color" id="peakLabelMidColor"><input type="text" id="peakLabelMid"></div>
-              <div class="input-group"><label for="peakLabelHigh">High (75%):</label><input type="color" id="peakLabelHighColor"><input type="text" id="peakLabelHigh"></div>
-              <div class="input-group"><label for="peakLabelMax">Max (100%):</label><input type="color" id="peakLabelMaxColor"><input type="text" id="peakLabelMax"></div>
-              <div class="form-inline-group"><input type="checkbox" id="enablePeakLabelAnimation"><label for="enablePeakLabelAnimation">Enable Max Peak Label Animation</label></div>
-              <div class="input-group"><label for="peakLabelAnimationDuration">Animation Speed:</label><input type="range" id="peakLabelAnimationDuration" min="0.1" max="2" step="0.1"><span id="peakLabelAnimationDurationValue">0.6s</span></div>
-              <div class="input-group"><label for="peakLabelAnimationIntensity">Animation Intensity:</label><input type="range" id="peakLabelAnimationIntensity" min="2" max="12" step="1"><span id="peakLabelAnimationIntensityValue">-2px</span></div>
-            </div>
-          </details>
-        </div>
-      </div>
-      <!-- Unified Polling Panel -->
+      <!-- Message Counter Panel removed - functionality replaced by unified polling -->      <!-- Unified Polling Panel -->
       <div id="panel-unified-polling" class="options-panel">
         <h2>Unified Polling System</h2>
         <p>This advanced polling system automatically detects and visualizes all types of chat polls including Yes/No, numbers, letters, and sentiment tracking with priority-based activation.</p>
@@ -1056,16 +983,16 @@
               <input type="number" id="unifiedPollingNumbersThreshold" min="1" max="30">
               
               <div class="label-with-tooltip">
-                <label for="unifiedPollingNumbersMaxDisplay">Max Display Items</label>
-                <span class="tooltip-icon" data-tooltip="Maximum number of different numbers to display.">?</span>
+                <label for="unifiedPollingNumbersMaxDisplay">Max Display</label>
+                <span class="tooltip-icon" data-tooltip="Maximum items to display. Shows individual numbers when unique values ≤ this limit, otherwise bins numbers into groups.">?</span>
               </div>
-              <input type="number" id="unifiedPollingNumbersMaxDisplay" min="5" max="50">
+              <input type="number" id="unifiedPollingNumbersMaxDisplay" min="5" max="20">
               
               <div class="label-with-tooltip">
-                <label for="unifiedPollingNumbersMaxBins">Max Bins</label>
-                <span class="tooltip-icon" data-tooltip="Maximum number of bins for grouping numbers.">?</span>
+                <label for="unifiedPollingNumbersMaxDigits">Max Number Length</label>
+                <span class="tooltip-icon" data-tooltip="Maximum number of digits allowed in number votes (1-10).">?</span>
               </div>
-              <input type="number" id="unifiedPollingNumbersMaxBins" min="3" max="20">
+              <input type="number" id="unifiedPollingNumbersMaxDigits" min="1" max="10">
             </div>
           </details>
 
@@ -1142,6 +1069,18 @@
                 <span class="tooltip-icon" data-tooltip="Base color for sentiment gauge fills. This will be the primary color of the gauge bars.">?</span>
               </div>
               <input type="color" id="unifiedPollingSentimentBaseColor">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentDecayInterval">Decay Interval (ms)</label>
+                <span class="tooltip-icon" data-tooltip="How often sentiment counts decay (in milliseconds). Lower values decay faster.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentDecayInterval" min="100" max="5000" step="100">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentDecayAmount">Decay Amount</label>
+                <span class="tooltip-icon" data-tooltip="How much to subtract from sentiment counts each decay interval.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentDecayAmount" min="1" max="10">
 
               <div class="label-with-tooltip">
                 <label for="unifiedPollingSentimentBlockList">Block List</label>

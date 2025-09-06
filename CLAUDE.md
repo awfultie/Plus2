@@ -94,3 +94,29 @@ The build system handles browser-specific differences:
 - Targets `*://*.twitch.tv/*` and `*://*.youtube.com/*` hosts
 - Uses browser polyfill for cross-browser compatibility
 - Content Security Policy restricts script execution for security
+
+## Legacy System Removals (Migration Guide)
+
+### Message Counter System Removal (2025-01)
+
+The legacy message counter system has been completely removed and replaced by the unified sentiment tracking system, which provides superior functionality:
+
+**What was removed:**
+- `core.enableCounting` setting - No longer needed
+- `core.stringToCount` setting - Replaced by `polling.highlightGauge.stringToCount` in unified polling
+- Legacy gauge components and display elements - Replaced by unified polling display
+- `broadcastGaugeUpdate()` function - Functionality absorbed by unified polling
+- `GaugeComponent` class - Replaced by sentiment tracking gauges
+
+**Migration path for users:**
+1. Old "Enable Message Counting" setting removed - functionality replaced by unified sentiment tracking
+2. Old "Words/emotes to count" setting moved to "Unified Polling > Highlight Gauge Integration > Terms to Count"
+3. Gauge styling settings maintained for compatibility with unified polling system
+4. All gauge display functionality now handled by unified polling's sentiment tracking
+
+**Benefits of new system:**
+- More sophisticated sentiment analysis
+- Customizable sentiment groups
+- Better performance with unified processing
+- Real-time sentiment tracking without manual activation
+- Priority-based poll system for better user experience

@@ -31,6 +31,7 @@
     // Separate sentiment tracking state (always-on, independent of polls)
     let sentimentState = {
         items: {}, // { term: { count: number, lastSeen: timestamp } }
+        displayTimes: {}, // { term: timestamp } - when item first met threshold
         lastDecayTime: Date.now(),
         decayInterval: null,
         shouldDisplay: false
@@ -42,7 +43,7 @@
     // External dependencies (injected during initialization)
     let settings = {};
     let broadcastToPopouts = null;
-    let broadcastGaugeUpdate = null;
+    let broadcastPollUpdate = null;
     let webhookClient = null;
 
     // Poll type definitions with priorities and configurations
@@ -77,7 +78,7 @@
     function initializeUnifiedPolling(deps) {
         settings = deps.settings;
         broadcastToPopouts = deps.broadcastToPopouts;
-        broadcastGaugeUpdate = deps.broadcastGaugeUpdate;
+        broadcastPollUpdate = deps.broadcastPollUpdate;
         webhookClient = deps.webhookClient;
         
         // Start sentiment decay process
@@ -87,7 +88,6 @@
         // Start highlight gauge decay process
         startHighlightGaugeDecay(config);
         
-        console.log('[Unified Poll] Initialized with settings:', settings.polling?.unified);
     }
 
     // Update settings when they change
@@ -101,7 +101,6 @@
         // Restart highlight gauge decay with new settings
         startHighlightGaugeDecay(config);
         
-        console.log('[Unified Poll] Settings updated');
     }
 
     // Get unified polling configuration
@@ -128,7 +127,8 @@
             },
             numbersActivation: {
                 threshold: settings.polling?.unifiedPolling?.numbers?.activationThreshold || settings.polling?.types?.numbers?.activationThreshold || 7,
-                enabled: settings.polling?.unifiedPolling?.numbers?.enabled !== false
+                enabled: settings.polling?.unifiedPolling?.numbers?.enabled !== false,
+                maxDigits: settings.polling?.unifiedPolling?.numbers?.maxDigits || 4
             },
             lettersActivation: {
                 totalThreshold: settings.polling?.unifiedPolling?.letters?.activationThreshold || settings.polling?.types?.letters?.activationThreshold || 10,
@@ -141,6 +141,9 @@
                 maxDisplayItems: settings.polling?.unifiedPolling?.sentiment?.maxDisplayItems || 5,
                 maxGrowthWidth: settings.polling?.unifiedPolling?.sentiment?.maxGrowthWidth || 150,
                 maxGaugeValue: settings.polling?.unifiedPolling?.sentiment?.maxGaugeValue || 30,
+                minimumDisplayTime: settings.polling?.unifiedPolling?.sentiment?.minimumDisplayTime || 2000,
+                decayInterval: settings.polling?.unifiedPolling?.sentiment?.decayInterval || 500,
+                decayAmount: settings.polling?.unifiedPolling?.sentiment?.decayAmount || 1,
                 groups: (() => {
                     try {
                         return JSON.parse(settings.polling?.unifiedPolling?.sentiment?.groups || '[]');
@@ -180,7 +183,6 @@
             badges: messageData.badges
         };
 
-        console.log(`[Unified Poll] Processing message: "${text}" -> Categories: ${categories.map(c => `${c.type}:${c.value}`).join(', ')}`);
 
         // Add to message buffer and clean old messages
         unifiedState.messageBuffer.push(unifiedMessage);
@@ -217,8 +219,10 @@
             categories.push({ type: 'yesno', value: yesNoMatch });
         }
 
-        // 2. Numbers (integers only)
-        if (/^\d+$/.test(trimmedText)) {
+        // 2. Numbers (integers only, configurable max digits)
+        const maxDigits = config.numbersActivation?.maxDigits || 4;
+        const numberRegex = new RegExp(`^\\d{1,${maxDigits}}$`);
+        if (numberRegex.test(trimmedText)) {
             categories.push({ type: 'number', value: parseInt(trimmedText, 10) });
         }
 
@@ -229,7 +233,14 @@
 
         // 4. Sentiment/words (longer text, not just numbers)
         if (trimmedText.length > 1 && !/^\d+$/.test(trimmedText)) {
-            categories.push({ type: 'sentiment', value: trimmedText.toLowerCase() });
+            // Skip yes/no terms from sentiment categorization when yes/no poll is active
+            const yesNoTerms = ['yes', 'y', 'no', 'n'];
+            const isYesNoTerm = yesNoTerms.includes(trimmedText.toLowerCase());
+            const yesNoPollActive = unifiedState.isActive && unifiedState.activePollType === 'yesno';
+            
+            if (!(isYesNoTerm && yesNoPollActive)) {
+                categories.push({ type: 'sentiment', value: trimmedText.toLowerCase() });
+            }
         }
 
         // 5. Emotes from images
@@ -299,11 +310,10 @@
             }
             unifiedState.highlightGauge.lastIncrementTime = Date.now();
             
-            if (broadcastGaugeUpdate) {
-                broadcastGaugeUpdate();
+            if (broadcastPollUpdate) {
+                internalBroadcastPollUpdate();
             }
 
-            console.log(`[Unified Poll] Highlight gauge match: "${message.text}" -> Count: ${unifiedState.highlightGauge.count} (matched terms: ${terms.filter(term => term && check(message.text, term)).join(', ')})`);
         }
     }
 
@@ -312,13 +322,6 @@
         // Get all categorized messages in buffer
         const categorizedMessages = unifiedState.messageBuffer.filter(msg => msg.categories.length > 0);
         
-        console.log(`[Unified Poll] Checking activation - ${categorizedMessages.length} categorized messages`);
-        
-        // Debug: Show all messages in buffer
-        if (categorizedMessages.length > 0) {
-            const bufferTexts = categorizedMessages.map(msg => `"${msg.text}" (${msg.categories.join(', ')})`).join(', ');
-            console.log(`[Unified Poll] Message buffer contents: ${bufferTexts}`);
-        }
 
         // Check each poll type in priority order
         const pollTypes = Object.values(POLL_TYPES).sort((a, b) => a.priority - b.priority);
@@ -336,7 +339,6 @@
         const isEnabled = config[`${typeKey}Activation`]?.enabled !== false;
         
         if (!isEnabled) {
-            console.log(`[Unified Poll] Poll type ${typeKey} is disabled`);
             return false;
         }
 
@@ -350,13 +352,6 @@
 
         const threshold = pollType.activationThreshold(config);
         
-        console.log(`[Unified Poll] Checking ${typeKey} poll: ${relevantMessages.length} relevant messages, threshold: ${threshold}, priority: ${pollType.priority}`);
-        
-        // Debug: Show the actual messages being counted
-        if (relevantMessages.length > 0) {
-            const messageTexts = relevantMessages.map(msg => `"${msg.text}"`).join(', ');
-            console.log(`[Unified Poll] ${typeKey} relevant messages: ${messageTexts}`);
-        }
         
         // Special handling for letter polls - need at least 2 letters above individual threshold
         if (typeKey === 'letters' && relevantMessages.length >= threshold) {
@@ -372,23 +367,15 @@
             const lettersAboveIndividualThreshold = Object.values(letterCounts)
                 .filter(count => count >= individualThreshold).length;
             
-            console.log(`[Unified Poll] Letters individual threshold check: ${lettersAboveIndividualThreshold} letters above individual threshold (${individualThreshold})`);
-            console.log(`[Unified Poll] Letter counts:`, letterCounts);
-            
             if (lettersAboveIndividualThreshold >= 2) {
-                console.log(`[Unified Poll] ✅ ${typeKey} poll threshold met! ${lettersAboveIndividualThreshold} letters above individual threshold. Activating...`);
                 activatePoll(pollType, relevantMessages);
                 return true;
             } else {
-                console.log(`[Unified Poll] ❌ ${typeKey} poll individual threshold not met (${lettersAboveIndividualThreshold}/2 letters above ${individualThreshold})`);
                 return false;
             }
         } else if (relevantMessages.length >= threshold) {
-            console.log(`[Unified Poll] ✅ ${typeKey} poll threshold met! Activating...`);
             activatePoll(pollType, relevantMessages);
             return true;
-        } else {
-            console.log(`[Unified Poll] ❌ ${typeKey} poll threshold not met (${relevantMessages.length}/${threshold})`);
         }
         
         return false;
@@ -396,12 +383,24 @@
 
     // Activate a specific poll type
     function activatePoll(pollType, messages) {
-        console.log(`[Unified Poll] Activating ${pollType.key} poll with ${messages.length} messages`);
-        
         unifiedState.isActive = true;
         unifiedState.activePollType = pollType.key;
         unifiedState.startTime = Date.now();
         unifiedState.isConcluded = false;
+        
+        // Clear yes/no terms from sentiment tracking when yes/no poll becomes active
+        if (pollType.key === 'yesno') {
+            const yesNoTerms = ['yes', 'y', 'no', 'n'];
+            yesNoTerms.forEach(term => {
+                if (sentimentState.items[term]) {
+                    delete sentimentState.items[term];
+                    delete sentimentState.displayTimes[term];
+                }
+            });
+            // Update sentiment display after clearing terms
+            const config = getUnifiedPollConfig();
+            updateSentimentDisplay(config);
+        }
 
         // Count occurrences
         const counts = {};
@@ -423,7 +422,7 @@
             checkPollActivity(config);
         }, config.activityCheckInterval);
 
-        broadcastPollUpdate();
+        internalBroadcastPollUpdate();
     }
 
     // Update active poll tracking with new message
@@ -442,7 +441,7 @@
         });
 
         if (matchingCategories.length > 0) {
-            broadcastPollUpdate();
+            internalBroadcastPollUpdate();
         }
     }
 
@@ -468,8 +467,6 @@
         const recentActivity = recentMessages.length;
         const totalResponses = unifiedState.activeTracker.totalResponses;
 
-        console.log(`[Unified Poll] Activity check: age=${Math.round(pollAge/1000)}s, recentActivity=${recentActivity}, totalResponses=${totalResponses}`);
-
         // More flexible ending conditions:
         // 1. No recent activity AND poll has run for at least 5 seconds AND has at least 1 response
         // 2. Force end after 30 seconds (reduced from 1 minute)
@@ -477,29 +474,22 @@
         const maxAge = 30000; // 30 seconds maximum
         
         if (pollAge >= minAge && recentActivity === 0 && totalResponses >= 1) {
-            console.log(`[Unified Poll] Ending poll: no recent activity with ${totalResponses} responses after ${Math.round(pollAge/1000)}s`);
             endPoll(config);
         } else if (pollAge >= maxAge) {
-            console.log(`[Unified Poll] Force ending poll after ${Math.round(pollAge/1000)} seconds`);
             endPoll(config);
         }
     }
 
     // End the active poll
     function endPoll(config) {
-        console.log(`[Unified Poll] 🏁 ENDING POLL: ${unifiedState.activePollType} poll with ${unifiedState.activeTracker?.totalResponses || 0} total responses`);
-        console.log(`[Unified Poll] 📊 Final counts:`, unifiedState.activeTracker?.counts);
-        
         if (unifiedState.activityCheckTimerId) clearInterval(unifiedState.activityCheckTimerId);
         unifiedState.activityCheckTimerId = null;
         
         unifiedState.isConcluded = true;
-        console.log(`[Unified Poll] ✅ Poll marked as concluded, broadcasting update...`);
-        broadcastPollUpdate();
+        internalBroadcastPollUpdate();
 
         // Schedule poll cleanup (clear from display)
         unifiedState.clearTimerId = setTimeout(() => {
-            console.log(`[Unified Poll] ⏰ CLEARING poll results after ${config.resultDisplayTime/1000}s display time`);
             clearPollData();
         }, config.resultDisplayTime);
 
@@ -509,17 +499,13 @@
         
         unifiedState.cooldownTimerId = setTimeout(() => {
             unifiedState.isOnCooldown = false;
-            console.log(`[Unified Poll] Cooldown period ended, new polls can start`);
         }, cooldownTime);
-        
-        console.log(`[Unified Poll] Results will display for ${config.resultDisplayTime/1000}s, then ${cooldownTime/1000}s cooldown before new polls`);
     }
     
     // Manual poll ending function (for testing or manual control)
     function endPollManually() {
         if (unifiedState.isActive && !unifiedState.isConcluded) {
             const config = getUnifiedPollConfig();
-            console.log(`[Unified Poll] Manually ending active poll`);
             endPoll(config);
             return true;
         }
@@ -537,6 +523,7 @@
         
         // Clear sentiment data as well
         sentimentState.items = {};
+        sentimentState.displayTimes = {};
         sentimentState.shouldDisplay = false;
         
         // Reset highlight gauge
@@ -553,16 +540,14 @@
         if (unifiedState.cooldownTimerId) clearTimeout(unifiedState.cooldownTimerId);
         unifiedState.cooldownTimerId = null;
         
-        broadcastPollUpdate();
+        internalBroadcastPollUpdate();
         
         // Broadcast sentiment clear
         broadcastSentimentUpdate([], getUnifiedPollConfig());
-        
-        console.log('[Unified Poll] Poll data, sentiment data, message buffer, and cooldown cleared');
     }
 
-    // Broadcast poll state update
-    function broadcastPollUpdate() {
+    // Broadcast poll state update (internal function)
+    function internalBroadcastPollUpdate() {
         if (!broadcastToPopouts) return;
 
         // Get sentiment data first to check if it should display
@@ -612,14 +597,6 @@
             }
         };
 
-        console.log('[Unified Poll] 📡 Broadcasting poll update:');
-        console.log('  - isActive:', pollData.data.isActive);
-        console.log('  - isConcluded:', pollData.data.isConcluded);
-        console.log('  - shouldDisplay:', pollData.data.shouldDisplay);
-        console.log('  - pollType:', pollData.data.pollType);
-        console.log('  - counts:', pollData.data.counts);
-        console.log('  - totalResponses:', pollData.data.totalResponses);
-        
         broadcastToPopouts(pollData);
     }
 
@@ -667,38 +644,43 @@
             { text: "lol", images: [], expected: ['sentiment:lol'] }
         ];
         
-        console.log('[Unified Poll] Testing message categorization:');
         testMessages.forEach(test => {
             const categories = categorizeMessage(test.text, test.images, config);
             const result = categories.map(c => `${c.type}:${c.value}`);
             const passed = JSON.stringify(result) === JSON.stringify(test.expected);
-            console.log(`  "${test.text}" -> ${result.join(', ')} ${passed ? '✓' : '✗'}`);
         });
     }
 
     // Sentiment tracking functions (always-on, independent of polls)
     function processSentimentTracking(message, config) {
         if (!config.sentiment?.enabled) {
-            console.log('[Unified Poll] 💭 Sentiment tracking disabled');
             return;
         }
 
         const sentimentCategories = message.categories.filter(c => c.type === 'sentiment');
         const emoteCategories = message.categories.filter(c => c.type === 'emote');
         
-        // Combine sentiment and emote categories for processing
+        // Include letter categories when no letter poll is active
+        let letterCategories = [];
+        if (!unifiedState.isActive || unifiedState.activePollType !== 'letter') {
+            letterCategories = message.categories.filter(c => c.type === 'letter');
+        }
+        
+        // Combine sentiment, emote, and letter categories for processing
         const allSentimentItems = [
             ...sentimentCategories,
             ...emoteCategories.map(emote => ({
                 type: 'sentiment',
                 value: emote.value, // This is the alt text or src
                 emoteData: emote.emoteData // Pass through emote data for display
+            })),
+            ...letterCategories.map(letter => ({
+                type: 'sentiment',
+                value: letter.value // Single letter as sentiment
             }))
         ];
         
         if (allSentimentItems.length === 0) return;
-
-        console.log('[Unified Poll] 💭 Processing sentiment categories:', sentimentCategories.length, 'and emote categories:', emoteCategories.length);
 
         // Deduplicate items - each unique term should only count once per message
         const uniqueItems = new Map();
@@ -709,7 +691,6 @@
         });
         
         const deduplicatedItems = Array.from(uniqueItems.values());
-        console.log('[Unified Poll] 💭 Deduplicated from', allSentimentItems.length, 'to', deduplicatedItems.length, 'unique items');
 
         const currentTime = Date.now();
         
@@ -718,7 +699,6 @@
             
             // Skip blocked terms
             if (config.sentiment.blockList?.includes(term.toLowerCase())) {
-                console.log('[Unified Poll] 💭 Blocked sentiment term:', term);
                 return;
             }
 
@@ -726,7 +706,6 @@
             if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {
                 const yesNoTerms = ['yes', 'y', 'no', 'n'];
                 if (yesNoTerms.includes(term.toLowerCase())) {
-                    console.log('[Unified Poll] 💭 Skipping yes/no term during active yes/no poll:', term);
                     return;
                 }
             }
@@ -763,7 +742,6 @@
 
             sentimentState.items[trackingKey].count++;
             sentimentState.items[trackingKey].lastSeen = currentTime;
-            console.log('[Unified Poll] 💭 Updated sentiment:', trackingKey, 'count:', sentimentState.items[trackingKey].count, groupMatch ? '(group)' : '(individual)');
         });
 
         // Check if we should display sentiment tracking
@@ -773,27 +751,43 @@
     function updateSentimentDisplay(config) {
         const threshold = config.sentiment?.activationThreshold || 15;
         const maxItems = config.sentiment?.maxDisplayItems || 5;
+        const minimumDisplayTime = config.sentiment?.minimumDisplayTime || 2000;
+        const now = Date.now();
         
-        console.log('[Unified Poll] 💭 Checking sentiment display - threshold:', threshold);
-        console.log('[Unified Poll] 💭 Current sentiment items:', sentimentState.items);
+        // Track when items first meet threshold
+        Object.entries(sentimentState.items).forEach(([term, data]) => {
+            if (data.count >= threshold && !sentimentState.displayTimes[term]) {
+                sentimentState.displayTimes[term] = now;
+            }
+        });
         
-        // Get items that meet the display threshold, sorted by count
+        // Get items that should be displayed (meet threshold OR within minimum display time)
         const displayItems = Object.entries(sentimentState.items)
-            .filter(([term, data]) => data.count >= threshold)
+            .filter(([term, data]) => {
+                const meetsThreshold = data.count >= threshold;
+                const firstDisplayTime = sentimentState.displayTimes[term];
+                const withinMinimumTime = firstDisplayTime && (now - firstDisplayTime) < minimumDisplayTime;
+                
+                return meetsThreshold || withinMinimumTime;
+            })
             .sort((a, b) => b[1].count - a[1].count)
             .slice(0, maxItems);
-
-        console.log('[Unified Poll] 💭 Items meeting threshold:', displayItems);
+            
+        // Clean up displayTimes for items that are no longer needed
+        Object.keys(sentimentState.displayTimes).forEach(term => {
+            const data = sentimentState.items[term];
+            const firstDisplayTime = sentimentState.displayTimes[term];
+            if (!data || (data.count < threshold && (now - firstDisplayTime) >= minimumDisplayTime)) {
+                delete sentimentState.displayTimes[term];
+            }
+        });
 
         const wasDisplaying = sentimentState.shouldDisplay;
         sentimentState.shouldDisplay = displayItems.length > 0;
 
-        console.log('[Unified Poll] 💭 Sentiment display state - was:', wasDisplaying, 'now:', sentimentState.shouldDisplay);
-
         // Only broadcast if display state changed or we have items to show
         if (sentimentState.shouldDisplay || wasDisplaying !== sentimentState.shouldDisplay) {
-            console.log('[Unified Poll] 💭 Broadcasting sentiment update!');
-            broadcastPollUpdate(); // Use unified broadcast instead of separate sentiment broadcast
+            internalBroadcastPollUpdate(); // Use unified broadcast instead of separate sentiment broadcast
         }
     }
 
@@ -802,8 +796,8 @@
             clearInterval(sentimentState.decayInterval);
         }
 
-        const decayInterval = config.behavior?.decayInterval || 500;
-        const decayAmount = 1; // Always decay by 1 per interval for sentiment
+        const decayInterval = config.sentiment?.decayInterval || config.behavior?.decayInterval || 500;
+        const decayAmount = config.sentiment?.decayAmount || 1;
 
         sentimentState.decayInterval = setInterval(() => {
             const currentTime = Date.now();
@@ -853,19 +847,23 @@
             type: 'sentiment_update',
             data: sentimentData
         });
-
-        console.log('[Unified Poll] Broadcasted sentiment update:', sentimentData);
     }
 
     function getSentimentState() {
         const config = getUnifiedPollConfig();
         const threshold = config.sentiment?.activationThreshold || 15;
         const maxItems = config.sentiment?.maxDisplayItems || 5;
+        const minimumDisplayTime = config.sentiment?.minimumDisplayTime || 2000;
+        const now = Date.now();
         
         const displayItems = Object.entries(sentimentState.items)
             .filter(([term, data]) => {
-                // Filter by threshold
-                if (data.count < threshold) return false;
+                // Filter by threshold OR minimum display time
+                const meetsThreshold = data.count >= threshold;
+                const firstDisplayTime = sentimentState.displayTimes[term];
+                const withinMinimumTime = firstDisplayTime && (now - firstDisplayTime) < minimumDisplayTime;
+                
+                if (!meetsThreshold && !withinMinimumTime) return false;
                 
                 // Skip yes/no terms if a yes/no poll is active
                 if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {
@@ -895,7 +893,6 @@
             maxGrowthWidth: config.sentiment?.maxGrowthWidth || 150
         };
 
-        console.log('[Unified Poll] 💭 getSentimentState returning:', sentimentStateData);
         return sentimentStateData;
     }
 
@@ -922,22 +919,17 @@
                     setTimeout(() => {
                         if (unifiedState.highlightGauge.count === 0) {
                             unifiedState.highlightGauge.recentMax = 0;
-                            if (broadcastGaugeUpdate) {
-                                broadcastGaugeUpdate();
-                            }
+                            // Broadcast unified poll update for gauge changes
+                            internalBroadcastPollUpdate();
                         }
                     }, config.behavior?.recentMaxResetDelay || 2000);
                 }
                 
-                if (broadcastGaugeUpdate) {
-                    broadcastGaugeUpdate();
+                if (broadcastPollUpdate) {
+                    internalBroadcastPollUpdate();
                 }
-                
-                console.log(`[Unified Poll] Highlight gauge decayed: count=${unifiedState.highlightGauge.count}, recentMax=${unifiedState.highlightGauge.recentMax}`);
             }
         }, decayInterval);
-        
-        console.log(`[Unified Poll] Started highlight gauge decay: interval=${decayInterval}ms, amount=${decayAmount}`);
     }
 
     // Export functions for use by background script

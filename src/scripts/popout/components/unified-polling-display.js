@@ -32,7 +32,6 @@ class UnifiedPollingDisplayComponent {
     updateUnifiedPollDisplay(unifiedPollData) {
         if (!this.container) return;
         
-        
         const { shouldDisplay, isActive, isConcluded, pollType } = unifiedPollData;
 
         // Hide container if poll shouldn't be displayed
@@ -47,13 +46,13 @@ class UnifiedPollingDisplayComponent {
         this.container.style.boxSizing = 'border-box';
         
         // Handle background and layout for different poll types
-        if (pollType === 'yesno' || unifiedPollData.sentimentData?.shouldDisplay || !shouldDisplay) {
-            // Yes/no polls, sentiment gauges, and empty state: transparent background
+        if (pollType === 'yesno' || (unifiedPollData.sentimentData?.shouldDisplay && !isActive && !isConcluded)) {
+            // Yes/no polls and sentiment gauges (when no active/concluded polls): transparent background
             this.container.style.backgroundColor = 'transparent';
             this.container.style.padding = '0';
             this.container.style.margin = '0';
         } else {
-            // Other active polls: dark background container
+            // Active/concluded polls (letters, numbers): dark background container
             this.container.style.backgroundColor = '#111111';
             this.container.style.padding = '8px';
         }
@@ -88,37 +87,23 @@ class UnifiedPollingDisplayComponent {
             hasRenderedMainContent = true;
         }
 
-        // Always check for sentiment tracking - it can display alongside or independently
-        if (unifiedPollData.sentimentData?.shouldDisplay) {
-            
-            if (hasRenderedMainContent) {
-                // Add sentiment below the main poll content
-                // Check for existing sentiment container first to avoid duplicates
-                let sentimentContainer = contentElement.querySelector('.sentiment-container');
-                if (!sentimentContainer) {
-                    sentimentContainer = document.createElement('div');
-                    sentimentContainer.className = 'sentiment-container';
-                    sentimentContainer.style.cssText = 'margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);';
-                    contentElement.appendChild(sentimentContainer);
-                }
-                this.renderSentimentTracking(unifiedPollData.sentimentData, document.createElement('div'), sentimentContainer);
-            } else {
-                // No main poll, sentiment takes the full space
-                this.renderSentimentTracking(unifiedPollData.sentimentData, titleElement, contentElement);
-                hasRenderedMainContent = true;
-            }
-        } else {
-            // Clean up any existing sentiment container when sentiment shouldn't display
+        // Sentiment tracking logic - hide when active polls are running
+        
+        // Only show sentiment gauges when NO active poll is running
+        const shouldShowSentiment = unifiedPollData.sentimentData?.shouldDisplay && !hasRenderedMainContent;
+        
+        if (shouldShowSentiment) {
+            // No active poll, sentiment takes the full space
+            this.renderSentimentTracking(unifiedPollData.sentimentData, titleElement, contentElement);
+            hasRenderedMainContent = true;
+        }
+        
+        // Clean up any existing sentiment container when sentiment shouldn't display
+        if (!shouldShowSentiment) {
             const existingSentimentContainer = contentElement.querySelector('.sentiment-container');
             if (existingSentimentContainer) {
                 existingSentimentContainer.remove();
             }
-        }
-
-        if (!hasRenderedMainContent) {
-            console.log('[Unified Poll Display] ❓ No rendering condition met - poll will be empty');
-            // Log sentiment state for debugging
-            console.log('[Debug] Sentiment data:', unifiedPollData.sentimentData);
         }
 
         // Handle layout for specific poll types
@@ -225,7 +210,6 @@ class UnifiedPollingDisplayComponent {
                     count: item.count 
                 }));
                 
-            console.log('[Unified Poll Display] 💭 Processed sortedData:', sortedData);
             this.updateSentimentGauges(contentElement, sortedData);
         } else if (sentimentData && sentimentData.counts && Object.keys(sentimentData.counts).length > 0) {
             // Fallback for generic polling format (counts object)
@@ -236,7 +220,6 @@ class UnifiedPollingDisplayComponent {
                 
             this.updateSentimentGauges(contentElement, sortedData);
         } else {
-            console.log('[Unified Poll Display] 💭 No sentiment data to display');
             contentElement.innerHTML = '';
         }
     }
@@ -250,7 +233,6 @@ class UnifiedPollingDisplayComponent {
         const total = yesCount + noCount;
         
         if (total === 0) {
-            contentElement.innerHTML = '<div style="text-align: center; opacity: 0.7;">Waiting for votes...</div>';
             return;
         }
 
@@ -270,19 +252,19 @@ class UnifiedPollingDisplayComponent {
             return;
         }
 
-        // Get configurable limits
-        const maxDisplayItems = this.settings.unifiedPolling?.numbers?.maxDisplayItems || 15;
-        const maxBins = this.settings.unifiedPolling?.numbers?.maxBins || 10;
+        // Get configurable display limit
+        const maxDisplay = this.settings.polling?.unifiedPolling?.numbers?.maxDisplay || 10;
 
-        // Determine if we need binning
+        // Determine if we need binning: show individual numbers when unique values <= maxDisplay, otherwise bin
         let displayData;
-        if (entries.length > maxDisplayItems) {
-            displayData = this.createBins(filteredData, maxBins);
-        } else {
+        if (entries.length <= maxDisplay) {
+            // Show individual numbers
             displayData = entries
                 .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                .slice(0, maxDisplayItems)
                 .map(([key, count]) => ({ label: key, count }));
+        } else {
+            // Bin the numbers using maxDisplay as the number of bins
+            displayData = this.createBins(filteredData, maxDisplay);
         }
 
         this.renderBarChart(displayData, contentElement);
@@ -299,12 +281,16 @@ class UnifiedPollingDisplayComponent {
             return;
         }
 
-        // Get configurable limit
-        const maxDisplayItems = this.settings.unifiedPolling?.letters?.maxDisplayItems || 15;
+        // Get configurable limits and thresholds
+        const maxDisplayItems = this.settings.polling?.unifiedPolling?.letters?.maxDisplayItems || 15;
+        const individualThreshold = this.settings.polling?.unifiedPolling?.letters?.individualThreshold || 3;
 
+        // Filter, sort, and limit responses
         const displayData = entries
-            .sort(([a], [b]) => a.localeCompare(b))
-            .slice(0, maxDisplayItems)
+            .filter(([, count]) => count >= individualThreshold) // Only show responses meeting individual threshold
+            .sort(([,a], [,b]) => b - a) // Sort by count (highest first)
+            .slice(0, maxDisplayItems) // Take only top N responses
+            .sort(([a], [b]) => a.localeCompare(b)) // Then sort alphabetically
             .map(([key, count]) => ({ label: key.toUpperCase(), count }));
 
         const total = displayData.reduce((sum, d) => sum + d.count, 0);
@@ -357,7 +343,6 @@ class UnifiedPollingDisplayComponent {
         
         // If we got computed results (has average), use them
         if (results.average !== undefined) {
-            console.log('[Unified Poll Display] 📊 Showing statistical results');
             titleElement.textContent = `Average: ${results.average}`;
             
             const modeText = Array.isArray(results.mode) ? results.mode.join(', ') : results.mode;
@@ -389,7 +374,6 @@ class UnifiedPollingDisplayComponent {
             `;
         } else {
             // We got raw counts, compute statistics on the fly
-            console.log('[Unified Poll Display] 🧮 Computing statistics from raw counts:', results);
             const numbers = [];
             let total = 0;
             
@@ -447,18 +431,18 @@ class UnifiedPollingDisplayComponent {
             const entries = Object.entries(filteredData);
             let displayData;
             
-            // Get configurable limits (same as active numbers)
-            const maxDisplayItems = this.settings.unifiedPolling?.numbers?.maxDisplayItems || 15;
-            const maxBins = this.settings.unifiedPolling?.numbers?.maxBins || 10;
+            // Get configurable display limit (same as active numbers)
+            const maxDisplay = this.settings.polling?.unifiedPolling?.numbers?.maxDisplay || 10;
             
-            // Determine if we need binning (same logic as active numbers)
-            if (entries.length > maxDisplayItems) {
-                displayData = this.createBins(filteredData, maxBins);
-            } else {
+            // Determine if we need binning: show individual numbers when unique values <= maxDisplay, otherwise bin
+            if (entries.length <= maxDisplay) {
+                // Show individual numbers
                 displayData = entries
                     .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                    .slice(0, maxDisplayItems)
                     .map(([key, count]) => ({ label: key, count }));
+            } else {
+                // Bin the numbers using maxDisplay as the number of bins
+                displayData = this.createBins(filteredData, maxDisplay);
             }
             
             // Create container for stats and bars
@@ -514,11 +498,11 @@ class UnifiedPollingDisplayComponent {
             const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
             const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
             const isWinner = letter === winner[0];
-            const barColor = isWinner ? 'linear-gradient(90deg, #4CAF50, #66BB6A)' : 'linear-gradient(90deg, #2196F3, #64B5F6)';
+            const barColor = isWinner ? 'linear-gradient(90deg, #F44336, #EF5350)' : 'linear-gradient(90deg, #2196F3, #64B5F6)';
             
             return `
                 <div style="margin: 2px 0; display: flex; align-items: center; min-width: 0;">
-                    <div style="min-width: 30px; width: 30px; font-size: 11px; margin-right: 6px; text-align: right; flex-shrink: 0; ${isWinner ? 'color: #4CAF50; font-weight: bold;' : ''}">${letter.toUpperCase()}</div>
+                    <div style="min-width: 30px; width: 30px; font-size: 11px; margin-right: 6px; text-align: right; flex-shrink: 0; ${isWinner ? 'color: #F44336; font-weight: bold;' : ''}">${letter.toUpperCase()}</div>
                     <div style="flex: 1; min-width: 0; background: rgba(255,255,255,0.1); height: 14px; border-radius: 4px; overflow: hidden; position: relative;">
                         <div style="width: ${barWidth}%; height: 100%; background: ${barColor}; transition: width 0.3s ease;"></div>
                         <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: white; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${percentage}%</div>
@@ -755,9 +739,6 @@ class UnifiedPollingDisplayComponent {
         
         // Handle empty state
         if (total === 0) {
-            if (!contentElement.querySelector('.waiting-message')) {
-                contentElement.innerHTML = '<div class="waiting-message" style="text-align: center; opacity: 0.7;">Waiting for votes...</div>';
-            }
             return;
         }
         
@@ -779,8 +760,6 @@ class UnifiedPollingDisplayComponent {
         // Get colors from settings - should now be properly mapped
         const yesColorFromSettings = this.settings.polling?.unifiedPolling?.yesno?.styling?.yesColor || '#4CAF50';
         const noColorFromSettings = this.settings.polling?.unifiedPolling?.yesno?.styling?.noColor || '#F44336';
-        
-        console.log('[Yes/No Colors] Using colors from settings:', { yesColorFromSettings, noColorFromSettings });
         
         // Create gradient colors based on settings and winner status
         const yesColor = yesIsWinner ? 
@@ -964,6 +943,7 @@ class UnifiedPollingDisplayComponent {
      * Update sentiment gauges with smooth animations
      */
     updateSentimentGauges(contentElement, sortedData) {
+        
         // Support both unified and generic polling settings paths
         const sentimentGaugeMax = this.settings.polling?.unifiedPolling?.sentiment?.maxGaugeValue || 
                                  this.settings.polling?.generic?.sentiment?.maxGaugeValue || 30;
@@ -984,7 +964,6 @@ class UnifiedPollingDisplayComponent {
             if (dataValue) {
                 if (seenValues.has(dataValue)) {
                     // Remove duplicate gauge
-                    console.log('[Sentiment Gauge] Removing duplicate gauge for value:', dataValue);
                     gauge.remove();
                 } else {
                     seenValues.add(dataValue);
@@ -996,8 +975,13 @@ class UnifiedPollingDisplayComponent {
         // Track which gauges we're keeping
         const usedGauges = new Set();
         
+        if (sortedData.length === 0) {
+            return;
+        }
+        
         sortedData.forEach(({ value, count }, index) => {
-            // Calculate fill width
+            try {
+                // Calculate fill width
             const baseWidth = 100;
             const countRatio = count / sentimentGaugeMax;
             
@@ -1012,8 +996,41 @@ class UnifiedPollingDisplayComponent {
             
             const isAtMaxWidth = fillWidthPx >= sentimentMaxGrowthWidth;
             
+            // Check if this sentiment item belongs to a custom group with a specific color
+            let itemBaseColor = sentimentBaseColor;
+            let sentimentGroups = this.settings.polling?.unifiedPolling?.sentiment?.groups;
+            
+            // Parse groups if it's a JSON string
+            if (typeof sentimentGroups === 'string') {
+                try {
+                    sentimentGroups = JSON.parse(sentimentGroups);
+                } catch (e) {
+                    console.warn('[Unified Poll Display] Invalid sentiment groups JSON:', sentimentGroups);
+                    sentimentGroups = [];
+                }
+            }
+            
+            if (Array.isArray(sentimentGroups) && sentimentGroups.length > 0) {
+                const valueStr = String(value).toLowerCase();
+                const matchingGroup = sentimentGroups.find(group => {
+                    if (!group.words || !Array.isArray(group.words)) return false;
+                    return group.words.some(groupWord => {
+                        const groupWordLower = String(groupWord).toLowerCase();
+                        if (group.partialMatch) {
+                            return valueStr.includes(groupWordLower) || groupWordLower.includes(valueStr);
+                        } else {
+                            return valueStr === groupWordLower;
+                        }
+                    });
+                });
+                
+                if (matchingGroup && matchingGroup.color) {
+                    itemBaseColor = matchingGroup.color;
+                }
+            }
+            
             // Create lighter shade for gradient end
-            const hex = sentimentBaseColor.replace('#', '');
+            const hex = itemBaseColor.replace('#', '');
             const r = parseInt(hex.substr(0, 2), 16);
             const g = parseInt(hex.substr(2, 2), 16);
             const b = parseInt(hex.substr(4, 2), 16);
@@ -1021,7 +1038,7 @@ class UnifiedPollingDisplayComponent {
             
             const gaugeColor = isAtMaxWidth ? 
                 'linear-gradient(90deg, #FF4444, #CC0000)' : 
-                `linear-gradient(90deg, ${sentimentBaseColor}, ${lighterColor})`;
+                `linear-gradient(90deg, ${itemBaseColor}, ${lighterColor})`;
             
             // Create display label
             let displayLabel;
@@ -1055,10 +1072,19 @@ class UnifiedPollingDisplayComponent {
             }
             
             // Use the maximum of fill width and label width for gauge-bar
-            const gaugeBarWidthPx = Math.max(fillWidthPx, labelWidthPx, 100);
+            const gaugeBarWidthPx = Math.max(fillWidthPx, labelWidthPx);
             
             // Try to reuse existing gauge element for this value
-            const valueKey = String(value);
+            // Create unique key for emotes vs text
+            let valueKey;
+            if (value && typeof value === 'object' && (value.src || value.url)) {
+                // For emotes, use src/url as unique identifier
+                valueKey = value.src || value.url || value.alt || value.name || String(value);
+            } else {
+                // For text values, use string representation
+                valueKey = String(value);
+            }
+            
             let gaugeElement = existingGaugeMap.get(valueKey);
             
             if (gaugeElement) {
@@ -1152,7 +1178,11 @@ class UnifiedPollingDisplayComponent {
                 } else {
                     contentElement.appendChild(gaugeElement);
                 }
+                
                 usedGauges.add(gaugeElement);
+            }
+            } catch (error) {
+                console.error(`[Unified Poll Display] Error processing item ${index + 1}:`, error);
             }
         });
         

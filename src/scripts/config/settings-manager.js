@@ -34,10 +34,7 @@ async function loadDefaultSettings() {
  * Kept for reference in case migration is needed for very old stored settings
  */
 const LEGACY_MIGRATION_MAP = {
-    // Core settings
-    'stringToCount': 'core.stringToCount',
-    'exactMatchCounting': 'core.exactMatchCounting', 
-    'enableCounting': 'core.enableCounting',
+    // Legacy core settings removed - functionality replaced by unified polling highlight gauge
     
     // Display settings
     'chromaKeyColor': 'display.chromaKeyColor',
@@ -49,13 +46,11 @@ const LEGACY_MIGRATION_MAP = {
     // Feature toggles
     'enableHighlightTracking': 'features.enableHighlightTracking',
     'appendMessages': 'features.appendMessages',
-    'enableYesNoPolling': 'features.enableYesNoPolling',
     'enableLeaderboard': 'features.enableLeaderboard',
     'enableWebhookIntegration': 'features.enableWebhookIntegration',
     'enableYouTube': 'features.enableYouTube',
     'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
     'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
-    'enableGenericPolling': 'features.enableGenericPolling',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
     'enableChannelIdOverride': 'features.enableChannelIdOverride',
@@ -111,24 +106,7 @@ const LEGACY_MIGRATION_MAP = {
     'pollActivityCheckInterval': 'polling.yesNo.activityCheckInterval',
     'pollDisplayThreshold': 'polling.yesNo.displayThreshold',
     
-    // Generic polling
-    'genericPollLookbackWindow': 'polling.generic.lookbackWindow',
-    'genericPollMaxLetterLength': 'polling.generic.maxLetterLength',
-    'genericPollEndThreshold': 'polling.generic.endThreshold',
-    'genericPollLetterIndividualThreshold': 'polling.generic.letterIndividualThreshold',
-    'genericPollLetterTotalThreshold': 'polling.generic.letterTotalThreshold',
-    'genericPollNumberThreshold': 'polling.generic.numberThreshold',
-    'genericPollResultDisplayTime': 'polling.generic.resultDisplayTime',
-    'genericPollMinWidth': 'styling.polling.genericPollMinWidth',
-    
-    // Generic polling sentiment
-    'genericPollSentimentDecayAmount': 'polling.generic.sentiment.decayAmount',
-    'genericPollSentimentMaxDisplayItems': 'polling.generic.sentiment.maxDisplayItems',
-    'genericPollSentimentDisplayThreshold': 'polling.generic.sentiment.displayThreshold',
-    'genericPollSentimentMaxGrowthWidth': 'polling.generic.sentiment.maxGrowthWidth',
-    'genericPollSentimentMaxGaugeValue': 'polling.generic.sentiment.maxGaugeValue',
-    'genericPollSentimentBlockList': 'polling.generic.sentiment.blockList',
-    'genericPollSentimentGroups': 'polling.generic.sentiment.groups',
+    // Legacy generic polling settings removed - functionality replaced by unified polling
     
     // Poll styling
     'yesPollBarColor': 'styling.polling.yesPollBarColor',
@@ -294,7 +272,6 @@ function isOldFlatFormat(settings) {
     
     // If we have old flat keys, it needs migration  
     return settings.hasOwnProperty('chromaKeyColor') || 
-           settings.hasOwnProperty('enableCounting') ||
            settings.hasOwnProperty('gaugeMaxValue');
 }
 
@@ -394,7 +371,6 @@ async function getAllSettings() {
     console.log('[SettingsManager] Stored settings keys:', Object.keys(stored));
     console.log('[SettingsManager] Stored settings sample:', {
         chromaKeyColor: stored.chromaKeyColor,
-        enableCounting: stored.enableCounting,
         display: stored.display,
         styling: stored.styling,
         features: stored.features
@@ -427,6 +403,14 @@ async function getAllSettings() {
         await browser.storage.sync.set(repairedSettings);
         console.log('[SettingsManager] Repair complete, updated stored settings');
         return repairedSettings;
+    }
+    
+    // Clean up any legacy settings that might still exist
+    const cleanedSettings = await cleanupLegacySettings(stored);
+    if (Object.keys(cleanedSettings).length !== Object.keys(stored).length) {
+        console.log('[SettingsManager] Legacy settings found and cleaned, updating storage...');
+        await browser.storage.sync.set(cleanedSettings);
+        stored = cleanedSettings;
     }
     
     console.log('[SettingsManager] Using stored settings with nested structure (no migration needed)');
@@ -465,6 +449,32 @@ async function resetAllSettings() {
     await loadDefaultSettings();
     await browser.storage.sync.clear();
     return await browser.storage.sync.set(DEFAULT_SETTINGS);
+}
+
+/**
+ * Clean up legacy and duplicate settings from stored data
+ */
+async function cleanupLegacySettings(storedSettings) {
+    console.log('[SettingsManager] Cleaning up legacy and duplicate settings...');
+    const cleaned = { ...storedSettings };
+    
+    // Legacy keys to remove
+    const legacyKeys = [
+        'core',                    // Entire core section removed
+        'currentStreamview',       // Duplicate of integrations.streamview.current
+        'dockedViewHeight',        // Duplicate of display.dockedViewHeight
+        'unifiedPolling',         // Flat structure, use polling.unifiedPolling
+        'genericPollSentimentGroups' // Legacy flat key
+    ];
+    
+    legacyKeys.forEach(key => {
+        if (key in cleaned) {
+            console.log(`[SettingsManager] Removed legacy key: ${key}`);
+            delete cleaned[key];
+        }
+    });
+    
+    return cleaned;
 }
 
 /**
@@ -517,8 +527,6 @@ async function buildNestedConfig() {
             displayTime: settings.displayTime
         },
         features: {
-            enableCounting: settings.enableCounting,
-            enableYesNoPolling: settings.enableYesNoPolling,
             enableLeaderboard: settings.enableLeaderboard,
             enableHighlightTracking: settings.enableHighlightTracking,
             appendMessages: settings.appendMessages
@@ -552,7 +560,7 @@ async function buildNestedConfig() {
                 yesPollBarColor: settings.yesPollBarColor,
                 noPollBarColor: settings.noPollBarColor,
                 pollTextColor: settings.pollTextColor,
-                genericPollMinWidth: settings.genericPollMinWidth
+                // Legacy genericPollMinWidth removed - unified polling handles styling
             },
             leaderboard: {
                 leaderboardHeaderText: settings.leaderboardHeaderText,
@@ -562,13 +570,7 @@ async function buildNestedConfig() {
             }
         },
         // Add sentiment polling settings at root level for backward compatibility
-        genericPollSentimentMaxGaugeValue: settings.genericPollSentimentMaxGaugeValue,
-        genericPollSentimentMaxGrowthWidth: settings.genericPollSentimentMaxGrowthWidth,
-        genericPollSentimentDecayAmount: settings.genericPollSentimentDecayAmount,
-        genericPollSentimentMaxDisplayItems: settings.genericPollSentimentMaxDisplayItems,
-        genericPollSentimentDisplayThreshold: settings.genericPollSentimentDisplayThreshold,
-        genericPollSentimentBlockList: settings.genericPollSentimentBlockList,
-        genericPollSentimentGroups: settings.genericPollSentimentGroups
+        // Legacy generic poll sentiment settings removed - unified polling handles sentiment
     };
 }
 
