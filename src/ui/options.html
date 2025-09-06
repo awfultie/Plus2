@@ -782,8 +782,7 @@
           <label for="modPostApprovedUsers">Approved Users</label>
           <span class="tooltip-icon" data-tooltip="Comma-separated list of usernames who can use the mod posting feature (in addition to moderators/broadcasters).">?</span>
         </div>
-        <input type="text" id="modPostApprovedUsers" placeholder="user1, user2, user3"
-               style="width: 100%; max-width: 400px; margin-bottom: 15px;">
+        <input type="text" id="modPostApprovedUsers" placeholder="user1, user2, user3">
 
         <h3>Compatibility</h3>
         <div class="form-inline-group">
@@ -992,7 +991,7 @@
                 <label for="unifiedPollingNumbersMaxDigits">Max Number Length</label>
                 <span class="tooltip-icon" data-tooltip="Maximum number of digits allowed in number votes (1-10).">?</span>
               </div>
-              <input type="number" id="unifiedPollingNumbersMaxDigits" min="1" max="10">
+              <input type="number" id="unifiedPollingNumbersMaxDigits" min="1" max="10" step="1">
             </div>
           </details>
 
@@ -1080,7 +1079,7 @@
                 <label for="unifiedPollingSentimentDecayAmount">Decay Amount</label>
                 <span class="tooltip-icon" data-tooltip="How much to subtract from sentiment counts each decay interval.">?</span>
               </div>
-              <input type="number" id="unifiedPollingSentimentDecayAmount" min="1" max="10">
+              <input type="number" id="unifiedPollingSentimentDecayAmount" min="1" max="10" step="1">
 
               <div class="label-with-tooltip">
                 <label for="unifiedPollingSentimentBlockList">Block List</label>
