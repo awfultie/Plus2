@@ -34,7 +34,7 @@ async function loadDefaultSettings() {
  * Kept for reference in case migration is needed for very old stored settings
  */
 const LEGACY_MIGRATION_MAP = {
-    // Legacy core settings removed - functionality replaced by unified polling highlight gauge
+    // Legacy core settings removed - functionality deprecated
     
     // Display settings
     'chromaKeyColor': 'display.chromaKeyColor',
@@ -195,10 +195,6 @@ const LEGACY_MIGRATION_MAP = {
     'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
     'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
     'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-    'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
-    'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
-    'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
-    'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration'
 };
 
 /**

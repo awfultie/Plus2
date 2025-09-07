@@ -164,35 +164,21 @@ class IntegrationTestSuite {
     }
 
     /**
-     * Test integration with highlight gauge
+     * Test deprecated functionality removal
      */
-    async testHighlightGaugeIntegration() {
+    async testDeprecatedFunctionality() {
         await this.utils.resetSystem();
         
         const state = await this.utils.getState();
-        const highlightStrings = state.settings?.highlightGauge?.stringToCount?.split(',') || ['+2', 'lol', 'lmao'];
         
-        if (highlightStrings.length > 0) {
-            // Send highlight messages
-            const highlightMessage = highlightStrings[0].trim();
-            await this.utils.sendMessages([highlightMessage, highlightMessage, highlightMessage]);
-            await this.utils.delay(500);
-            
-            const highlightState = await this.utils.getState();
-            
-            this.utils.assertTrue(
-                !!highlightState.highlightGauge,
-                'Should have highlight gauge data'
-            );
-            
-            this.utils.assertTrue(
-                !!highlightState.unifiedPoll,
-                'Should have unified poll data alongside highlight gauge'
-            );
-        }
+        // Ensure highlight gauge functionality has been removed
+        this.utils.assertTrue(
+            !state.settings?.polling?.highlightGauge,
+            'Highlight gauge settings should be removed'
+        );
         
-        // Test passes even if highlight gauge is disabled
-        this.utils.assertTrue(true, 'Highlight gauge integration test completed');
+        // Test passes - deprecated functionality properly removed
+        this.utils.assertTrue(true, 'Deprecated functionality removal test completed');
     }
 
     /**

@@ -171,57 +171,29 @@ function broadcastLeaderboardUpdate() {
 
 // --- State Packaging ---
 function getGaugeState() {
-    // Always use unified polling for gauge state
-    if (unifiedPolling) {
-        const unifiedGaugeState = unifiedPolling.getUnifiedGaugeState();
-        return {
-            occurrenceCount: unifiedGaugeState.occurrenceCount,
-            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue || 30,
-            recentMaxValue: unifiedGaugeState.recentMaxValue,
-            isPollActive,
-            peakLabels: {
-                low: { text: settings.styling?.gauge?.peakLabels?.low?.text || "Heh", color: settings.styling?.gauge?.peakLabels?.low?.color || "#ffffff" },
-                mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text || "Funny!", color: settings.styling?.gauge?.peakLabels?.mid?.color || "#ffff00" },
-                high: { text: settings.styling?.gauge?.peakLabels?.high?.text || "Hilarious!!", color: settings.styling?.gauge?.peakLabels?.high?.color || "#ffa500" },
-                max: { text: settings.styling?.gauge?.peakLabels?.max?.text || "OFF THE CHARTS!!!", color: settings.styling?.gauge?.peakLabels?.max?.color || "#ff0000" }
-            }
-        };
-    } else {
-        // Fallback when unified polling not initialized
-        return {
-            occurrenceCount: 0,
-            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue || 30,
-            recentMaxValue: 0,
-            isPollActive: false,
-            peakLabels: {
-                low: { text: "Heh", color: "#ffffff" },
-                mid: { text: "Funny!", color: "#ffff00" },
-                high: { text: "Hilarious!!", color: "#ffa500" },
-                max: { text: "OFF THE CHARTS!!!", color: "#ff0000" }
-            }
-        };
-    }
+    // Highlight gauge functionality deprecated - return empty state
+    return {
+        occurrenceCount: 0,
+        gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue || 30,
+        recentMaxValue: 0,
+        isPollActive: false,
+        peakLabels: {
+            low: { text: settings.styling?.gauge?.peakLabels?.low?.text || "Heh", color: settings.styling?.gauge?.peakLabels?.low?.color || "#ffffff" },
+            mid: { text: settings.styling?.gauge?.peakLabels?.mid?.text || "Funny!", color: settings.styling?.gauge?.peakLabels?.mid?.color || "#ffff00" },
+            high: { text: settings.styling?.gauge?.peakLabels?.high?.text || "Hilarious!!", color: settings.styling?.gauge?.peakLabels?.high?.color || "#ffa500" },
+            max: { text: settings.styling?.gauge?.peakLabels?.max?.text || "OFF THE CHARTS!!!", color: settings.styling?.gauge?.peakLabels?.max?.color || "#ff0000" }
+        }
+    };
 }
 
 // Webhook-specific gauge state without peakLabels (moved to StreamView visual config)
 function getWebhookGaugeState() {
-    // Use unified polling for gauge data
-    if (unifiedPolling) {
-        const unifiedGaugeState = unifiedPolling.getUnifiedGaugeState();
-        return {
-            occurrenceCount: unifiedGaugeState.occurrenceCount,
-            gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
-            recentMaxValue: unifiedGaugeState.recentMaxValue,
-            isPollActive
-        };
-    }
-    
-    // Fallback when unified polling not available
+    // Highlight gauge functionality deprecated - return empty state
     return {
         occurrenceCount: 0,
         gaugeMaxValue: settings.styling?.gauge?.gaugeMaxValue,
         recentMaxValue: 0,
-        isPollActive
+        isPollActive: false
     };
 }
 
@@ -473,7 +445,7 @@ function processHighlightRequest(data) {
     }
 
     let trackerId = null;
-    if (settings.tracking?.enableHighlightTracking && username) {
+    if (settings.features?.enableHighlightTracking && username) {
         trackerId = nextTrackerId++;
         const logEntry = {
             username: username,
@@ -535,7 +507,7 @@ function processHighlightRequest(data) {
 }
 
 async function saveLogEntry(logEntry) {
-    if (!settings.tracking?.enableHighlightTracking || isSavingLog) return;
+    if (!settings.features?.enableHighlightTracking || isSavingLog) return;
 
     isSavingLog = true; // Acquire lock
     try {
@@ -750,6 +722,9 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // Send leaderboard state update to content scripts
             broadcastToPopouts({ type: 'LEADERBOARD_STATE_UPDATE', mode: leaderboardDisplayMode });
             
+            // Update leaderboard display with current data
+            broadcastLeaderboardUpdate();
+            
             // Send leaderboard toggle to streamview via webhook
             if (webhookClient) {
                 webhookClient.sendEvent('leaderboard_toggle', {
@@ -847,7 +822,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 
                 // Get current state
                 const pollState = unifiedPolling.getUnifiedPollState();
-                const gaugeState = unifiedPolling.getUnifiedGaugeState();
+                const gaugeState = getGaugeState(); // Use local deprecated gauge state function
                 
                 console.log('[Background] Current poll state:', pollState);
                 console.log('[Background] Current gauge state:', gaugeState);

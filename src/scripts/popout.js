@@ -71,22 +71,24 @@ function buildHighlightContainerStructure() {
         padding: '10px',
         boxSizing: 'border-box',
         zIndex: '1000',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
+        overflow: 'hidden'
     });
 
-    // Message Target Area
+    // Message Target Area - highest priority, anchored to top
     messageTarget = document.createElement('div');
     messageTarget.id = 'messageTarget';
     Object.assign(messageTarget.style, {
-        flexGrow: '1',
-        overflowY: 'hidden', // Prevent scrollbars from appearing
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        right: '0',
+        zIndex: '50', // Highest priority
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '5px',
-        boxSizing: 'border-box'
+        padding: '10px',
+        boxSizing: 'border-box',
+        pointerEvents: 'none' // Allow clicks to pass through when empty
     });
     highlightedMessageContainer.appendChild(messageTarget);
 
@@ -117,16 +119,28 @@ function buildHighlightContainerStructure() {
 
     // Legacy generic poll container creation removed - functionality replaced by unified polling
 
-    // Unified Poll Container - replaces both yes/no and generic polls when unified system is enabled
+    // Unified Poll Container - positioned absolutely, can stack with messages
     unifiedPollDisplayContainerElement = document.createElement('div');
     unifiedPollDisplayContainerElement.id = 'unifiedPollDisplayContainer';
     Object.assign(unifiedPollDisplayContainerElement.style, {
-        display: 'none', padding: '10px', margin: '10px 0', boxSizing: 'border-box',
-        backgroundColor: '#111111', textAlign: 'left', borderRadius: '8px', minWidth: '250px',
-        width: 'calc(100% - 20px)', alignSelf: 'center'
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        right: '0',
+        zIndex: '40', // Below messages, but can be repositioned dynamically
+        display: 'none',
+        padding: '10px',
+        boxSizing: 'border-box',
+        backgroundColor: '#111111',
+        textAlign: 'left',
+        borderRadius: '8px',
+        minWidth: '250px',
+        width: 'calc(100% - 20px)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        pointerEvents: 'auto'
     });
-    // Insert before messageTarget so it appears above it, but after generic container
-    highlightedMessageContainer.insertBefore(unifiedPollDisplayContainerElement, messageTarget);
+    highlightedMessageContainer.appendChild(unifiedPollDisplayContainerElement);
 
     document.body.appendChild(highlightedMessageContainer);
 
@@ -223,6 +237,52 @@ function adjustFontSizeToFit(messageElement) {
 
 // Legacy checkAndUpdateGenericPollVisibility removed - functionality replaced by unified polling
 
+// Function to calculate and update container positions
+function updateContainerPositions() {
+    const messageHasContent = messageTarget && messageTarget.children.length > 0;
+    const pollContainer = unifiedPollDisplayContainerElement;
+    const pollIsVisible = pollContainer && pollContainer.style.display !== 'none';
+    
+    // Check if poll is yes/no type
+    const isYesNoPoll = pollContainer && pollContainer.querySelector('.unified-poll-content') &&
+        pollContainer.dataset.pollType === 'yesno';
+    
+    let currentTop = 10; // Start at top with padding
+    
+    // Position messages (always at top when present)
+    if (messageTarget) {
+        messageTarget.style.top = messageHasContent ? `${currentTop}px` : '0px';
+        messageTarget.style.pointerEvents = messageHasContent ? 'auto' : 'none';
+        if (messageHasContent) {
+            currentTop += messageTarget.offsetHeight + 10; // Add height + gap
+        }
+    }
+    
+    // Position poll container
+    if (pollContainer && pollIsVisible) {
+        // Always maintain centering
+        pollContainer.style.left = '50%';
+        pollContainer.style.transform = 'translateX(-50%)';
+        
+        if (isYesNoPoll && messageHasContent) {
+            // Yes/no goes above messages if both present - adjust z-index
+            pollContainer.style.zIndex = '60';
+            pollContainer.style.top = '10px';
+            // Push messages down
+            if (messageTarget) {
+                messageTarget.style.top = `${pollContainer.offsetHeight + 20}px`;
+            }
+        } else {
+            // Poll goes below messages or at top if no messages
+            pollContainer.style.zIndex = '40';
+            pollContainer.style.top = `${currentTop}px`;
+        }
+    }
+}
+
+// Make positioning function globally available
+window.updateContainerPositions = updateContainerPositions;
+
 function renderHighlightedMessage(messageData) {
     if (!messageTarget) return;
     
@@ -260,6 +320,9 @@ function renderHighlightedMessage(messageData) {
             activeMessageTimeouts.delete(id);
         }, displayTime);
         activeMessageTimeouts.set(id, timeoutId);
+        
+        // Update positions after adding message
+        setTimeout(() => updateContainerPositions(), 10);
     } else {
         // Clear all existing timeouts and messages for non-append mode
         activeMessageTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
@@ -275,6 +338,9 @@ function renderHighlightedMessage(messageData) {
             activeMessageTimeouts.delete(id);
         }, displayTime);
         activeMessageTimeouts.set(id, timeoutId);
+        
+        // Update positions after adding message
+        setTimeout(() => updateContainerPositions(), 10);
     }
 }
 

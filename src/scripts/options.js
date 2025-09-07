@@ -136,10 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingSentimentBlockListInput = document.getElementById('unifiedPollingSentimentBlockList');
   const unifiedPollingSentimentGroupsInput = document.getElementById('unifiedPollingSentimentGroups');
   
-  const unifiedPollingHighlightGaugeEnabledInput = document.getElementById('unifiedPollingHighlightGaugeEnabled');
-  const unifiedPollingHighlightGaugeStringToCountInput = document.getElementById('unifiedPollingHighlightGaugeStringToCount');
-  const unifiedPollingHighlightGaugeExactMatchInput = document.getElementById('unifiedPollingHighlightGaugeExactMatch');
-  const unifiedPollingHighlightGaugeSentimentIntegrationInput = document.getElementById('unifiedPollingHighlightGaugeSentimentIntegration');
   
   const maxPrunedCacheSizeInput = document.getElementById('maxPrunedCacheSize');
   const inactivityTimeoutDurationInput = document.getElementById('inactivityTimeoutDuration');
@@ -460,12 +456,6 @@ document.addEventListener('DOMContentLoaded', () => {
     'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
     'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
     
-    // Highlight Gauge
-    'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
-    'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
-    'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
-    'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
-    
     // Integrations
     'enableStreamview': 'integrations.streamview.enabled',
     'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
@@ -590,10 +580,6 @@ document.addEventListener('DOMContentLoaded', () => {
           'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
           'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
           'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-          'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
-          'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
-          'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
-          'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
           'enableLeaderboard': 'features.enableLeaderboard',
           'enableWebhookIntegration': 'features.enableWebhookIntegration',
           'enableYouTube': 'features.enableYouTube',
@@ -834,10 +820,6 @@ document.addEventListener('DOMContentLoaded', () => {
       'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
       'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
       'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-      'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
-      'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
-      'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
-      'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
       'enableLeaderboard': 'features.enableLeaderboard',
       'enableWebhookIntegration': 'features.enableWebhookIntegration',
       'enableYouTube': 'features.enableYouTube',
@@ -2117,10 +2099,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
         'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
         'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
-        'unifiedPollingHighlightGaugeEnabled': 'polling.highlightGauge.enabled',
-        'unifiedPollingHighlightGaugeStringToCount': 'polling.highlightGauge.stringToCount',
-        'unifiedPollingHighlightGaugeExactMatch': 'polling.highlightGauge.exactMatch',
-        'unifiedPollingHighlightGaugeSentimentIntegration': 'polling.highlightGauge.sentimentIntegration',
         'enableLeaderboard': 'features.enableLeaderboard',
         'enableWebhookIntegration': 'features.enableWebhookIntegration',
         'enableYouTube': 'features.enableYouTube',

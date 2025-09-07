@@ -165,7 +165,7 @@ class UIInjection {
 
         // Use nested settings structure instead of flat storage access
         const settingsData = {
-            enableHighlightTracking: this.settings.tracking?.enableHighlightTracking,
+            enableHighlightTracking: this.settings.features?.enableHighlightTracking,
             enableLeaderboard: this.settings.features?.enableLeaderboard,
             enableStreamview: this.settings.integrations?.streamview?.enabled,
             currentStreamview: this.settings.integrations?.streamview?.current

@@ -147,8 +147,6 @@ class StreamviewClient {
                 }
             },
             behavior: {
-                stringToCount: this.settings.core?.stringToCount || '+2, lol, lmao, lul, lmfao, dangLUL',
-                exactMatchCounting: this.settings.core?.exactMatchCounting || false,
                 decayInterval: this.settings.behavior?.decayInterval || 500,
                 decayAmount: this.settings.behavior?.decayAmount || 1,
                 recentMaxResetDelay: this.settings.behavior?.recentMaxResetDelay || 2000,

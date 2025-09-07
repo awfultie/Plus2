@@ -1,5 +1,5 @@
 // Unified Polling System
-// Consolidates all polling types (yes/no, numbers, letters, sentiment) and highlight gauge
+// Consolidates all polling types (yes/no, numbers, letters, sentiment)
 // into a single message processing pipeline
 
 (function(global) {
@@ -20,12 +20,6 @@
         clearTimerId: null,
         cooldownTimerId: null,
         
-        // Highlight gauge integration
-        highlightGauge: {
-            count: 0,
-            recentMax: 0,
-            lastIncrementTime: 0
-        }
     };
 
     // Separate sentiment tracking state (always-on, independent of polls)
@@ -37,8 +31,6 @@
         shouldDisplay: false
     };
 
-    // Highlight gauge decay timer
-    let highlightGaugeDecayInterval = null;
 
     // External dependencies (injected during initialization)
     let settings = {};
@@ -85,8 +77,6 @@
         const config = getUnifiedPollConfig();
         startSentimentDecay(config);
         
-        // Start highlight gauge decay process
-        startHighlightGaugeDecay(config);
         
     }
 
@@ -98,8 +88,6 @@
         const config = getUnifiedPollConfig();
         startSentimentDecay(config);
         
-        // Restart highlight gauge decay with new settings
-        startHighlightGaugeDecay(config);
         
     }
 
@@ -154,13 +142,6 @@
                 blockList: (settings.polling?.unifiedPolling?.sentiment?.blockList || '').split(',').map(w => w.trim()).filter(w => w.length > 0)
             },
             
-            // Highlight gauge integration
-            highlightGauge: {
-                enabled: settings.polling?.highlightGauge?.enabled !== false,
-                stringToCount: settings.polling?.highlightGauge?.stringToCount || settings.core?.stringToCount || '+2, lol, lmao',
-                exactMatch: settings.polling?.highlightGauge?.exactMatch || settings.core?.exactMatchCounting || false,
-                sentimentIntegration: settings.polling?.highlightGauge?.sentimentIntegration || false
-            }
         };
     }
 
@@ -188,10 +169,6 @@
         unifiedState.messageBuffer.push(unifiedMessage);
         cleanMessageBuffer(currentTime, config);
 
-        // Process highlight gauge if enabled
-        if (config.highlightGauge.enabled) {
-            processHighlightGauge(unifiedMessage, config);
-        }
 
         // Process sentiment tracking (always-on, independent of polls)
         processSentimentTracking(unifiedMessage, config);
@@ -285,37 +262,6 @@
         );
     }
 
-    // Highlight gauge processing (integrated into unified system)
-    function processHighlightGauge(message, config) {
-        if (!config.highlightGauge.enabled) return;
-
-        const terms = config.highlightGauge.stringToCount.split(',').map(s => s.trim());
-        if (terms.length === 0 || (terms.length === 1 && terms[0] === '')) return;
-
-        const check = config.highlightGauge.exactMatch ?
-            (source, term) => source.split(/\s+/).includes(term) :
-            (source, term) => source.toLowerCase().includes(term.toLowerCase());
-
-        let matchFound = terms.some(term => term && check(message.text, term));
-        if (!matchFound && message.images) {
-            matchFound = message.images.some(img => 
-                terms.some(term => term && check(img.alt || '', term))
-            );
-        }
-
-        if (matchFound) {
-            unifiedState.highlightGauge.count++;
-            if (unifiedState.highlightGauge.count > unifiedState.highlightGauge.recentMax) {
-                unifiedState.highlightGauge.recentMax = unifiedState.highlightGauge.count;
-            }
-            unifiedState.highlightGauge.lastIncrementTime = Date.now();
-            
-            if (broadcastPollUpdate) {
-                internalBroadcastPollUpdate();
-            }
-
-        }
-    }
 
     // Check if any poll type should be activated
     function checkPollActivation(config) {
@@ -526,10 +472,6 @@
         sentimentState.displayTimes = {};
         sentimentState.shouldDisplay = false;
         
-        // Reset highlight gauge
-        unifiedState.highlightGauge.count = 0;
-        unifiedState.highlightGauge.recentMax = 0;
-        unifiedState.highlightGauge.lastIncrementTime = 0;
         
         if (unifiedState.clearTimerId) clearTimeout(unifiedState.clearTimerId);
         unifiedState.clearTimerId = null;
@@ -587,11 +529,6 @@
                 totalResponses: unifiedState.activeTracker?.totalResponses || 0,
                 startTime: unifiedState.startTime,
                 winnerMessage: winnerMessage,
-                // Include highlight gauge data for sentiment tracking
-                highlightGauge: {
-                    count: unifiedState.highlightGauge.count,
-                    recentMax: unifiedState.highlightGauge.recentMax
-                },
                 // Include sentiment data (use the one we already got to avoid double computation)
                 sentimentData: currentSentimentData
             }
@@ -622,14 +559,6 @@
         };
     }
 
-    // Get highlight gauge state
-    function getUnifiedGaugeState() {
-        return {
-            occurrenceCount: unifiedState.highlightGauge.count,
-            recentMaxValue: unifiedState.highlightGauge.recentMax,
-            lastIncrementTime: unifiedState.highlightGauge.lastIncrementTime
-        };
-    }
 
     // Test function to verify categorization
     function testMessageCategorization() {
@@ -896,41 +825,6 @@
         return sentimentStateData;
     }
 
-    // Highlight gauge decay functions
-    function startHighlightGaugeDecay(config) {
-        if (highlightGaugeDecayInterval) {
-            clearInterval(highlightGaugeDecayInterval);
-        }
-
-        const decayInterval = config.behavior?.decayInterval || 500;
-        const decayAmount = config.behavior?.decayAmount || 1;
-
-        highlightGaugeDecayInterval = setInterval(() => {
-            const currentTime = Date.now();
-            
-            // Only decay if gauge count is > 0 and enough time has passed since last increment
-            if (unifiedState.highlightGauge.count > 0 && 
-                (currentTime - unifiedState.highlightGauge.lastIncrementTime >= decayInterval)) {
-                
-                unifiedState.highlightGauge.count = Math.max(0, unifiedState.highlightGauge.count - decayAmount);
-                
-                // Reset recentMax if count reaches 0
-                if (unifiedState.highlightGauge.count === 0) {
-                    setTimeout(() => {
-                        if (unifiedState.highlightGauge.count === 0) {
-                            unifiedState.highlightGauge.recentMax = 0;
-                            // Broadcast unified poll update for gauge changes
-                            internalBroadcastPollUpdate();
-                        }
-                    }, config.behavior?.recentMaxResetDelay || 2000);
-                }
-                
-                if (broadcastPollUpdate) {
-                    internalBroadcastPollUpdate();
-                }
-            }
-        }, decayInterval);
-    }
 
     // Export functions for use by background script
     global.UnifiedPolling = {
@@ -938,7 +832,6 @@
         updateUnifiedPollingSettings,
         processUnifiedMessage,
         getUnifiedPollState,
-        getUnifiedGaugeState,
         getSentimentState,
         clearPollData,
         endPollManually, // Manual poll ending

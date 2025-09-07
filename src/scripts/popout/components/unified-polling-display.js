@@ -34,12 +34,33 @@ class UnifiedPollingDisplayComponent {
         
         const { shouldDisplay, isActive, isConcluded, pollType } = unifiedPollData;
 
+        // Debug logging
+        console.log('[Debug] Unified poll data:', {
+            shouldDisplay,
+            isActive,
+            isConcluded,
+            pollType,
+            hasSentimentData: !!unifiedPollData.sentimentData,
+            sentimentShouldDisplay: unifiedPollData.sentimentData?.shouldDisplay
+        });
+
         // Hide container if poll shouldn't be displayed
         this.container.style.display = shouldDisplay ? 'block' : 'none';
         if (!shouldDisplay) {
             this.container.innerHTML = '';
+            this.container.dataset.pollType = '';
+            // Update positions when poll is hidden
+            if (typeof window.updateContainerPositions === 'function') {
+                setTimeout(() => window.updateContainerPositions(), 10);
+            }
             return;
         }
+        
+        // Ensure container is visible when we have content
+        this.container.style.display = 'block';
+        
+        // Set poll type for positioning logic
+        this.container.dataset.pollType = pollType || '';
 
         // Setup container styling based on poll type
         this.container.style.maxWidth = '100%';
@@ -87,18 +108,37 @@ class UnifiedPollingDisplayComponent {
             hasRenderedMainContent = true;
         }
 
-        // Sentiment tracking logic - hide when active polls are running
+        // Sentiment tracking logic - show below yes/no polls, hide for other active poll types
         
-        // Only show sentiment gauges when NO active poll is running
-        const shouldShowSentiment = unifiedPollData.sentimentData?.shouldDisplay && !hasRenderedMainContent;
+        // Show sentiment gauges when:
+        // 1. No active poll is running, OR
+        // 2. Yes/no poll is active (sentiment appears below yes/no)
+        // BUT NOT when number/letter polls are active (they hide sentiment)
+        const shouldShowSentiment = unifiedPollData.sentimentData?.shouldDisplay && 
+            (!hasRenderedMainContent || (isActive && pollType === 'yesno'));
+            
         
+
         if (shouldShowSentiment) {
-            // No active poll, sentiment takes the full space
-            this.renderSentimentTracking(unifiedPollData.sentimentData, titleElement, contentElement);
-            hasRenderedMainContent = true;
+            
+            // Create separate container for sentiment to allow multiple sections
+            let sentimentContainer = contentElement.querySelector('.sentiment-container');
+            if (!sentimentContainer) {
+                sentimentContainer = document.createElement('div');
+                sentimentContainer.className = 'sentiment-container';
+                contentElement.appendChild(sentimentContainer);
+            }
+            
+            // Render sentiment in its own container
+            this.renderSentimentTracking(unifiedPollData.sentimentData, null, sentimentContainer);
+            
+            // Mark that we have content to display
+            if (!hasRenderedMainContent) {
+                hasRenderedMainContent = true;
+            }
         }
         
-        // Clean up any existing sentiment container when sentiment shouldn't display
+        // Clean up sentiment container when sentiment shouldn't display
         if (!shouldShowSentiment) {
             const existingSentimentContainer = contentElement.querySelector('.sentiment-container');
             if (existingSentimentContainer) {
@@ -108,16 +148,23 @@ class UnifiedPollingDisplayComponent {
 
         // Handle layout for specific poll types
         if (pollType === 'yesno') {
-            // Yes/no polls: clean centered layout
-            this.container.style.display = 'flex';
-            this.container.style.justifyContent = 'center';
-            this.container.style.alignItems = 'center';
+            // Yes/no polls: stacked layout to allow sentiment below
+            this.container.style.display = 'block';
             this.container.style.minHeight = '60px';
             
             // Hide title for yes/no polls
             titleElement.style.display = 'none';
-        } else if (unifiedPollData.sentimentData?.shouldDisplay) {
-            // Sentiment: flexible layout for individual gauges
+            
+            // Style the yes/no poll content for centered display within its section
+            const yesNoContent = contentElement.children[0]; // First child should be yes/no content
+            if (yesNoContent && !yesNoContent.classList.contains('sentiment-container')) {
+                yesNoContent.style.display = 'flex';
+                yesNoContent.style.justifyContent = 'center';
+                yesNoContent.style.alignItems = 'center';
+                yesNoContent.style.minHeight = '60px';
+            }
+        } else if (shouldShowSentiment && !isActive && !isConcluded) {
+            // Sentiment-only: flexible layout for individual gauges
             this.container.style.display = 'block';
             this.container.style.minHeight = 'auto';
             
@@ -128,6 +175,11 @@ class UnifiedPollingDisplayComponent {
             this.container.style.display = 'block';
             this.container.style.minHeight = 'auto';
             titleElement.style.display = 'block';
+        }
+        
+        // Update container positions after rendering
+        if (typeof window.updateContainerPositions === 'function') {
+            setTimeout(() => window.updateContainerPositions(), 10);
         }
     }
 
@@ -192,8 +244,9 @@ class UnifiedPollingDisplayComponent {
      * Render ongoing sentiment tracking (not an active poll)
      */
     renderSentimentTracking(sentimentData, titleElement, contentElement) {
-        titleElement.textContent = '';
-        
+        if (titleElement) {
+            titleElement.textContent = '';
+        }
         
         // Handle unified polling sentiment data format
         if (sentimentData && sentimentData.items && sentimentData.items.length > 0) {
@@ -943,7 +996,6 @@ class UnifiedPollingDisplayComponent {
      * Update sentiment gauges with smooth animations
      */
     updateSentimentGauges(contentElement, sortedData) {
-        
         // Support both unified and generic polling settings paths
         const sentimentGaugeMax = this.settings.polling?.unifiedPolling?.sentiment?.maxGaugeValue || 
                                  this.settings.polling?.generic?.sentiment?.maxGaugeValue || 30;
