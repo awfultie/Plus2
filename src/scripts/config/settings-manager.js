@@ -54,8 +54,16 @@ const LEGACY_MIGRATION_MAP = {
     'enableReplyTooltip': 'features.enableReplyTooltip',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
     'enableChannelIdOverride': 'features.enableChannelIdOverride',
+    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+    'manualWebhookUrl': 'display.manualWebhookUrl',
     'enableStreamview': 'integrations.streamview.enabled',
     'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
+    
+    // Legacy core settings - migrate to unified polling
+    'enableCounting': 'polling.unifiedPolling.sentiment.enabled', // Migrate to unified sentiment
+    'stringToCount': 'polling.unifiedPolling.sentiment.groups', // Migrate to sentiment groups (special handling needed)
+    'exactMatchCounting': 'behavior.exactMatchCounting',
+    'enableYesNoPolling': 'polling.unifiedPolling.yesno.enabled',
     
     // Styling
     'messageBGColor': 'styling.messageBGColor',
@@ -115,6 +123,7 @@ const LEGACY_MIGRATION_MAP = {
     
     // Leaderboard
     'leaderboardHighlightValue': 'leaderboard.highlightValue',
+    'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
     'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
     'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
     'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
@@ -138,15 +147,19 @@ const LEGACY_MIGRATION_MAP = {
     'enable7TVCompat': 'features.enableSevenTVCompatibility',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
     'enableChannelIdOverride': 'features.enableChannelIdOverride',
+    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+    'manualWebhookUrl': 'display.manualWebhookUrl',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     
     // Display Options
     'dockedViewHeight': 'display.dockedViewHeight',
+    'dockingBehavior': 'display.dockingBehavior',
     'dockingBehavior_none': 'display.dockingBehavior',
     'dockingBehavior_twitch': 'display.dockingBehavior',
     'dockingBehavior_youtube': 'display.dockingBehavior',
     'channelIdOverride': 'display.channelIdOverride',
     'templateName': 'display.templateName',
+    'messageWidthCap': 'display.messageWidthCap',
     
     // Animation Values
     'peakLabelAnimationDurationValue': 'styling.gauge.peakLabelAnimationDuration',
@@ -227,7 +240,7 @@ async function migrateFlatToNested(flatSettings) {
     const nested = {};
     
     // Convert flat settings using migration map
-    for (const [flatKey, nestedPath] of Object.entries(MIGRATION_MAP)) {
+    for (const [flatKey, nestedPath] of Object.entries(LEGACY_MIGRATION_MAP)) {
         if (flatSettings.hasOwnProperty(flatKey)) {
             setNestedProperty(nested, nestedPath, flatSettings[flatKey]);
         }
@@ -251,6 +264,36 @@ async function migrateFlatToNested(flatSettings) {
         if (!nested.integrations) nested.integrations = {};
         if (!nested.integrations.webhook) nested.integrations.webhook = {};
         nested.integrations.webhook.apiKey = flatSettings.webhookApiKey;
+    }
+    
+    // Special handling for stringToCount -> sentiment groups conversion
+    if (flatSettings.stringToCount) {
+        if (!nested.polling) nested.polling = {};
+        if (!nested.polling.unifiedPolling) nested.polling.unifiedPolling = {};
+        if (!nested.polling.unifiedPolling.sentiment) nested.polling.unifiedPolling.sentiment = {};
+        
+        // Convert comma-separated string to sentiment groups array
+        const terms = flatSettings.stringToCount.split(',').map(term => term.trim()).filter(term => term.length > 0);
+        const sentimentGroups = terms.map(term => ({
+            name: term,
+            terms: [term],
+            color: '#2196F3' // Default color
+        }));
+        nested.polling.unifiedPolling.sentiment.groups = JSON.stringify(sentimentGroups);
+    }
+    
+    // Handle browserSourceStyle if present (already nested structure)
+    if (flatSettings.browserSourceStyle) {
+        if (!nested.integrations) nested.integrations = {};
+        if (!nested.integrations.streamview) nested.integrations.streamview = {};
+        nested.integrations.streamview.browserSourceStyle = flatSettings.browserSourceStyle;
+    }
+    
+    // Handle currentStreamview if present (already nested structure)  
+    if (flatSettings.currentStreamview) {
+        if (!nested.integrations) nested.integrations = {};
+        if (!nested.integrations.streamview) nested.integrations.streamview = {};
+        nested.integrations.streamview.current = flatSettings.currentStreamview;
     }
     
     console.log('[SettingsManager] Migration completed:', Object.keys(nested));
@@ -396,6 +439,19 @@ async function getAllSettings() {
     if (needsRepair) {
         console.log('[SettingsManager] Repairing settings with missing defaults...');
         const repairedSettings = smartMergeDefaults(DEFAULT_SETTINGS, stored);
+        
+        // Apply specific mappings for standalone keys like currentStreamview
+        if (stored.currentStreamview !== undefined) {
+            console.log(`[SettingsManager] Mapping currentStreamview to integrations.streamview.current:`, stored.currentStreamview);
+            setNestedProperty(repairedSettings, 'integrations.streamview.current', stored.currentStreamview);
+        }
+        
+        console.log('[SettingsManager] Final repaired settings after mapping:', {
+            streamviewEnabled: repairedSettings.integrations?.streamview?.enabled,
+            streamviewCurrent: repairedSettings.integrations?.streamview?.current,
+            hasCurrentStreamview: !!repairedSettings.integrations?.streamview?.current
+        });
+        
         await browser.storage.sync.set(repairedSettings);
         console.log('[SettingsManager] Repair complete, updated stored settings');
         return repairedSettings;
@@ -410,9 +466,23 @@ async function getAllSettings() {
     }
     
     console.log('[SettingsManager] Using stored settings with nested structure (no migration needed)');
-    // Options page now saves directly to nested structure - no migration needed
-    // Use smart merge to ensure all default values are present
-    return smartMergeDefaults(DEFAULT_SETTINGS, stored);
+    
+    // Apply FORM_ELEMENT_PATHS mappings for standalone keys like currentStreamview
+    let finalSettings = smartMergeDefaults(DEFAULT_SETTINGS, stored);
+    
+    // Map standalone keys to nested paths
+    if (stored.currentStreamview !== undefined) {
+        console.log(`[SettingsManager] Mapping currentStreamview to integrations.streamview.current:`, stored.currentStreamview);
+        setNestedProperty(finalSettings, 'integrations.streamview.current', stored.currentStreamview);
+    }
+    
+    console.log('[SettingsManager] Final settings after mapping:', {
+        streamviewEnabled: finalSettings.integrations?.streamview?.enabled,
+        streamviewCurrent: finalSettings.integrations?.streamview?.current,
+        hasCurrentStreamview: !!finalSettings.integrations?.streamview?.current
+    });
+    
+    return finalSettings;
 }
 
 /**
@@ -458,7 +528,6 @@ async function cleanupLegacySettings(storedSettings) {
     const legacyKeys = [
         'core',                    // Entire core section removed
         'currentStreamview',       // Duplicate of integrations.streamview.current
-        'dockedViewHeight',        // Duplicate of display.dockedViewHeight
         'unifiedPolling',         // Flat structure, use polling.unifiedPolling
         'genericPollSentimentGroups' // Legacy flat key
     ];

@@ -9,6 +9,8 @@ class UnifiedPollingDisplayComponent {
     constructor() {
         this.container = null;
         this.settings = {};
+        this.sentimentTimestamps = new Map(); // Track last update time for each sentiment item
+        this.cleanupInterval = null; // Cleanup timer reference
     }
 
     /**
@@ -17,6 +19,7 @@ class UnifiedPollingDisplayComponent {
     initialize(container, settings) {
         this.container = container;
         this.settings = settings;
+        this.startSentimentCleanupTimer();
     }
 
     /**
@@ -44,8 +47,14 @@ class UnifiedPollingDisplayComponent {
             sentimentShouldDisplay: unifiedPollData.sentimentData?.shouldDisplay
         });
 
-        // Hide container if poll shouldn't be displayed
-        this.container.style.display = shouldDisplay ? 'block' : 'none';
+        // Only update display style when it actually changes
+        const currentDisplay = this.container.style.display;
+        const expectedDisplay = shouldDisplay ? 'block' : 'none';
+        
+        if (currentDisplay !== expectedDisplay) {
+            this.container.style.display = expectedDisplay;
+        }
+        
         if (!shouldDisplay) {
             this.container.innerHTML = '';
             this.container.dataset.pollType = '';
@@ -56,27 +65,15 @@ class UnifiedPollingDisplayComponent {
             return;
         }
         
-        // Ensure container is visible when we have content
-        this.container.style.display = 'block';
-        
         // Set poll type for positioning logic
         this.container.dataset.pollType = pollType || '';
 
-        // Setup container styling based on poll type
+        // Setup main container - always fits content with 10px padding from popout edges
         this.container.style.maxWidth = '100%';
         this.container.style.boxSizing = 'border-box';
-        
-        // Handle background and layout for different poll types
-        if (pollType === 'yesno' || (unifiedPollData.sentimentData?.shouldDisplay && !isActive && !isConcluded)) {
-            // Yes/no polls and sentiment gauges (when no active/concluded polls): transparent background
-            this.container.style.backgroundColor = 'transparent';
-            this.container.style.padding = '0';
-            this.container.style.margin = '0';
-        } else {
-            // Active/concluded polls (letters, numbers): dark background container
-            this.container.style.backgroundColor = '#111111';
-            this.container.style.padding = '8px';
-        }
+        this.container.style.position = 'relative'; // Always relative, let external positioning handle placement
+        this.container.style.backgroundColor = 'transparent'; // Always transparent for main container
+        this.container.style.padding = '0'; // No padding on main container
 
         // Get or create title element
         let titleElement = this.container.querySelector('.unified-poll-title');
@@ -119,59 +116,34 @@ class UnifiedPollingDisplayComponent {
             
         
 
+        // Handle sentiment gauges - these can appear alongside yes/no polls or standalone
         if (shouldShowSentiment) {
-            
-            // Create separate container for sentiment to allow multiple sections
-            let sentimentContainer = contentElement.querySelector('.sentiment-container');
-            if (!sentimentContainer) {
-                sentimentContainer = document.createElement('div');
-                sentimentContainer.className = 'sentiment-container';
-                contentElement.appendChild(sentimentContainer);
-            }
-            
-            // Render sentiment in its own container
-            this.renderSentimentTracking(unifiedPollData.sentimentData, null, sentimentContainer);
+            this.renderSentimentGauges(unifiedPollData.sentimentData, contentElement, isActive && pollType === 'yesno');
             
             // Mark that we have content to display
             if (!hasRenderedMainContent) {
                 hasRenderedMainContent = true;
             }
+        } else {
+            // If sentiment shouldn't show, make sure to clean up any existing gauges
+            this.hideAllSentimentGauges();
         }
         
-        // Clean up sentiment container when sentiment shouldn't display
-        if (!shouldShowSentiment) {
-            const existingSentimentContainer = contentElement.querySelector('.sentiment-container');
-            if (existingSentimentContainer) {
-                existingSentimentContainer.remove();
-            }
-        }
 
         // Handle layout for specific poll types
         if (pollType === 'yesno') {
-            // Yes/no polls: stacked layout to allow sentiment below
-            this.container.style.display = 'block';
-            this.container.style.minHeight = '60px';
-            
-            // Hide title for yes/no polls
-            titleElement.style.display = 'none';
-            
-            // Style the yes/no poll content for centered display within its section
-            const yesNoContent = contentElement.children[0]; // First child should be yes/no content
-            if (yesNoContent && !yesNoContent.classList.contains('sentiment-container')) {
-                yesNoContent.style.display = 'flex';
-                yesNoContent.style.justifyContent = 'center';
-                yesNoContent.style.alignItems = 'center';
-                yesNoContent.style.minHeight = '60px';
-            }
+            // Yes/no polls: create their own container that doesn't take height when inactive
+            this.setupYesNoPollContainer(titleElement, contentElement);
+        } else if (pollType === 'numbers' || pollType === 'letters') {
+            // Letter/number polls: dark background container that fits content (both active and concluded)
+            // These polls hide sentiment gauges, so clean them up
+            this.hideAllSentimentGauges();
+            this.setupLetterNumberPollContainer(titleElement, contentElement);
         } else if (shouldShowSentiment && !isActive && !isConcluded) {
-            // Sentiment-only: flexible layout for individual gauges
-            this.container.style.display = 'block';
-            this.container.style.minHeight = 'auto';
-            
-            // Hide title for sentiment
-            titleElement.style.display = 'none';
+            // Sentiment-only: transparent container
+            this.setupSentimentOnlyContainer(titleElement, contentElement);
         } else {
-            // Other polls: normal layout with title
+            // Default container setup
             this.container.style.display = 'block';
             this.container.style.minHeight = 'auto';
             titleElement.style.display = 'block';
@@ -256,6 +228,7 @@ class UnifiedPollingDisplayComponent {
             
             // sentimentData.items is already an array of {term, count, percentage, emoteData}
             const sortedData = sentimentData.items
+                .filter(item => item.count > 0) // Filter out items with count <= 0
                 .sort((a, b) => b.count - a.count)
                 .slice(0, maxDisplayItems)
                 .map(item => ({ 
@@ -267,6 +240,7 @@ class UnifiedPollingDisplayComponent {
         } else if (sentimentData && sentimentData.counts && Object.keys(sentimentData.counts).length > 0) {
             // Fallback for generic polling format (counts object)
             const sortedData = Object.entries(sentimentData.counts)
+                .filter(([, count]) => count > 0) // Filter out items with count <= 0
                 .sort(([,a], [,b]) => b - a)
                 .slice(0, this.settings.polling?.generic?.sentiment?.maxDisplayItems || 5)
                 .map(([value, count]) => ({ value, count }));
@@ -676,7 +650,7 @@ class UnifiedPollingDisplayComponent {
         const configuredWidth = this.settings.polling?.unifiedPolling?.yesno?.width || 320;
         const availableWidth = window.innerWidth - 40; // Account for padding/margins
         const gaugeWidth = Math.min(configuredWidth, availableWidth);
-        const gaugeHeight = 32;
+        const gaugeHeight = this.settings.polling?.unifiedPolling?.yesno?.height || 24;
 
         // Calculate fill widths based on percentages
         const leftFillWidth = total > 0 ? (leftPercentage / 100) * gaugeWidth : 0;
@@ -830,7 +804,7 @@ class UnifiedPollingDisplayComponent {
         const configuredWidth = this.settings.polling?.unifiedPolling?.yesno?.width || 320;
         const availableWidth = window.innerWidth - 40; // Account for padding/margins
         const gaugeWidth = Math.min(configuredWidth, availableWidth);
-        const gaugeHeight = 32;
+        const gaugeHeight = this.settings.polling?.unifiedPolling?.yesno?.height || 24;
 
         // Calculate fill widths based on percentages
         const leftFillWidth = (yesPercentage / 100) * gaugeWidth;
@@ -920,6 +894,14 @@ class UnifiedPollingDisplayComponent {
                 ">${isTie ? 'TIE!' : (yesIsWinner ? `YES ${yesPercentage}%` : `NO ${noPercentage}%`)}</div>` : ''}
             `;
             
+            // Center the gauge bar within the content element and ensure it stays above sentiment
+            Object.assign(gaugeBar.style, {
+                margin: '0 auto',
+                display: 'block',
+                position: 'relative',
+                zIndex: '20' // Higher than sentiment gauges (10)
+            });
+            
             contentElement.appendChild(gaugeBar);
         } else {
             // Update existing gauge bar elements
@@ -1002,6 +984,7 @@ class UnifiedPollingDisplayComponent {
         const sentimentMaxGrowthWidth = this.settings.polling?.unifiedPolling?.sentiment?.maxGrowthWidth || 
                                        this.settings.polling?.generic?.sentiment?.maxGrowthWidth || 150;
         const sentimentBaseColor = this.settings.polling?.unifiedPolling?.sentiment?.baseColor || '#2196F3';
+        const anchorPoint = this.settings.polling?.unifiedPolling?.sentiment?.anchorPoint || 'top';
         
         // Get existing gauge elements to reuse them for smooth animations
         // Refresh the gauge list each time to account for any DOM changes
@@ -1028,11 +1011,28 @@ class UnifiedPollingDisplayComponent {
         const usedGauges = new Set();
         
         if (sortedData.length === 0) {
+            // Remove all existing gauges when no sentiment data
+            existingGauges.forEach(gauge => {
+                gauge.remove();
+            });
             return;
         }
         
         sortedData.forEach(({ value, count }, index) => {
             try {
+                // Create unique key for tracking timestamps
+                let valueKey;
+                if (value && typeof value === 'object' && (value.src || value.url)) {
+                    // For emotes, use src/url as unique identifier
+                    valueKey = value.src || value.url || value.alt || value.name || String(value);
+                } else {
+                    // For text values, use string representation
+                    valueKey = String(value);
+                }
+                
+                // Update timestamp for this item
+                this.sentimentTimestamps.set(valueKey, Date.now());
+                
                 // Calculate fill width
             const baseWidth = 100;
             const countRatio = count / sentimentGaugeMax;
@@ -1127,15 +1127,7 @@ class UnifiedPollingDisplayComponent {
             const gaugeBarWidthPx = Math.max(fillWidthPx, labelWidthPx);
             
             // Try to reuse existing gauge element for this value
-            // Create unique key for emotes vs text
-            let valueKey;
-            if (value && typeof value === 'object' && (value.src || value.url)) {
-                // For emotes, use src/url as unique identifier
-                valueKey = value.src || value.url || value.alt || value.name || String(value);
-            } else {
-                // For text values, use string representation
-                valueKey = String(value);
-            }
+            // Use the valueKey we created earlier for timestamp tracking
             
             let gaugeElement = existingGaugeMap.get(valueKey);
             
@@ -1168,16 +1160,29 @@ class UnifiedPollingDisplayComponent {
                 // Ensure proper order by moving to correct position
                 // Only move if the element is not already in the correct position
                 const currentPosition = Array.from(contentElement.children).indexOf(gaugeElement);
-                if (currentPosition !== index) {
+                const targetPosition = anchorPoint === 'bottom' ? (sortedData.length - 1 - index) : index;
+                
+                if (currentPosition !== targetPosition) {
                     // Remove element first to avoid any potential duplication issues
                     if (gaugeElement.parentNode === contentElement) {
                         gaugeElement.remove();
                     }
-                    // Insert at correct position
-                    if (index < contentElement.children.length) {
-                        contentElement.insertBefore(gaugeElement, contentElement.children[index]);
+                    // Insert at correct position based on anchor point
+                    if (anchorPoint === 'bottom') {
+                        // For bottom anchoring: highest count (index 0) goes to bottom (last position)
+                        // Lower counts (higher index) go above (earlier positions)
+                        if (targetPosition < contentElement.children.length) {
+                            contentElement.insertBefore(gaugeElement, contentElement.children[targetPosition]);
+                        } else {
+                            contentElement.appendChild(gaugeElement);
+                        }
                     } else {
-                        contentElement.appendChild(gaugeElement);
+                        // Top anchoring: normal insertion order
+                        if (targetPosition < contentElement.children.length) {
+                            contentElement.insertBefore(gaugeElement, contentElement.children[targetPosition]);
+                        } else {
+                            contentElement.appendChild(gaugeElement);
+                        }
                     }
                 }
             } else {
@@ -1189,8 +1194,9 @@ class UnifiedPollingDisplayComponent {
                 gaugeElement = document.createElement('div');
                 gaugeElement.className = 'sentiment-gauge';
                 gaugeElement.setAttribute('data-value', valueKey);
+                
+                // Use consistent margins to prevent jumping - set them individually to prevent overrides
                 gaugeElement.style.cssText = `
-                    margin: 3px 0; 
                     display: block; 
                     background: black; 
                     border-radius: 4px; 
@@ -1198,6 +1204,11 @@ class UnifiedPollingDisplayComponent {
                     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
                     width: fit-content;
                 `;
+                // Set margins individually to prevent CSS shorthand conflicts
+                gaugeElement.style.marginTop = '3px';
+                gaugeElement.style.marginRight = '0px';
+                gaugeElement.style.marginBottom = '3px';
+                gaugeElement.style.marginLeft = '0px';
                 
                 gaugeElement.innerHTML = `
                     <div class="gauge-bar" style="
@@ -1224,11 +1235,24 @@ class UnifiedPollingDisplayComponent {
                     </div>
                 `;
                 
-                // Insert at correct position
-                if (index < contentElement.children.length) {
-                    contentElement.insertBefore(gaugeElement, contentElement.children[index]);
+                // Insert at correct position based on anchor point
+                const targetPosition = anchorPoint === 'bottom' ? (sortedData.length - 1 - index) : index;
+                
+                if (anchorPoint === 'bottom') {
+                    // For bottom anchoring: highest count (index 0) goes to bottom (last position)
+                    // Lower counts (higher index) go above (earlier positions)
+                    if (targetPosition < contentElement.children.length) {
+                        contentElement.insertBefore(gaugeElement, contentElement.children[targetPosition]);
+                    } else {
+                        contentElement.appendChild(gaugeElement);
+                    }
                 } else {
-                    contentElement.appendChild(gaugeElement);
+                    // Top anchoring: normal insertion order
+                    if (targetPosition < contentElement.children.length) {
+                        contentElement.insertBefore(gaugeElement, contentElement.children[targetPosition]);
+                    } else {
+                        contentElement.appendChild(gaugeElement);
+                    }
                 }
                 
                 usedGauges.add(gaugeElement);
@@ -1325,6 +1349,263 @@ class UnifiedPollingDisplayComponent {
                 label: bin.start === bin.end - 1 ? `${bin.start}` : `${bin.start}-${bin.end - 1}`,
                 count: bin.count
             }));
+    }
+
+    /**
+     * Setup container for yes/no polls - should not take height when inactive
+     */
+    setupYesNoPollContainer(titleElement, contentElement) {
+        titleElement.style.display = 'none'; // Always hide title for yes/no polls
+        
+        // Set container to flex layout for yes/no + sentiment stacking
+        Object.assign(contentElement.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'flex-start', // Start from top
+            textAlign: 'center'
+        });
+    }
+
+    /**
+     * Setup container for letter/number polls - dark background, fits content
+     */
+    setupLetterNumberPollContainer(titleElement, contentElement) {
+        // Get minimum widths from settings
+        const numbersMinWidth = this.settings?.polling?.unifiedPolling?.numbers?.minWidth || 200;
+        const lettersMinWidth = this.settings?.polling?.unifiedPolling?.letters?.minWidth || 200;
+        
+        // Determine which poll type we're dealing with based on container dataset
+        const pollType = this.container.dataset.pollType;
+        const minWidth = pollType === 'numbers' ? numbersMinWidth : lettersMinWidth;
+        
+        // Set up content element for centering
+        contentElement.style.display = 'flex';
+        contentElement.style.justifyContent = 'center';
+        contentElement.style.alignItems = 'flex-start';
+        
+        // Check if background container already exists
+        let pollContainer = contentElement.querySelector('.poll-background-container');
+        if (!pollContainer) {
+            // Create dark background container for letter/number polls
+            pollContainer = document.createElement('div');
+            pollContainer.className = 'poll-background-container';
+            pollContainer.style.cssText = `
+                background-color: #111111;
+                padding: 8px;
+                border-radius: 8px;
+                margin: 0;
+                width: fit-content;
+                min-width: ${minWidth}px;
+                max-width: 100%;
+                box-sizing: border-box;
+            `;
+            
+            // Move existing content into the background container
+            const existingContent = contentElement.innerHTML;
+            contentElement.innerHTML = '';
+            
+            // Create a wrapper inside pollContainer to hold both title and content
+            const pollInnerWrapper = document.createElement('div');
+            pollInnerWrapper.innerHTML = existingContent;
+            
+            pollContainer.appendChild(pollInnerWrapper);
+            contentElement.appendChild(pollContainer);
+        } else {
+            // Update existing container with current minWidth
+            pollContainer.style.minWidth = `${minWidth}px`;
+        }
+        
+        // Move title inside the poll container if it's not already there
+        if (titleElement.parentNode !== pollContainer && titleElement.textContent.trim()) {
+            // Remove title from its current location and add it to the top of poll container
+            titleElement.remove();
+            pollContainer.insertBefore(titleElement, pollContainer.firstChild);
+        }
+        
+        titleElement.style.display = 'block';
+    }
+
+    /**
+     * Setup container for sentiment-only display
+     */
+    setupSentimentOnlyContainer(titleElement, contentElement) {
+        titleElement.style.display = 'none';
+        contentElement.style.display = 'block';
+    }
+
+    /**
+     * Render sentiment gauges with proper anchoring
+     */
+    renderSentimentGauges(sentimentData, contentElement, hasYesNoPoll = false) {
+        // Get anchor point setting
+        const anchorPoint = this.settings?.polling?.unifiedPolling?.sentiment?.anchorPoint || 'top';
+        
+        // Check for existing sentiment container in different possible locations
+        let sentimentContainer = contentElement.querySelector('.sentiment-container') || 
+                                 document.body.querySelector('.sentiment-container');
+        
+        // If container exists but anchor point changed, remove and recreate
+        if (sentimentContainer) {
+            const isCurrentlyFixed = sentimentContainer.style.position === 'fixed';
+            const shouldBeFixed = anchorPoint === 'bottom';
+            
+            if (isCurrentlyFixed !== shouldBeFixed) {
+                sentimentContainer.remove();
+                sentimentContainer = null;
+            }
+        }
+        
+        if (!sentimentContainer) {
+            sentimentContainer = document.createElement('div');
+            sentimentContainer.className = 'sentiment-container';
+            
+            // Position sentiment container based on anchor point
+            if (anchorPoint === 'bottom') {
+                // For bottom anchoring, create a fixed positioned container
+                sentimentContainer.style.cssText = `
+                    position: fixed;
+                    bottom: 10px;
+                    left: 10px;
+                    right: 10px;
+                    z-index: 100;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-end;
+                    max-height: calc(100vh - 20px);
+                    overflow: hidden;
+                    pointer-events: none;
+                `;
+                // Append to body for fixed positioning
+                document.body.appendChild(sentimentContainer);
+            } else {
+                // For top anchoring, normal flow within content element
+                sentimentContainer.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    margin-top: ${hasYesNoPoll ? '10px' : '0px'};
+                `;
+                contentElement.appendChild(sentimentContainer);
+            }
+        } else if (anchorPoint === 'top') {
+            // Update margin for existing top-anchored container
+            sentimentContainer.style.marginTop = hasYesNoPoll ? '10px' : '0px';
+        }
+        
+        // Check if sentiment data is empty or all items filtered out
+        const hasValidSentimentData = (sentimentData && sentimentData.items && sentimentData.items.filter(item => item.count > 0).length > 0) ||
+                                     (sentimentData && sentimentData.counts && Object.entries(sentimentData.counts).filter(([, count]) => count > 0).length > 0);
+        
+        if (!hasValidSentimentData) {
+            // Remove the container if no valid sentiment data
+            if (sentimentContainer) {
+                sentimentContainer.remove();
+            }
+            return;
+        }
+        
+        // Render sentiment gauges in the container
+        this.renderSentimentTracking(sentimentData, null, sentimentContainer);
+    }
+
+    /**
+     * Hide/remove all sentiment gauges from all possible locations
+     */
+    hideAllSentimentGauges() {
+        // Remove sentiment containers from content elements
+        const contentContainers = document.querySelectorAll('.unified-poll-content .sentiment-container');
+        contentContainers.forEach(container => container.remove());
+        
+        // Remove fixed-positioned sentiment containers from body
+        const bodyContainers = document.body.querySelectorAll('.sentiment-container');
+        bodyContainers.forEach(container => {
+            if (container.style.position === 'fixed') {
+                container.remove();
+            }
+        });
+        
+        // Clear timestamp tracking
+        this.sentimentTimestamps.clear();
+    }
+
+    /**
+     * Start the sentiment gauge cleanup timer
+     */
+    startSentimentCleanupTimer() {
+        // Clear existing timer
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+        }
+        
+        // Start cleanup timer that runs every 2 seconds
+        this.cleanupInterval = setInterval(() => {
+            this.cleanupExpiredSentimentGauges();
+        }, 2000);
+    }
+
+    /**
+     * Stop the sentiment gauge cleanup timer
+     */
+    stopSentimentCleanupTimer() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
+        }
+    }
+
+    /**
+     * Remove sentiment gauges that haven't been updated within the cooldown duration
+     */
+    cleanupExpiredSentimentGauges() {
+        // Get cooldown duration from settings (default 10000ms)
+        const cooldownDuration = this.settings?.polling?.unifiedPolling?.behavior?.cooldownDuration || 10000;
+        const currentTime = Date.now();
+        
+        // Find expired items
+        const expiredKeys = [];
+        this.sentimentTimestamps.forEach((timestamp, key) => {
+            if (currentTime - timestamp > cooldownDuration) {
+                expiredKeys.push(key);
+            }
+        });
+        
+        if (expiredKeys.length === 0) {
+            return; // No expired items
+        }
+        
+        // Remove expired sentiment gauges from DOM
+        expiredKeys.forEach(key => {
+            // Remove from all possible locations
+            const allContainers = [
+                ...document.querySelectorAll('.unified-poll-content .sentiment-container'),
+                ...document.body.querySelectorAll('.sentiment-container')
+            ];
+            
+            allContainers.forEach(container => {
+                const gauge = container.querySelector(`[data-value="${key}"]`);
+                if (gauge) {
+                    gauge.remove();
+                }
+            });
+            
+            // Remove from timestamp tracking
+            this.sentimentTimestamps.delete(key);
+        });
+        
+        // If no sentiment gauges remain, clean up empty containers
+        const allContainers = [
+            ...document.querySelectorAll('.unified-poll-content .sentiment-container'),
+            ...document.body.querySelectorAll('.sentiment-container')
+        ];
+        
+        allContainers.forEach(container => {
+            const remainingGauges = container.querySelectorAll('.sentiment-gauge');
+            if (remainingGauges.length === 0) {
+                container.remove();
+            }
+        });
+        
+        console.log(`[Sentiment Cleanup] Removed ${expiredKeys.length} expired sentiment gauges`);
     }
 }
 

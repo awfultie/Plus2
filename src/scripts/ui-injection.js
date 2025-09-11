@@ -554,9 +554,9 @@ class UIInjection {
                 iframe.style.pointerEvents = 'auto';
             }
     
-            if (container && typeof browser !== 'undefined' && browser.storage) {
+            if (container && typeof window !== 'undefined' && window.SettingsManager) {
                 const finalHeight = parseInt(container.style.height, 10);
-                browser.storage.sync.set({ dockedViewHeight: finalHeight });
+                window.SettingsManager.updateSetting('display.dockedViewHeight', finalHeight);
             }
         };
     

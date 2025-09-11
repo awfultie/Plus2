@@ -73,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const enableReplyTooltipInput = document.getElementById('enableReplyTooltip');
   const popoutDefaultWidthInput = document.getElementById('popoutDefaultWidth');
   const popoutDefaultHeightInput = document.getElementById('popoutDefaultHeight');
+  const dockedViewHeightInput = document.getElementById('dockedViewHeight');
+  const messageWidthCapInput = document.getElementById('messageWidthCap');
   const autoOpenPopoutInput = document.getElementById('autoOpenPopout');
   const popoutBaseFontSizeInput = document.getElementById('popoutBaseFontSize');
   const enableHighlightTrackingInput = document.getElementById('enableHighlightTracking');
@@ -113,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingYesColorInput = document.getElementById('unifiedPollingYesColor');
   const unifiedPollingNoColorInput = document.getElementById('unifiedPollingNoColor');
   const unifiedPollingYesNoWidthInput = document.getElementById('unifiedPollingYesNoWidth');
+  const unifiedPollingYesNoHeightInput = document.getElementById('unifiedPollingYesNoHeight');
   
   const unifiedPollingNumbersEnabledInput = document.getElementById('unifiedPollingNumbersEnabled');
   const unifiedPollingNumbersThresholdInput = document.getElementById('unifiedPollingNumbersThreshold');
@@ -401,7 +404,11 @@ document.addEventListener('DOMContentLoaded', () => {
     'popoutBaseFontSize': 'display.popoutBaseFontSize',
     'popoutDefaultWidth': 'display.popoutDefaultWidth',
     'popoutDefaultHeight': 'display.popoutDefaultHeight',
+    'dockedViewHeight': 'display.dockedViewHeight',
+    'messageWidthCap': 'display.messageWidthCap',
     'displayTime': 'display.displayTime',
+    'templateName': 'display.templateName',
+    'channelIdOverride': 'display.channelIdOverride',
     
     // Features
     'enableHighlightTracking': 'features.enableHighlightTracking',
@@ -409,12 +416,14 @@ document.addEventListener('DOMContentLoaded', () => {
     'enableLeaderboard': 'features.enableLeaderboard',
     'enableWebhookIntegration': 'features.enableWebhookIntegration',
     'enableYouTube': 'features.enableYouTube',
-    'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+    'enable7TVCompat': 'features.enableSevenTVCompatibility',
     'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
     'modPostApprovedUsers': 'features.modPostApprovedUsers',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
     'enableChannelIdOverride': 'features.enableChannelIdOverride',
+    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+    'manualWebhookUrl': 'display.manualWebhookUrl',
     
     // Unified Polling
     'enableUnifiedPolling': 'polling.unified.enabled',
@@ -430,18 +439,21 @@ document.addEventListener('DOMContentLoaded', () => {
     'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
     'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
     'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
     
     // Numbers Polling
     'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
     'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
     'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
     'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
+    'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
     
     // Letters Polling
     'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
     'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
     'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
     'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+    'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
     
     // Sentiment Polling
     'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
@@ -455,13 +467,21 @@ document.addEventListener('DOMContentLoaded', () => {
     'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
     'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
     'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+    'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
     
     // Integrations
     'enableStreamview': 'integrations.streamview.enabled',
     'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
     'streamviewBaseUrl': 'integrations.streamview.baseUrl',
+    'streamviewSecretKey': 'integrations.streamview.secretKey',
+    'currentStreamview': 'integrations.streamview.current',
     'webhookEndpoint': 'integrations.webhook.endpoint',
     'webhookApiKey': 'integrations.webhook.apiKey',
+    'webhookChatMessages': 'integrations.webhook.events.chatMessages',
+    'webhookHighlightMessages': 'integrations.webhook.events.highlightMessages',
+    'webhookGaugeUpdates': 'integrations.webhook.events.gaugeUpdates',
+    'webhookPollUpdates': 'integrations.webhook.events.pollUpdates',
+    'webhookLeaderboardUpdates': 'integrations.webhook.events.leaderboardUpdates',
     
     // Styling
     'messageBGColor': 'styling.messageBGColor',
@@ -491,6 +511,12 @@ document.addEventListener('DOMContentLoaded', () => {
     'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
     'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
     
+    // Polling Styling
+    'yesPollBarColor': 'styling.polling.yesPollBarColor',
+    'noPollBarColor': 'styling.polling.noPollBarColor',
+    'pollTextColor': 'styling.polling.pollTextColor',
+    'genericPollMinWidth': 'styling.polling.genericPollMinWidth',
+    
     // Leaderboard Styling
     'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
     'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
@@ -512,11 +538,40 @@ document.addEventListener('DOMContentLoaded', () => {
     'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays'
   };
 
+  // Track which elements are being actively edited to prevent conflicts
+  const activelyEditingElements = new Set();
+  
   async function populateForm(options) {
     // Use the nested structure directly instead of flat mapping
     Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
       const element = document.getElementById(elementId);
-      if (!element) return;
+      
+      // Special handling for radio buttons (no element with direct ID)
+      if (!element && elementId === 'dockingBehavior') {
+        const value = getNestedValue(options, nestedPath);
+        if (value !== undefined && value !== null) {
+          const radioElement = document.querySelector(`input[name="dockingBehavior"][value="${value}"]`);
+          if (radioElement) {
+            radioElement.checked = true;
+            console.log('[Options] Set radio button:', elementId, '=', value);
+          }
+        }
+        return;
+      }
+      
+      if (!element) {
+        // Debug missing elements
+        if (elementId === 'dockedViewHeight') {
+          console.warn('[Options] dockedViewHeight element not found!');
+        }
+        return;
+      }
+      
+      // Skip updating elements that are being actively edited
+      if (activelyEditingElements.has(elementId)) {
+        console.log('[Options] Skipping update of actively edited element:', elementId);
+        return;
+      }
       
       const value = getNestedValue(options, nestedPath);
       if (value !== undefined && value !== null) {
@@ -524,6 +579,12 @@ document.addEventListener('DOMContentLoaded', () => {
           element.checked = Boolean(value);
         } else {
           element.value = value;
+          // Debug dockedViewHeight specifically
+          if (elementId === 'dockedViewHeight') {
+            console.log('[Options] Set dockedViewHeight to:', value, 'Element:', element);
+            console.log('[Options] Element disabled?', element.disabled);
+            console.log('[Options] Element readonly?', element.readOnly);
+          }
         }
       }
     });
@@ -534,6 +595,15 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
     toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
     toggleSection(enableWebhookIntegrationInput, webhookOptionsContainer);
+    if (enableStreamviewInput && streamviewOptionsContainer) {
+      toggleSection(enableStreamviewInput, streamviewOptionsContainer);
+    }
+    if (enableChannelIdOverrideInput && channelIdOverrideContainer) {
+      toggleSection(enableChannelIdOverrideInput, channelIdOverrideContainer);
+    }
+    if (enableManualWebhookOverrideInput && manualWebhookOverrideContainer) {
+      toggleSection(enableManualWebhookOverrideInput, manualWebhookOverrideContainer);
+    }
     
     updateAllPreviews(options);
   }
@@ -548,6 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
           'popoutBaseFontSize': 'display.popoutBaseFontSize',
           'popoutDefaultWidth': 'display.popoutDefaultWidth',
           'popoutDefaultHeight': 'display.popoutDefaultHeight',
+          'messageWidthCap': 'display.messageWidthCap',
           'displayTime': 'display.displayTime',
           // Legacy core settings removed - functionality replaced by unified polling
           'enableHighlightTracking': 'features.enableHighlightTracking',
@@ -563,14 +634,17 @@ document.addEventListener('DOMContentLoaded', () => {
           'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
           'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
           'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
           'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
           'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
           'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
           'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+          'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
           'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
           'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
           'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
           'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+          'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
           'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
           'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
           'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
@@ -580,16 +654,19 @@ document.addEventListener('DOMContentLoaded', () => {
           'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
           'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
           'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+          'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
           'enableLeaderboard': 'features.enableLeaderboard',
           'enableWebhookIntegration': 'features.enableWebhookIntegration',
           'enableYouTube': 'features.enableYouTube',
-          'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+          'enable7TVCompat': 'features.enableSevenTVCompatibility',
           'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
           'enableReplyTooltip': 'features.enableReplyTooltip',
           'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
           'enableStreamview': 'integrations.streamview.enabled',
           'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
           'enableChannelIdOverride': 'features.enableChannelIdOverride',
+          'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+          'manualWebhookUrl': 'display.manualWebhookUrl',
           'messageBGColor': 'styling.messageBGColor',
           'paragraphTextColor': 'styling.paragraphTextColor',
           'enableUsernameColoring': 'styling.enableUsernameColoring',
@@ -747,34 +824,87 @@ document.addEventListener('DOMContentLoaded', () => {
     current[keys[keys.length - 1]] = value;
   }
 
-  async function saveOptions() {
+  async function saveOptions(partialOptions = null) {
     const optionsToSave = {};
     
-    // Build nested structure directly from form elements
-    Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
-      const element = document.getElementById(elementId);
-      if (!element) return;
-      
-      let value;
-      if (element.type === 'checkbox') {
-        value = element.checked;
-      } else if (element.type === 'number') {
-        value = Number(element.value);
-      } else {
-        value = element.value;
+    if (partialOptions) {
+      // Check if this is an event object (common mistake)
+      if (partialOptions.isTrusted !== undefined || partialOptions.type !== undefined) {
+        partialOptions = null; // Fall back to full save
       }
-      
-      setNestedValue(optionsToSave, nestedPath, value);
-    });
-    
-    // Preserve existing integrations.streamview.current if it exists
-    const existingSettings = await window.SettingsManager.getAllSettings();
-    if (existingSettings.integrations?.streamview?.current) {
-      setNestedValue(optionsToSave, 'integrations.streamview.current', existingSettings.integrations.streamview.current);
     }
     
-    await window.SettingsManager.setSettings(optionsToSave);
-    showStatus('Options saved!');
+    if (partialOptions) {
+      // Handle direct key-value updates (for individual field changes)
+      Object.entries(partialOptions).forEach(([key, value]) => {
+        // Find the nested path for this key
+        const nestedPath = FORM_ELEMENT_PATHS[key];
+        if (nestedPath) {
+          setNestedValue(optionsToSave, nestedPath, value);
+        } else {
+          console.warn(`[Options] No nested path mapping found for key: ${key}`);
+        }
+      });
+      
+      // Get existing settings to merge with partial updates
+      const existingSettings = await window.SettingsManager.getAllSettings();
+      const mergedSettings = { ...existingSettings };
+      
+      // Apply the partial updates to merged settings
+      Object.entries(partialOptions).forEach(([key, value]) => {
+        const nestedPath = FORM_ELEMENT_PATHS[key];
+        if (nestedPath) {
+          setNestedValue(mergedSettings, nestedPath, value);
+        }
+      });
+      
+      await window.SettingsManager.setSettings(mergedSettings);
+      console.log('[Options] Partial save completed for keys:', Object.keys(partialOptions));
+    } else {
+      // Full save from all form elements (existing behavior)
+      Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
+        const element = document.getElementById(elementId);
+        
+        // Special handling for radio buttons (no element with direct ID)
+        if (!element && elementId === 'dockingBehavior') {
+          const checkedRadio = document.querySelector('input[name="dockingBehavior"]:checked');
+          if (checkedRadio) {
+            const value = checkedRadio.value;
+            setNestedValue(optionsToSave, nestedPath, value);
+            console.log('[Options] Processing radio button:', elementId, '=', value, 'to path:', nestedPath);
+          }
+          return;
+        }
+        
+        if (!element) return;
+        
+        let value;
+        if (element.type === 'checkbox') {
+          value = element.checked;
+        } else if (element.type === 'number') {
+          value = Number(element.value);
+        } else {
+          value = element.value;
+        }
+        
+        // Debug log for 7TV setting specifically
+        if (elementId === 'enable7TVCompat') {
+          console.log('[Options] Processing 7TV setting:', elementId, '=', value, 'to path:', nestedPath);
+        }
+        
+        setNestedValue(optionsToSave, nestedPath, value);
+      });
+      
+      // Preserve existing integrations.streamview.current if it exists
+      const existingSettings = await window.SettingsManager.getAllSettings();
+      if (existingSettings.integrations?.streamview?.current) {
+        setNestedValue(optionsToSave, 'integrations.streamview.current', existingSettings.integrations.streamview.current);
+      }
+      
+      await window.SettingsManager.setSettings(optionsToSave);
+      console.log('[Options] Full save completed with keys:', Object.keys(optionsToSave));
+      showStatus('Options saved!');
+    }
   }
 
   // Legacy saveOptions for backward compatibility (unused now) 
@@ -788,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'popoutBaseFontSize': 'display.popoutBaseFontSize',
       'popoutDefaultWidth': 'display.popoutDefaultWidth',
       'popoutDefaultHeight': 'display.popoutDefaultHeight',
+      'messageWidthCap': 'display.messageWidthCap',
       'displayTime': 'display.displayTime',
       // Legacy core settings removed - functionality replaced by unified polling
       'enableHighlightTracking': 'features.enableHighlightTracking',
@@ -803,14 +934,17 @@ document.addEventListener('DOMContentLoaded', () => {
       'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
       'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
       'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
       'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
       'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
       'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
       'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+      'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
       'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
       'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
       'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
       'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+      'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
       'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
       'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
       'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
@@ -820,16 +954,19 @@ document.addEventListener('DOMContentLoaded', () => {
       'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
       'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
       'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+      'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
       'enableLeaderboard': 'features.enableLeaderboard',
       'enableWebhookIntegration': 'features.enableWebhookIntegration',
       'enableYouTube': 'features.enableYouTube',
-      'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+      'enable7TVCompat': 'features.enableSevenTVCompatibility',
       'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
       'enableReplyTooltip': 'features.enableReplyTooltip',
       'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
       'enableStreamview': 'integrations.streamview.enabled',
       'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
       'enableChannelIdOverride': 'features.enableChannelIdOverride',
+      'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+      'manualWebhookUrl': 'display.manualWebhookUrl',
       'messageBGColor': 'styling.messageBGColor',
       'paragraphTextColor': 'styling.paragraphTextColor',
       'enableUsernameColoring': 'styling.enableUsernameColoring',
@@ -983,27 +1120,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const groupsJson = JSON.stringify(sentimentGroups);
     
     try {
-      // Use SettingsManager if available, fallback to direct storage
-      if (window.SettingsManager) {
-        // Save using nested structure
-        const nestedUpdate = {
-          polling: {
-            unifiedPolling: {
-              sentiment: {
-                groups: groupsJson
-              }
+      // Save using SettingsManager nested structure
+      const nestedUpdate = {
+        polling: {
+          unifiedPolling: {
+            sentiment: {
+              groups: groupsJson
             }
           }
-        };
-        await window.SettingsManager.setSettings(nestedUpdate);
-      } else {
-        const currentOptions = await browser.storage.sync.get();
-        const updatedOptions = {
-          ...currentOptions,
-          unifiedPollingSentimentGroups: groupsJson
-        };
-        await browser.storage.sync.set(updatedOptions);
-      }
+        }
+      };
+      await window.SettingsManager.setSettings(nestedUpdate);
       
       showStatus('Sentiment groups saved!');
     } catch (error) {
@@ -1169,13 +1296,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Event Listeners ---
-  saveButton.addEventListener('click', saveOptions);
+  saveButton.addEventListener('click', () => saveOptions());
   resetButton.addEventListener('click', resetToDefaults);
 
   actionsMenuButton.addEventListener('click', (e) => {
     e.stopPropagation(); // Prevent the window click listener from closing it immediately
     actionsMenu.classList.toggle('show');
   });
+
+  // Debug anchor point dropdown
+  const anchorDropdown = document.getElementById('unifiedPollingSentimentAnchorPoint');
+  if (anchorDropdown) {
+    anchorDropdown.addEventListener('click', () => {
+      console.log('Anchor dropdown clicked - Current value:', anchorDropdown.value);
+    });
+    anchorDropdown.addEventListener('change', () => {
+      console.log('Anchor dropdown changed to:', anchorDropdown.value);
+    });
+    anchorDropdown.addEventListener('focus', () => {
+      console.log('Anchor dropdown focused');
+    });
+    anchorDropdown.addEventListener('blur', () => {
+      console.log('Anchor dropdown blurred');
+    });
+  } else {
+    console.error('Anchor dropdown element not found!');
+  }
 
   // Close the menu if the user clicks outside of it
   window.addEventListener('click', (e) => {
@@ -1419,9 +1565,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
           
-          await browser.storage.sync.set({
-            currentStreamview: streamviewData
-          });
+          await window.SettingsManager.updateSetting('integrations.streamview.current', streamviewData);
           
           // Verify storage immediately after setting
           const verification = await browser.storage.sync.get(['currentStreamview']);
@@ -2022,7 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
           currentStreamview.webhookUrl = webhookUrl;
           currentStreamview.viewUrl = viewUrl;
           currentStreamview.id = channelId; // Also update the ID to match the channel
-          return browser.storage.sync.set({ currentStreamview });
+          return window.SettingsManager.updateSetting('integrations.streamview.current', currentStreamview);
         }
       }).then(() => {
         // Storage.onChanged listener will automatically reload settings
@@ -2032,6 +2176,66 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       showStatus(`✅ Channel ID override applied for channel: ${channelId}`, 3000);
+    });
+  }
+
+  // Manual Webhook URL Override Event Listeners
+  const enableManualWebhookOverrideInput = document.getElementById('enableManualWebhookOverride');
+  const manualWebhookOverrideContainer = document.getElementById('manualWebhookOverrideContainer');
+  const manualWebhookUrlInput = document.getElementById('manualWebhookUrl');
+  const applyManualWebhookOverrideButton = document.getElementById('applyManualWebhookOverride');
+
+  if (enableManualWebhookOverrideInput && manualWebhookOverrideContainer) {
+    enableManualWebhookOverrideInput.addEventListener('change', () => {
+      manualWebhookOverrideContainer.style.display = enableManualWebhookOverrideInput.checked ? 'block' : 'none';
+    });
+  }
+
+  if (applyManualWebhookOverrideButton && manualWebhookUrlInput) {
+    applyManualWebhookOverrideButton.addEventListener('click', () => {
+      const webhookUrl = manualWebhookUrlInput.value.trim();
+      
+      if (!webhookUrl) {
+        showStatus('❌ Please enter a webhook URL', 3000);
+        return;
+      }
+
+      // Basic URL validation
+      try {
+        new URL(webhookUrl);
+      } catch (e) {
+        showStatus('❌ Please enter a valid URL', 3000);
+        return;
+      }
+      
+      // Save the manual webhook URL to settings and update currentStreamview
+      browser.storage.sync.get(['settings', 'currentStreamview']).then(async ({ settings, currentStreamview }) => {
+        // Update the manualWebhookUrl in settings
+        if (!settings.display) settings.display = {};
+        settings.display.manualWebhookUrl = webhookUrl;
+        
+        // Update currentStreamview with the manual URL
+        if (!currentStreamview) {
+          currentStreamview = {
+            id: 'manual-override',
+            webhookUrl: webhookUrl,
+            manualOverride: true
+          };
+        } else {
+          currentStreamview.webhookUrl = webhookUrl;
+          currentStreamview.manualOverride = true; // Flag to track manual override
+        }
+        
+        // Update both main settings and currentStreamview
+        await window.SettingsManager.setSettings(settings);
+        return window.SettingsManager.updateSetting('integrations.streamview.current', currentStreamview);
+      }).then(() => {
+        showStatus(`✅ Manual webhook URL applied: ${webhookUrl}`, 3000);
+        updateActiveStreamviewDisplay(); // Refresh the display
+      }).catch(error => {
+        console.error('Error applying manual webhook override:', error);
+        showStatus(`❌ Error applying override: ${error.message}`, 5000);
+      });
     });
   }
 
@@ -2065,6 +2269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'popoutBaseFontSize': 'display.popoutBaseFontSize',
         'popoutDefaultWidth': 'display.popoutDefaultWidth',
         'popoutDefaultHeight': 'display.popoutDefaultHeight',
+        'messageWidthCap': 'display.messageWidthCap',
         'displayTime': 'display.displayTime',
         // Legacy core settings removed - functionality replaced by unified polling
         'enableHighlightTracking': 'features.enableHighlightTracking',
@@ -2080,14 +2285,17 @@ document.addEventListener('DOMContentLoaded', () => {
         'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
         'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
         'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
         'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
         'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
         'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
         'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
+        'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
         'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
         'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
         'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
         'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
+        'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
         'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
         'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
         'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
@@ -2097,12 +2305,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
         'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
         'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+        'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
         'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
         'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
         'enableLeaderboard': 'features.enableLeaderboard',
         'enableWebhookIntegration': 'features.enableWebhookIntegration',
         'enableYouTube': 'features.enableYouTube',
-        'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+        'enable7TVCompat': 'features.enableSevenTVCompatibility',
         'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
         'modPostApprovedUsers': 'features.modPostApprovedUsers',
         'enableReplyTooltip': 'features.enableReplyTooltip',
@@ -2110,6 +2319,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'enableStreamview': 'integrations.streamview.enabled',
         'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
         'enableChannelIdOverride': 'features.enableChannelIdOverride',
+        'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+        'manualWebhookUrl': 'display.manualWebhookUrl',
         'messageBGColor': 'styling.messageBGColor',
         'paragraphTextColor': 'styling.paragraphTextColor',
         'enableUsernameColoring': 'styling.enableUsernameColoring',
@@ -2296,6 +2507,29 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   });
+
+  // Set up protection for dockedViewHeight field to prevent conflicts with UI resizing
+  if (dockedViewHeightInput) {
+    // Track when user starts editing the field
+    dockedViewHeightInput.addEventListener('focus', () => {
+      console.log('[Options] User started editing dockedViewHeight');
+      activelyEditingElements.add('dockedViewHeight');
+    });
+    
+    dockedViewHeightInput.addEventListener('input', () => {
+      // Ensure field remains protected during typing
+      activelyEditingElements.add('dockedViewHeight');
+    });
+    
+    // Stop protection when user finishes editing
+    dockedViewHeightInput.addEventListener('blur', () => {
+      console.log('[Options] User finished editing dockedViewHeight');
+      // Small delay to ensure any final operations complete
+      setTimeout(() => {
+        activelyEditingElements.delete('dockedViewHeight');
+      }, 100);
+    });
+  }
 
   // Initial load
   initializeSettings().then(async defaultSettings => {

@@ -137,6 +137,12 @@ class MessageProcessor {
                     src: img.src
                 }));
                 const username = usernameContainer ? (usernameContainer.textContent || "").trim() : '';
+                
+                // Debug logging for 7TV mode
+                if (this.settings.features?.enableSevenTVCompatibility && images.length > 0) {
+                    console.log('[MessageProcessor] 7TV emotes extracted:', images.map(img => ({ name: img.alt, url: img.src })));
+                }
+                
                 if (typeof browser !== 'undefined' && browser.runtime?.id) {
                     browser.runtime.sendMessage({
                         type: 'CHAT_MESSAGE_FOUND',

@@ -26,7 +26,21 @@ class WebhookClient {
     }
 
     async sendEvent(eventType, eventData, platform = 'twitch', channelUrl = '') {
-        if (!this.isEnabled()) return;
+        console.log('[WEBHOOK DEBUG] sendEvent called:', {
+            eventType,
+            eventData,
+            platform,
+            channelUrl,
+            isEnabled: this.isEnabled(),
+            streamviewEnabled: this.settings.integrations?.streamview?.enabled,
+            streamviewCurrent: !!this.settings.integrations?.streamview?.current,
+            legacyEnabled: this.settings.features?.enableWebhookIntegration
+        });
+        
+        if (!this.isEnabled()) {
+            console.log('[WEBHOOK DEBUG] Webhook client not enabled, skipping event');
+            return;
+        }
 
         const isStreamviewActive = this.settings.integrations?.streamview?.enabled && this.settings.integrations?.streamview?.current;
 
@@ -36,7 +50,14 @@ class WebhookClient {
             'gauge_update': 'gaugeUpdates',
             'poll_update': 'pollUpdates',
             'leaderboard_update': 'leaderboardUpdates',
-            'leaderboard_toggle': 'leaderboardUpdates' // Toggle uses same setting as leaderboard updates
+            'leaderboard_toggle': 'leaderboardUpdates', // Toggle uses same setting as leaderboard updates
+            // Unified polling events - map to pollUpdates for legacy webhook compatibility
+            'unified_yesno_poll': 'pollUpdates',
+            'unified_numbers_poll': 'pollUpdates',
+            'unified_letters_poll': 'pollUpdates', 
+            'unified_sentiment_update': 'pollUpdates',
+            'unified_poll_activation': 'pollUpdates',
+            'unified_poll_conclusion': 'pollUpdates'
         };
 
         // If only legacy webhook is active, check its event filters. 
@@ -49,9 +70,27 @@ class WebhookClient {
         }
         // Note: When streamview is active, all events are sent regardless of extension event settings
 
+        // Map unified polling events to legacy event types for StreamView compatibility
+        let finalEventType = eventType;
+        if (isStreamviewActive) {
+            const streamviewEventMap = {
+                'unified_yesno_poll': 'poll_update',
+                'unified_numbers_poll': 'poll_update', 
+                'unified_letters_poll': 'poll_update',
+                'unified_sentiment_update': 'unified_sentiment_update', // Keep original to preserve enhanced data format
+                'unified_poll_activation': 'poll_update',
+                'unified_poll_conclusion': 'poll_update'
+            };
+            
+            if (streamviewEventMap[eventType]) {
+                console.log(`[WEBHOOK DEBUG] Mapping ${eventType} -> ${streamviewEventMap[eventType]} for StreamView compatibility`);
+                finalEventType = streamviewEventMap[eventType];
+            }
+        }
+
         const payload = {
             type: 'message_event',
-            event_type: eventType,
+            event_type: finalEventType,
             timestamp: new Date().toISOString(),
             platform: platform,
             channel: this.extractChannelName(channelUrl),
@@ -105,9 +144,16 @@ class WebhookClient {
             let endpoint = '';
             let apiKey = '';
 
-            // Determine which endpoint and key to use, prioritizing Streamview
-            if (this.settings.integrations?.streamview?.enabled && this.settings.integrations?.streamview?.current) {
+            // Determine which endpoint and key to use, prioritizing manual override, then Streamview
+            if (this.settings.features?.enableManualWebhookOverride && this.settings.display?.manualWebhookUrl) {
+                endpoint = this.settings.display.manualWebhookUrl;
+                console.log('[WEBHOOK DEBUG] Using manual webhook override:', endpoint);
+            } else if (this.settings.integrations?.streamview?.enabled && this.settings.integrations?.streamview?.current) {
                 endpoint = this.settings.integrations.streamview.current.webhookUrl;
+                console.log('[WEBHOOK DEBUG] Using StreamView webhook:', {
+                    endpoint,
+                    hasApiKey: !!this.settings.integrations.streamview.current.apiKey
+                });
                 // Use the API key from the streamview if it was generated
                 if (this.settings.integrations.streamview.current.apiKey) {
                     apiKey = this.settings.integrations.streamview.current.apiKey;
@@ -115,9 +161,23 @@ class WebhookClient {
             } else if (this.settings.features?.enableWebhookIntegration) {
                 endpoint = this.settings.integrations?.webhook?.endpoint;
                 apiKey = this.settings.integrations?.webhook?.apiKey;
+                console.log('[WEBHOOK DEBUG] Using legacy webhook:', {
+                    endpoint,
+                    hasApiKey: !!apiKey
+                });
             }
 
-            if (!endpoint) throw new Error("No webhook endpoint configured.");
+            if (!endpoint) {
+                console.log('[WEBHOOK DEBUG] No webhook endpoint configured:', {
+                    manualOverrideEnabled: this.settings.features?.enableManualWebhookOverride,
+                    manualWebhookUrl: this.settings.display?.manualWebhookUrl,
+                    streamviewEnabled: this.settings.integrations?.streamview?.enabled,
+                    streamviewCurrent: this.settings.integrations?.streamview?.current,
+                    legacyEnabled: this.settings.features?.enableWebhookIntegration,
+                    legacyEndpoint: this.settings.integrations?.webhook?.endpoint
+                });
+                throw new Error("No webhook endpoint configured.");
+            }
 
             if (apiKey && apiKey.trim() !== '') {
                 headers['X-API-Key'] = apiKey.trim();
@@ -147,8 +207,19 @@ class WebhookClient {
             const response = await Promise.race([fetchPromise, timeoutPromise]);
 
             if (!response.ok) {
+                console.log('[WEBHOOK DEBUG] Request failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    endpoint
+                });
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+
+            console.log('[WEBHOOK DEBUG] Request successful:', {
+                status: response.status,
+                endpoint,
+                payloadLength: payloadString.length
+            });
 
             // Try to parse response, but don't fail if it's not JSON
             try {

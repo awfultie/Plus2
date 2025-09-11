@@ -28,7 +28,8 @@
         displayTimes: {}, // { term: timestamp } - when item first met threshold
         lastDecayTime: Date.now(),
         decayInterval: null,
-        shouldDisplay: false
+        shouldDisplay: false,
+        lastItemCount: 0 // Track display item count to detect changes
     };
 
 
@@ -368,6 +369,16 @@
             checkPollActivity(config);
         }, config.activityCheckInterval);
 
+        // Send poll activation webhook
+        if (webhookClient) {
+            webhookClient.sendEvent('unified_poll_activation', {
+                pollType: pollType.key,
+                activationThreshold: config[pollType.key]?.activationThreshold || 0,
+                priority: pollType.priority,
+                startTime: unifiedState.startTime
+            });
+        }
+
         internalBroadcastPollUpdate();
     }
 
@@ -432,6 +443,39 @@
         unifiedState.activityCheckTimerId = null;
         
         unifiedState.isConcluded = true;
+        
+        // Send poll conclusion webhook
+        if (webhookClient) {
+            const duration = Date.now() - unifiedState.startTime;
+            const totalResponses = unifiedState.activeTracker?.totalResponses || 0;
+            let winnerMessage = "";
+            
+            // Generate winner message for yes/no polls
+            if (unifiedState.activePollType === 'yesno') {
+                const counts = unifiedState.activeTracker?.counts || {};
+                const yesCount = counts.yes || 0;
+                const noCount = counts.no || 0;
+                const total = yesCount + noCount;
+                
+                if (total > 0) {
+                    if (yesCount > noCount) {
+                        winnerMessage = `YES ${Math.round((yesCount/total)*100)}%`;
+                    } else if (noCount > yesCount) {
+                        winnerMessage = `NO ${Math.round((noCount/total)*100)}%`;
+                    } else {
+                        winnerMessage = "Tie!";
+                    }
+                }
+            }
+            
+            webhookClient.sendEvent('unified_poll_conclusion', {
+                pollType: unifiedState.activePollType,
+                duration,
+                totalResponses,
+                winnerMessage
+            });
+        }
+        
         internalBroadcastPollUpdate();
 
         // Schedule poll cleanup (clear from display)
@@ -535,6 +579,11 @@
         };
 
         broadcastToPopouts(pollData);
+
+        // Send unified polling data to webhooks
+        if (webhookClient) {
+            sendUnifiedPollingWebhooks(pollData, currentSentimentData);
+        }
     }
 
     // Get current unified poll state
@@ -559,6 +608,98 @@
         };
     }
 
+    // Send unified polling data to webhooks
+    function sendUnifiedPollingWebhooks(pollData, sentimentData) {
+        if (!webhookClient) return;
+
+        const currentTime = Date.now();
+        const isActive = unifiedState.isActive;
+        const isConcluded = unifiedState.isConcluded;
+        const activePollType = unifiedState.activePollType;
+        
+        // Send poll-specific webhook events
+        if (isActive || isConcluded) {
+            const counts = unifiedState.activeTracker?.counts || {};
+            const totalResponses = unifiedState.activeTracker?.totalResponses || 0;
+            const startTime = unifiedState.startTime;
+            const activeDuration = currentTime - startTime;
+
+            if (activePollType === 'yesno') {
+                const yesCount = counts.yes || 0;
+                const noCount = counts.no || 0;
+                const total = yesCount + noCount;
+                
+                let winnerMessage = "";
+                if (isConcluded && total > 0) {
+                    if (yesCount > noCount) {
+                        winnerMessage = `YES ${Math.round((yesCount/total)*100)}%`;
+                    } else if (noCount > yesCount) {
+                        winnerMessage = `NO ${Math.round((noCount/total)*100)}%`;
+                    } else {
+                        winnerMessage = "Tie!";
+                    }
+                }
+
+                webhookClient.sendEvent('unified_yesno_poll', {
+                    yesCount,
+                    noCount,
+                    total,
+                    isActive,
+                    isConcluded,
+                    startTime,
+                    activeDuration: isConcluded ? activeDuration : undefined,
+                    winnerMessage,
+                    shouldDisplay: pollData.data.shouldDisplay
+                });
+            }
+
+            if (activePollType === 'numbers') {
+                const topNumbers = Object.entries(counts)
+                    .map(([number, count]) => ({ number, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+
+                webhookClient.sendEvent('unified_numbers_poll', {
+                    counts,
+                    totalResponses,
+                    isActive,
+                    isConcluded,
+                    startTime,
+                    activeDuration: isConcluded ? activeDuration : undefined,
+                    topNumbers,
+                    shouldDisplay: pollData.data.shouldDisplay
+                });
+            }
+
+            if (activePollType === 'letters') {
+                const topLetters = Object.entries(counts)
+                    .map(([letter, count]) => ({ letter, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+
+                webhookClient.sendEvent('unified_letters_poll', {
+                    counts,
+                    totalResponses,
+                    isActive,
+                    isConcluded,
+                    startTime,
+                    activeDuration: isConcluded ? activeDuration : undefined,
+                    topLetters,
+                    shouldDisplay: pollData.data.shouldDisplay
+                });
+            }
+        }
+
+        // Always send sentiment data if it should be displayed
+        if (sentimentData && sentimentData.shouldDisplay) {
+            webhookClient.sendEvent('unified_sentiment_update', {
+                items: sentimentData.items,
+                shouldDisplay: sentimentData.shouldDisplay,
+                maxDisplayItems: sentimentData.maxDisplayItems,
+                maxGrowthWidth: sentimentData.maxGrowthWidth
+            });
+        }
+    }
 
     // Test function to verify categorization
     function testMessageCategorization() {
@@ -714,8 +855,10 @@
         const wasDisplaying = sentimentState.shouldDisplay;
         sentimentState.shouldDisplay = displayItems.length > 0;
 
-        // Only broadcast if display state changed or we have items to show
-        if (sentimentState.shouldDisplay || wasDisplaying !== sentimentState.shouldDisplay) {
+        // Always broadcast when there are changes to ensure UI updates
+        // This ensures gauges are removed when items decay to 0
+        if (sentimentState.shouldDisplay || wasDisplaying !== sentimentState.shouldDisplay || displayItems.length !== sentimentState.lastItemCount) {
+            sentimentState.lastItemCount = displayItems.length;
             internalBroadcastPollUpdate(); // Use unified broadcast instead of separate sentiment broadcast
         }
     }
@@ -755,6 +898,71 @@
         }, decayInterval);
     }
 
+    // Helper function to create enhanced sentiment item data
+    function createEnhancedSentimentItem(term, data, config) {
+        const item = {
+            term,
+            count: data.count,
+            percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100)
+        };
+
+        // Debug logging for enhanced sentiment data creation
+        // console.log(`[Plus2] Creating enhanced sentiment item for "${term}":`, { originalData: data, config: config.sentiment });
+
+        // Add color information
+        // Check if this term belongs to a group with a color
+        if (config.sentiment.groups && config.sentiment.groups.length > 0) {
+            const groupMatch = config.sentiment.groups.find(group => 
+                group.words && group.words.some(groupWord => {
+                    if (group.partialMatch) {
+                        return term.toLowerCase().includes(groupWord.toLowerCase()) ||
+                               groupWord.toLowerCase().includes(term.toLowerCase());
+                    } else {
+                        return groupWord.toLowerCase() === term.toLowerCase();
+                    }
+                })
+            );
+            
+            if (groupMatch && groupMatch.color) {
+                item.color = groupMatch.color;
+            }
+        }
+        
+        // If no group color, use base color from config
+        if (!item.color) {
+            item.color = config.sentiment?.baseColor || '#2196F3';
+        }
+
+        // Add enhanced emote information
+        if (data.emoteData) {
+            // Convert legacy emoteData to new emote format
+            if (data.emoteData.src || data.emoteData.alt) {
+                item.emote = {
+                    name: data.emoteData.alt || term,
+                    url: data.emoteData.src || data.emoteData.url || term
+                };
+                
+                // Determine emote source from URL patterns
+                const url = item.emote.url;
+                if (url.includes('static-cdn.jtvnw.net')) {
+                    item.emote.source = 'twitch';
+                } else if (url.includes('cdn.7tv.app')) {
+                    item.emote.source = '7tv';
+                } else if (url.includes('cdn.frankerfacez.com')) {
+                    item.emote.source = 'ffz';
+                } else if (url.includes('cdn.betterttv.net')) {
+                    item.emote.source = 'bttv';
+                }
+            }
+            
+            // Keep legacy emoteData for backward compatibility
+            item.emoteData = data.emoteData;
+        }
+
+        // console.log(`[Plus2] Enhanced sentiment item result for "${term}":`, item);
+        return item;
+    }
+
     function broadcastSentimentUpdate(displayItems, config) {
         if (!broadcastToPopouts) return;
 
@@ -762,12 +970,7 @@
             type: 'sentiment',
             isActive: sentimentState.shouldDisplay,
             shouldDisplay: sentimentState.shouldDisplay,
-            items: displayItems.map(([term, data]) => ({
-                term,
-                count: data.count,
-                percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100),
-                emoteData: data.emoteData // Pass through emote data for display
-            })),
+            items: displayItems.map(([term, data]) => createEnhancedSentimentItem(term, data, config)),
             maxDisplayItems: config.sentiment?.maxDisplayItems || 5,
             maxGrowthWidth: config.sentiment?.maxGrowthWidth || 150
         };
@@ -811,12 +1014,7 @@
             type: 'sentiment',
             isActive: sentimentState.shouldDisplay,
             shouldDisplay: sentimentState.shouldDisplay,
-            items: displayItems.map(([term, data]) => ({
-                term,
-                count: data.count,
-                percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100),
-                emoteData: data.emoteData // Pass through emote data for display
-            })),
+            items: displayItems.map(([term, data]) => createEnhancedSentimentItem(term, data, config)),
             allItems: sentimentState.items, // For debugging
             maxDisplayItems: config.sentiment?.maxDisplayItems || 5,
             maxGrowthWidth: config.sentiment?.maxGrowthWidth || 150

@@ -1,19 +1,21 @@
 {
   "display": {
     "chromaKeyColor": "#b9e6b7",
-    "popoutBaseFontSize": 18,
-    "popoutDefaultWidth": 600,
+    "popoutBaseFontSize": 20,
+    "popoutDefaultWidth": 800,
     "popoutDefaultHeight": 300,
     "displayTime": 10000,
     "dockedViewHeight": 400,
     "dockingBehavior": "none",
     "channelIdOverride": "",
-    "templateName": "Default"
+    "manualWebhookUrl": "",
+    "templateName": "Default",
+    "messageWidthCap": 450
   },
   "features": {
-    "enableHighlightTracking": false,
+    "enableHighlightTracking": true,
     "appendMessages": false,
-    "enableLeaderboard": false,
+    "enableLeaderboard": true,
     "enableWebhookIntegration": false,
     "enableYouTube": true,
     "enableSevenTVCompatibility": false,
@@ -21,6 +23,7 @@
     "enableModPostReplyHighlight": true,
     "modPostApprovedUsers": "",
     "enableChannelIdOverride": false,
+    "enableManualWebhookOverride": false,
     "enableReplyTooltip": true
   },
   "styling": {
@@ -79,10 +82,10 @@
     "decayAmount": 1,
     "recentMaxResetDelay": 2000,
     "dockingBehavior": "none",
-    "autoOpenPopout": false,
+    "autoOpenPopout": true,
     "requiredUrlSubstring": "",
     "inactivityTimeoutDuration": 5000,
-    "maxPrunedCacheSize": 500
+    "maxPrunedCacheSize": 3000
   },
   "polling": {
     "unified": {
@@ -108,6 +111,7 @@
         "activationThreshold": 3,
         "priority": 1,
         "width": 320,
+        "height": 24,
         "styling": {
           "yesColor": "#00ff00",
           "noColor": "#ff0000",
@@ -116,21 +120,23 @@
       },
       "numbers": {
         "enabled": true,
-        "activationThreshold": 7,
+        "activationThreshold": 5,
         "priority": 2,
         "maxDisplay": 10,
-        "maxDigits": 4
+        "maxDigits": 4,
+        "minWidth": 200
       },
       "letters": {
         "enabled": true,
-        "activationThreshold": 10,
-        "individualThreshold": 3,
+        "activationThreshold": 5,
+        "individualThreshold": 2,
         "priority": 3,
-        "maxDisplayItems": 15
+        "maxDisplayItems": 15,
+        "minWidth": 200
       },
       "sentiment": {
         "enabled": true,
-        "activationThreshold": 15,
+        "activationThreshold": 5,
         "priority": 4,
         "maxDisplayItems": 5,
         "maxGrowthWidth": 150,
@@ -138,10 +144,11 @@
         "labelHeight": 18,
         "baseColor": "#2196F3",
         "blockList": "",
-        "groups": "[]",
+        "groups": "[{\"category\":\"positive\",\"items\":[\"lol\",\"lmao\",\"lmfao\",\"haha\",\"hehe\",\"wow\",\"nice\",\"good\",\"great\",\"amazing\",\"awesome\",\"cool\",\"poggers\",\"pog\",\"kappa\",\"omegalul\",\"lul\"],\"color\":\"#00FF00\"},{\"category\":\"negative\",\"items\":[\"bad\",\"terrible\",\"awful\",\"hate\",\"sucks\",\"boring\",\"meh\",\"ugh\",\"no\",\"nah\",\"disappointing\",\"sad\",\"disappointed\"],\"color\":\"#FF0000\"},{\"category\":\"neutral\",\"items\":[\"ok\",\"okay\",\"fine\",\"sure\",\"maybe\",\"idk\",\"hmm\",\"interesting\",\"huh\"],\"color\":\"#FFFF00\"}]",
         "minimumDisplayTime": 2000,
         "decayInterval": 500,
-        "decayAmount": 1
+        "decayAmount": 1,
+        "anchorPoint": "top"
       }
     }
   },
@@ -163,16 +170,16 @@
       }
     },
     "streamview": {
-      "enabled": false,
+      "enabled": true,
       "generateApiKey": false,
-      "baseUrl": "https://studio--plus2-streamview.us-central1.hosted.app",
+      "baseUrl": "http://localhost:3000",
       "secretKey": "",
       "current": null,
       "browserSourceStyle": null,
       "batchInterval": 1000,
       "retryAttempts": 3,
       "timeout": 5000,
-      "activeViewUrl": ""
+      "activeViewUrl": "http://localhost:3000/view/67c6cd15-3e68-4c25-9e93-dd0ed69a7bdc"
     }
   }
 }

@@ -62,14 +62,17 @@ function openPopout() {
 function createAndTrackPopout() {
     const popoutUrl = browser.runtime.getURL('ui/popout.html');
     browser.storage.sync.get({
-        popoutDefaultWidth: 600,
-        popoutDefaultHeight: 300
+        display: {}
     }).then((items) => {
+        // Get width and height from display settings with fallbacks
+        const width = items.display?.popoutDefaultWidth || 800;
+        const height = items.display?.popoutDefaultHeight || 300;
+        
         browser.windows.create({
             url: popoutUrl,
             type: 'popup',
-            width: items.popoutDefaultWidth,
-            height: items.popoutDefaultHeight
+            width: width,
+            height: height
         }).then((window) => {
             if (window) {
                 popoutWindowId = window.id;
@@ -257,10 +260,20 @@ async function loadSettings() {
     if (typeof SettingsManager !== 'undefined' && SettingsManager.getAllSettings) {
         try {
             settings = await SettingsManager.getAllSettings();
+            console.log('[SETTINGS DEBUG] Loaded settings via SettingsManager:', {
+                streamviewEnabled: settings.integrations?.streamview?.enabled,
+                streamviewCurrent: settings.integrations?.streamview?.current,
+                hasCurrentStreamview: !!settings.integrations?.streamview?.current
+            });
         } catch (error) {
             console.error('[Background] Error loading settings via SettingsManager:', error);
             // Fallback to direct storage
             settings = await browser.storage.sync.get();
+            console.log('[SETTINGS DEBUG] Loaded settings via fallback storage:', {
+                streamviewEnabled: settings.integrations?.streamview?.enabled,
+                streamviewCurrent: settings.integrations?.streamview?.current,
+                hasCurrentStreamview: !!settings.integrations?.streamview?.current
+            });
         }
     } else {
         // Fallback for environments where SettingsManager is not available
@@ -485,9 +498,18 @@ function processHighlightRequest(data) {
     });
 
     // Send highlight message to webhook - always send for streamview, check settings for legacy webhooks
+    console.log('[HIGHLIGHT DEBUG] About to send webhook event, webhookClient exists:', !!webhookClient);
     if (webhookClient) {
+        console.log('[HIGHLIGHT DEBUG] Sending highlight_message to webhook:', {
+            highlightData,
+            platform: isYouTube ? 'youtube' : 'twitch',
+            channelUrl,
+            webhookClientEnabled: webhookClient.isEnabled()
+        });
         webhookClient.sendEvent('highlight_message', highlightData, 
             isYouTube ? 'youtube' : 'twitch', channelUrl);
+    } else {
+        console.log('[HIGHLIGHT DEBUG] webhookClient not initialized!');
     }
 
     broadcastLeaderboardUpdate(); // Update leaderboard visibility

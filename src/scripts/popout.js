@@ -264,16 +264,19 @@ function updateContainerPositions() {
         pollContainer.style.left = '50%';
         pollContainer.style.transform = 'translateX(-50%)';
         
-        if (isYesNoPoll && messageHasContent) {
-            // Yes/no goes above messages if both present - adjust z-index
-            pollContainer.style.zIndex = '60';
+        if (isYesNoPoll) {
+            // Yes/no polls always get highest priority and stay centered at top
+            pollContainer.style.zIndex = '70'; // Higher than messages (50) and sentiment gauges
             pollContainer.style.top = '10px';
-            // Push messages down
-            if (messageTarget) {
-                messageTarget.style.top = `${pollContainer.offsetHeight + 20}px`;
+            
+            if (messageHasContent) {
+                // Push messages down when yes/no poll is present
+                if (messageTarget) {
+                    messageTarget.style.top = `${pollContainer.offsetHeight + 20}px`;
+                }
             }
         } else {
-            // Poll goes below messages or at top if no messages
+            // Other polls (sentiment, numbers, letters) go below messages
             pollContainer.style.zIndex = '40';
             pollContainer.style.top = `${currentTop}px`;
         }
@@ -297,6 +300,15 @@ function renderHighlightedMessage(messageData) {
         messageElement.appendChild(doc.body.firstChild);
     }
     messageElement.dataset.messageId = id;
+
+    // Apply width cap if configured (0 = no cap, use full popout width)
+    if (settings.display?.messageWidthCap && settings.display.messageWidthCap > 0) {
+        Object.assign(messageElement.style, {
+            maxWidth: `${settings.display.messageWidthCap}px`,
+            width: 'fit-content',
+            margin: '0 auto' // Center the capped message
+        });
+    }
 
     // If the message is from YouTube, we always apply the custom color directly,
     // overriding any global CSS variables. This ensures uniform color for YouTube

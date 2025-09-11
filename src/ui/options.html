@@ -830,6 +830,10 @@
         
         <label for="popoutDefaultHeight">Default Popout Height (px)</label>
         <input type="number" id="popoutDefaultHeight" min="100">
+        
+        <label for="messageWidthCap">Message Width Cap (px)</label>
+        <input type="number" id="messageWidthCap" min="0" placeholder="0 = no cap">
+        <div class="info-text">Set maximum width for message containers. 0 = messages use full popout width, any value > 0 caps the width and centers messages.</div>
 
         <h3>Docking Behavior</h3>
         <div class="form-inline-group">
@@ -963,6 +967,10 @@
                 <label for="unifiedPollingYesNoWidth">Poll Width (px):</label>
                 <input type="number" id="unifiedPollingYesNoWidth" min="200" max="800">
               </div>
+              <div class="input-group">
+                <label for="unifiedPollingYesNoHeight">Poll Height (px):</label>
+                <input type="number" id="unifiedPollingYesNoHeight" min="16" max="80">
+              </div>
             </div>
           </details>
 
@@ -992,6 +1000,12 @@
                 <span class="tooltip-icon" data-tooltip="Maximum number of digits allowed in number votes (1-10).">?</span>
               </div>
               <input type="number" id="unifiedPollingNumbersMaxDigits" min="1" max="10" step="1">
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersMinWidth">Minimum Width (px)</label>
+                <span class="tooltip-icon" data-tooltip="Minimum width for the number poll background container.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersMinWidth" min="100" max="800" step="10">
             </div>
           </details>
 
@@ -1021,6 +1035,12 @@
                 <span class="tooltip-icon" data-tooltip="Maximum number of different letters to display.">?</span>
               </div>
               <input type="number" id="unifiedPollingLettersMaxDisplay" min="5" max="26">
+              
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingLettersMinWidth">Minimum Width (px)</label>
+                <span class="tooltip-icon" data-tooltip="Minimum width for the letter poll background container.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingLettersMinWidth" min="100" max="800" step="10">
             </div>
           </details>
 
@@ -1086,6 +1106,15 @@
                 <span class="tooltip-icon" data-tooltip="Comma-separated list of words/phrases to exclude from sentiment tracking.">?</span>
               </div>
               <input type="text" id="unifiedPollingSentimentBlockList" placeholder="lol,kappa,ez">
+
+              <div class="input-group">
+                <label for="unifiedPollingSentimentAnchorPoint">Anchor Point</label>
+                <span class="tooltip-icon" data-tooltip="Choose where sentiment gauges are positioned. Top: new items push down. Bottom: new items push existing ones up." style="margin-left: 5px;">?</span>
+                <select id="unifiedPollingSentimentAnchorPoint" name="unifiedPollingSentimentAnchorPoint" style="width: auto; margin-left: 10px;">
+                  <option value="top">Top (Default)</option>
+                  <option value="bottom">Bottom</option>
+                </select>
+              </div>
 
               <div class="label-with-tooltip">
                 <label>Custom Sentiment Groups</label>
@@ -1313,6 +1342,22 @@
                   <input type="text" id="activeWebhookUrl" readonly style="flex: 1; display: none;">
                   <button class="reveal-button" data-target="activeWebhookUrl">Show URL</button>
                 </div>
+              </div>
+
+              <h4>Manual Webhook URL Override</h4>
+              <div class="form-inline-group">
+                <input type="checkbox" id="enableManualWebhookOverride">
+                <label for="enableManualWebhookOverride">Use Manual Webhook URL</label>
+              </div>
+              <div id="manualWebhookOverrideContainer" style="display: none; margin-top: 10px;">
+                <div class="input-group">
+                  <label for="manualWebhookUrl">Custom Webhook URL:</label>
+                  <input type="text" id="manualWebhookUrl" placeholder="http://localhost:9002/api/webhook?channel=your-channel-id" style="width: 100%;">
+                </div>
+                <button id="applyManualWebhookOverride" style="background-color: #ff9800; margin-top: 10px;">Apply Manual URL</button>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                  This will override the automatically generated webhook URL with your custom endpoint. Useful for local development or custom StreamView instances.
+                </small>
               </div>
             </div>
           </div>

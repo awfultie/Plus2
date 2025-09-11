@@ -15,7 +15,9 @@ class TwitchAdapter extends BasePlatformAdapter {
     }
 
     getSelectors() {
+        console.log('[TwitchAdapter] getSelectors() called, 7TV enabled:', this.settings.features?.enableSevenTVCompatibility);
         if (this.settings.features?.enableSevenTVCompatibility) {
+            console.log('[TwitchAdapter] Using 7TV selectors');
             return {
                 chatMessage: '.seventv-user-message',
                 messageContent: '.seventv-chat-message-body',
@@ -118,20 +120,77 @@ class TwitchAdapter extends BasePlatformAdapter {
         let badgesHTML = '';
         if (badgesContainer) {
             const badgeSpans = badgesContainer.querySelectorAll('.ffz-badge');
+            console.log('[FFZ] Found badge spans:', badgeSpans.length);
             badgesHTML = Array.from(badgeSpans).map(badgeSpan => {
                 const badgeId = badgeSpan.dataset.badge;
                 const badgeVersion = badgeSpan.dataset.version;
                 const provider = badgeSpan.dataset.provider;
+                
+                console.log('[FFZ] Processing badge:', { provider, badgeId, badgeVersion });
 
                 if (provider === 'twitch' && badgeId && badgeVersion) {
-                    const badgeUrl = `https://static-cdn.jtvnw.net/badges/v1/${badgeId}/${badgeVersion}/1`;
-                    return `<span class="chat-badge" title="${badgeId}"><img src="${badgeUrl}" alt="${badgeId}" /></span>`;
+                    // Map FFZ badge names to Twitch badge UUIDs
+                    const badgeUuidMap = {
+                        'broadcaster': '5527c58c-fb7d-422d-b71b-f309dcb85cc1',
+                        'moderator': '3267646d-33f0-4b17-b3df-f923a41db1d0',
+                        'vip': 'b817aba4-fad8-49e2-b88a-7cc744dfa6ec',
+                        'subscriber': '5d9f2208-5dd8-11e7-8513-2ff4adfae661',
+                        'founder': '511b78a9-ab37-472f-8425-eb2b6fcc6a37',
+                        'premium': 'bbbe0db0-a598-423e-86d0-f9fb98ca1933',
+                        'turbo': 'bd444ec6-8f34-4bf9-91f4-af1e3428d80f',
+                        'staff': 'd97c37bd-a6f5-4c38-8f57-4e4bef88af34',
+                        'admin': '9ef7e029-4cdf-4d4d-a0d5-e2b3fb2583fe',
+                        'global_mod': '9384c17e-aa14-4d94-ab69-3ea7103e5f54',
+                        'elden-ring-recluse': '5afadc6c-933b-4ede-b318-3752bbf267a9',
+                        // Add more mappings as needed
+                    };
+                    
+                    // Only create badge if we have a UUID mapping for it
+                    const badgeUuid = badgeUuidMap[badgeId];
+                    if (badgeUuid) {
+                        const badgeUrl = `https://static-cdn.jtvnw.net/badges/v1/${badgeUuid}/${badgeVersion}`;
+                        const reconstructedBadge = `<span class="chat-badge" title="${badgeId}"><img src="${badgeUrl}" alt="${badgeId}" /></span>`;
+                        console.log('[FFZ] Badge mapping:', badgeId, '->', badgeUuid, 'URL:', badgeUrl);
+                        return reconstructedBadge;
+                    } else {
+                        console.log('[FFZ] Skipping unmapped badge:', badgeId);
+                        return ''; // Skip badges we don't have mappings for
+                    }
                 }
+                console.log('[FFZ] Using original badge HTML:', badgeSpan.outerHTML);
                 return badgeSpan.outerHTML;
             }).join('');
+            console.log('[FFZ] Final badges HTML:', badgesHTML);
         }
 
         const messageBodyElement = chatLine.querySelector('span.message');
+        
+        // Pre-process FFZ emotes to handle protocol-relative URLs and lazy-loading (similar to 7TV)
+        if (messageBodyElement) {
+            const emoteImages = messageBodyElement.querySelectorAll('img.chat-image, img.ffz-emote');
+            console.log('[FFZ] Found emote images:', emoteImages.length);
+            emoteImages.forEach(img => {
+                console.log('[FFZ] Processing emote:', { src: img.src, alt: img.alt, classes: img.className });
+                if (img.hasAttribute('srcset')) {
+                    const updatedSrcset = img.getAttribute('srcset')
+                        .split(',')
+                        .map(s => s.trim().startsWith('//') ? 'https:' + s.trim() : s.trim())
+                        .join(', ');
+                    img.setAttribute('srcset', updatedSrcset);
+                }
+
+                if (img.src && img.src.startsWith('//')) {
+                    img.src = 'https:' + img.src;
+                }
+
+                if (!img.src && img.hasAttribute('srcset')) {
+                   const firstSrc = img.getAttribute('srcset').split(',')[0].trim().split(' ')[0];
+                   if (firstSrc) {
+                       img.setAttribute('src', firstSrc);
+                   }
+                }
+            });
+        }
         const messageBodyHTML = messageBodyElement ? messageBodyElement.innerHTML : '';
 
         let replyHTML = '';
@@ -171,9 +230,24 @@ class TwitchAdapter extends BasePlatformAdapter {
     }
 
     addHighlightButton(chatLine, onHighlight) {
+        console.log('[TwitchAdapter] addHighlightButton called, 7TV mode:', this.settings.features?.enableSevenTVCompatibility);
+        console.log('[TwitchAdapter] chatLine element:', chatLine);
+        console.log('[TwitchAdapter] chatLine classes:', chatLine.className);
+        console.log('[TwitchAdapter] looking for icons container:', this.selectors.iconsContainer);
+        
+        // Debug: check if this element or its children contain any seventv classes
+        const seventvElements = chatLine.querySelectorAll('[class*="seventv"]');
+        console.log('[TwitchAdapter] Found 7TV elements:', seventvElements.length, Array.from(seventvElements).map(el => el.className));
+        
         try {
             const iconsDiv = chatLine.querySelector(this.selectors.iconsContainer);
-            if (!iconsDiv || iconsDiv.querySelector('#plus2-highlight-button')) return;
+            console.log('[TwitchAdapter] iconsDiv found:', !!iconsDiv, iconsDiv);
+            if (!iconsDiv || iconsDiv.querySelector('#plus2-highlight-button')) {
+                console.log('[TwitchAdapter] Skipping highlight button - iconsDiv missing or button already exists');
+                return;
+            }
+            
+            console.log('[TwitchAdapter] Creating highlight button...');
 
             const img = this.createIconElement('24px');
             img.style.verticalAlign = 'middle';
@@ -196,7 +270,9 @@ class TwitchAdapter extends BasePlatformAdapter {
             });
 
             iconsDiv.insertBefore(highlightButton, iconsDiv.firstChild);
+            console.log('[TwitchAdapter] Highlight button successfully added!');
         } catch (error) {
+            console.error('[TwitchAdapter] Error adding highlight button:', error);
             if (!error.message.includes("Extension context invalidated")) {
             }
         }

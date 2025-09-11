@@ -102,15 +102,19 @@
 
     // --- Message Processing Helpers ---
     function extractMessageElements(addedNode) {
+        console.log('[App] extractMessageElements called with node:', addedNode);
+        console.log('[App] 7TV compatibility enabled:', settings.features?.enableSevenTVCompatibility);
         let chatMessageElement = null;
         let hoverTargetElement = null;
 
         if (platformAdapter.platform === 'twitch') {
             if (settings.features?.enableSevenTVCompatibility) {
                 let seventvMessageRoot = addedNode.matches('.seventv-message') ? addedNode : addedNode.querySelector('.seventv-message');
+                console.log('[App] Found 7TV message root:', !!seventvMessageRoot, seventvMessageRoot);
                 if (seventvMessageRoot) {
                     chatMessageElement = seventvMessageRoot.querySelector(platformAdapter.selectors.chatMessage);
                     hoverTargetElement = seventvMessageRoot.querySelector('.seventv-chat-message-container') || seventvMessageRoot;
+                    console.log('[App] 7TV elements - chatMessage:', !!chatMessageElement, 'hoverTarget:', !!hoverTargetElement);
                 }
             } else {
                 chatMessageElement = addedNode.querySelector ? addedNode.querySelector(platformAdapter.selectors.chatMessage) : null;
