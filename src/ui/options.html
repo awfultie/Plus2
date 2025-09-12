@@ -935,6 +935,12 @@
           </div>
           <input type="number" id="unifiedPollingActivityCheckInterval" min="1000" max="10000" step="1000">
 
+          <div class="label-with-tooltip">
+            <label for="unifiedPollingMaxActiveDuration">Maximum Poll Duration (ms)</label>
+            <span class="tooltip-icon" data-tooltip="Maximum time a poll can stay active before being force-ended regardless of activity.">?</span>
+          </div>
+          <input type="number" id="unifiedPollingMaxActiveDuration" min="5000" max="120000" step="5000">
+
           <!-- Poll Type Settings -->
           <h3>Poll Type Configuration</h3>
           <p>Configure activation thresholds and settings for each poll type. Higher priority polls (lower number) activate first.</p>
@@ -962,6 +968,12 @@
               <div class="input-group">
                 <label for="unifiedPollingNoColor">"No" Color:</label>
                 <input type="color" id="unifiedPollingNoColor">
+              </div>
+              <div class="input-group">
+                <label for="unifiedPollingYesNoAutoFitWidth">
+                  <input type="checkbox" id="unifiedPollingYesNoAutoFitWidth">
+                  Auto-fit width to popout window
+                </label>
               </div>
               <div class="input-group">
                 <label for="unifiedPollingYesNoWidth">Poll Width (px):</label>

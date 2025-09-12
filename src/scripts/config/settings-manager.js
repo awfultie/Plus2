@@ -203,6 +203,7 @@ const LEGACY_MIGRATION_MAP = {
     'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
     'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
     'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
+    'unifiedPollingMaxActiveDuration': 'polling.unifiedPolling.behavior.maxActivePollDuration',
     'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
     'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
     'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
@@ -639,6 +640,231 @@ async function buildNestedConfig() {
     };
 }
 
+/**
+ * Comprehensive form element to settings path mapping
+ * Single source of truth for all UI form elements
+ */
+const FORM_ELEMENT_PATHS = {
+    // Legacy core settings removed - functionality replaced by unified polling
+    
+    // Display
+    'chromaKeyColor': 'display.chromaKeyColor',
+    'popoutBaseFontSize': 'display.popoutBaseFontSize',
+    'popoutDefaultWidth': 'display.popoutDefaultWidth',
+    'popoutDefaultHeight': 'display.popoutDefaultHeight',
+    'dockedViewHeight': 'display.dockedViewHeight',
+    'dockingBehavior': 'display.dockingBehavior',
+    'templateName': 'display.templateName',
+    'messageWidthCap': 'display.messageWidthCap',
+    'displayTime': 'display.displayTime',
+    'channelIdOverride': 'display.channelIdOverride',
+    'manualWebhookUrl': 'display.manualWebhookUrl',
+    
+    // Features
+    'enableHighlightTracking': 'features.enableHighlightTracking',
+    'appendMessages': 'features.appendMessages',
+    'enableLeaderboard': 'features.enableLeaderboard',
+    'enableWebhookIntegration': 'features.enableWebhookIntegration',
+    'enableYouTube': 'features.enableYouTube',
+    'enableSevenTVCompatibility': 'features.enableSevenTVCompatibility',
+    'enable7TVCompat': 'features.enableSevenTVCompatibility', // Legacy key name
+    'enableFrankerFaceZCompatibility': 'features.enableFrankerFaceZCompatibility',
+    'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility', // Legacy key name
+    'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
+    'modPostApprovedUsers': 'features.modPostApprovedUsers',
+    'enableChannelIdOverride': 'features.enableChannelIdOverride',
+    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
+    'enableReplyTooltip': 'features.enableReplyTooltip',
+    
+    // Styling
+    'messageBGColor': 'styling.messageBGColor',
+    'paragraphTextColor': 'styling.paragraphTextColor',
+    'enableUsernameColoring': 'styling.enableUsernameColoring',
+    'usernameDefaultColor': 'styling.usernameDefaultColor',
+    
+    // Gauge styling
+    'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
+    'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
+    'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
+    'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
+    'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
+    'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
+    'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
+    'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
+    'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
+    'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
+    'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
+    'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
+    
+    // Peak labels
+    'peakLabelLowText': 'styling.gauge.peakLabels.low.text',
+    'peakLabelLow': 'styling.gauge.peakLabels.low.text', // Legacy key name
+    'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
+    'peakLabelMidText': 'styling.gauge.peakLabels.mid.text',
+    'peakLabelMid': 'styling.gauge.peakLabels.mid.text', // Legacy key name
+    'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
+    'peakLabelHighText': 'styling.gauge.peakLabels.high.text',
+    'peakLabelHigh': 'styling.gauge.peakLabels.high.text', // Legacy key name
+    'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
+    'peakLabelMaxText': 'styling.gauge.peakLabels.max.text',
+    'peakLabelMax': 'styling.gauge.peakLabels.max.text', // Legacy key name
+    'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
+    
+    // Polling styling
+    'yesPollBarColor': 'styling.polling.yesPollBarColor',
+    'noPollBarColor': 'styling.polling.noPollBarColor',
+    'pollTextColor': 'styling.polling.pollTextColor',
+    'genericPollMinWidth': 'styling.polling.genericPollMinWidth',
+    
+    // Leaderboard styling
+    'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
+    'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
+    'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
+    'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
+    
+    // Raw CSS
+    'rawCssEditor': 'styling.rawCssEditor',
+    
+    // Behavior
+    'decayInterval': 'behavior.decayInterval',
+    'decayAmount': 'behavior.decayAmount',
+    'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
+    'autoOpenPopout': 'behavior.autoOpenPopout',
+    'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
+    'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
+    'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
+    
+    // Unified Polling - Global Settings
+    'enableUnifiedPolling': 'polling.unified.enabled',
+    'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
+    'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
+    'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
+    'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
+    'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
+    'unifiedPollingMaxActiveDuration': 'polling.unifiedPolling.behavior.maxActivePollDuration',
+    
+    // Yes/No Polling
+    'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
+    'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
+    'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
+    'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
+    'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
+    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
+    'unifiedPollingYesNoAutoFitWidth': 'polling.unifiedPolling.yesno.autoFitWidth',
+    
+    // Numbers Polling
+    'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
+    'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
+    'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
+    'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
+    'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
+    'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
+    
+    // Letters Polling
+    'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
+    'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
+    'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
+    'unifiedPollingLettersMaxDisplayItems': 'polling.unifiedPolling.letters.maxDisplayItems',
+    'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems', // Legacy key name
+    'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
+    
+    // Sentiment Polling
+    'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
+    'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
+    'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
+    'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+    'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
+    'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+    'unifiedPollingSentimentMinimumDisplayTime': 'polling.unifiedPolling.sentiment.minimumDisplayTime',
+    'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
+    'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
+    'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
+    'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
+    'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
+    'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
+    
+    // Leaderboard
+    'leaderboardHighlightValue': 'leaderboard.highlightValue',
+    'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
+    
+    // Webhook Integration
+    'webhookEndpoint': 'integrations.webhook.endpoint',
+    'webhookApiKey': 'integrations.webhook.apiKey',
+    'activeWebhookUrl': 'integrations.webhook.activeWebhookUrl',
+    'webhookEvents': 'integrations.webhook.events', // Legacy key for all events
+    'webhookChatMessages': 'integrations.webhook.events.chatMessages',
+    'webhookHighlightMessages': 'integrations.webhook.events.highlightMessages',
+    'webhookGaugeUpdates': 'integrations.webhook.events.gaugeUpdates',
+    'webhookPollUpdates': 'integrations.webhook.events.pollUpdates',
+    'webhookLeaderboardUpdates': 'integrations.webhook.events.leaderboardUpdates',
+    
+    // StreamView Integration
+    'streamviewEnabled': 'integrations.streamview.enabled',
+    'enableStreamview': 'integrations.streamview.enabled', // Legacy key name
+    'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
+    'streamviewBaseUrl': 'integrations.streamview.baseUrl',
+    'streamviewSecretKey': 'integrations.streamview.secretKey',
+    'currentStreamview': 'integrations.streamview.current',
+    'browserSourceStyle': 'integrations.streamview.browserSourceStyle',
+    'streamviewBatchInterval': 'integrations.streamview.batchInterval',
+    'streamviewRetryAttempts': 'integrations.streamview.retryAttempts',
+    'streamviewTimeout': 'integrations.streamview.timeout'
+};
+
+/**
+ * Get the settings path for a form element ID
+ * @param {string} elementId - The form element ID
+ * @returns {string|null} - The nested settings path or null if not found
+ */
+function getFormElementPath(elementId) {
+    return FORM_ELEMENT_PATHS[elementId] || null;
+}
+
+/**
+ * Get all form element mappings
+ * @returns {Object} - Complete form element to path mappings
+ */
+function getAllFormMappings() {
+    return { ...FORM_ELEMENT_PATHS };
+}
+
+/**
+ * Validate if a form element ID is recognized
+ * @param {string} elementId - The form element ID to validate
+ * @returns {boolean} - True if the element ID has a mapping
+ */
+function isValidFormElement(elementId) {
+    return elementId in FORM_ELEMENT_PATHS;
+}
+
+/**
+ * Get nested value using a form element ID
+ * @param {Object} settings - Settings object
+ * @param {string} elementId - Form element ID
+ * @returns {*} - The nested value or undefined if not found
+ */
+function getSettingByFormElement(settings, elementId) {
+    const path = getFormElementPath(elementId);
+    if (!path) return undefined;
+    
+    return getNestedProperty(settings, path);
+}
+
+/**
+ * Set nested value using a form element ID
+ * @param {Object} settings - Settings object to modify
+ * @param {string} elementId - Form element ID
+ * @param {*} value - Value to set
+ * @returns {boolean} - True if successfully set, false if element ID not found
+ */
+function setSettingByFormElement(settings, elementId, value) {
+    const path = getFormElementPath(elementId);
+    if (!path) return false;
+    
+    setNestedProperty(settings, path, value);
+    return true;
+}
+
 // Make the API available globally
 if (typeof window !== 'undefined') {
     window.SettingsManager = {
@@ -649,7 +875,13 @@ if (typeof window !== 'undefined') {
         getDefaultValue,
         getDefaultSettings,
         validateSettings,
-        buildNestedConfig
+        buildNestedConfig,
+        // Form element mapping methods
+        getFormElementPath,
+        getAllFormMappings,
+        isValidFormElement,
+        getSettingByFormElement,
+        setSettingByFormElement
     };
 }
 
@@ -663,7 +895,13 @@ if (typeof globalThis !== 'undefined') {
         getDefaultValue,
         getDefaultSettings,
         validateSettings,
-        buildNestedConfig
+        buildNestedConfig,
+        // Form element mapping methods
+        getFormElementPath,
+        getAllFormMappings,
+        isValidFormElement,
+        getSettingByFormElement,
+        setSettingByFormElement
     };
 }
 
@@ -677,6 +915,12 @@ if (typeof module !== 'undefined' && module.exports) {
         getDefaultValue,
         getDefaultSettings,
         validateSettings,
-        buildNestedConfig
+        buildNestedConfig,
+        // Form element mapping methods
+        getFormElementPath,
+        getAllFormMappings,
+        isValidFormElement,
+        getSettingByFormElement,
+        setSettingByFormElement
     };
 }

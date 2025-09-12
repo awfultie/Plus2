@@ -112,6 +112,7 @@
         "priority": 1,
         "width": 320,
         "height": 24,
+        "autoFitWidth": false,
         "styling": {
           "yesColor": "#00ff00",
           "noColor": "#ff0000",

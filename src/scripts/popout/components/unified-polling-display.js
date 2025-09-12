@@ -647,9 +647,10 @@ class UnifiedPollingDisplayComponent {
         `;
 
         // Configurable width gauge container, bounded by window width
+        const autoFitWidth = this.settings.polling?.unifiedPolling?.yesno?.autoFitWidth || false;
         const configuredWidth = this.settings.polling?.unifiedPolling?.yesno?.width || 320;
         const availableWidth = window.innerWidth - 40; // Account for padding/margins
-        const gaugeWidth = Math.min(configuredWidth, availableWidth);
+        const gaugeWidth = autoFitWidth ? availableWidth : Math.min(configuredWidth, availableWidth);
         const gaugeHeight = this.settings.polling?.unifiedPolling?.yesno?.height || 24;
 
         // Calculate fill widths based on percentages
@@ -801,9 +802,10 @@ class UnifiedPollingDisplayComponent {
                 `linear-gradient(90deg, ${noColorFromSettings}, ${noColorFromSettings}dd)`);
 
         // Configurable width gauge container, bounded by window width
+        const autoFitWidth = this.settings.polling?.unifiedPolling?.yesno?.autoFitWidth || false;
         const configuredWidth = this.settings.polling?.unifiedPolling?.yesno?.width || 320;
         const availableWidth = window.innerWidth - 40; // Account for padding/margins
-        const gaugeWidth = Math.min(configuredWidth, availableWidth);
+        const gaugeWidth = autoFitWidth ? availableWidth : Math.min(configuredWidth, availableWidth);
         const gaugeHeight = this.settings.polling?.unifiedPolling?.yesno?.height || 24;
 
         // Calculate fill widths based on percentages
@@ -1047,6 +1049,7 @@ class UnifiedPollingDisplayComponent {
             }
             
             const isAtMaxWidth = fillWidthPx >= sentimentMaxGrowthWidth;
+            const isAtMaxValue = count >= sentimentGaugeMax;
             
             // Check if this sentiment item belongs to a custom group with a specific color
             let itemBaseColor = sentimentBaseColor;
@@ -1135,6 +1138,16 @@ class UnifiedPollingDisplayComponent {
                 // Reuse existing element - just update the fill width and color
                 usedGauges.add(gaugeElement);
                 
+                // Update the gauge background color based on max value
+                const gaugeBackgroundColor = isAtMaxValue ? 'gold' : 'black';
+                gaugeElement.style.background = gaugeBackgroundColor;
+                // Ensure transition is set for existing elements
+                if (!gaugeElement.style.transition.includes('background')) {
+                    gaugeElement.style.transition = gaugeElement.style.transition ? 
+                        gaugeElement.style.transition + ', background 0.5s ease' : 
+                        'background 0.5s ease';
+                }
+                
                 // Update the gauge bar width and height (the outer container)
                 const gaugeBar = gaugeElement.querySelector('.gauge-bar');
                 if (gaugeBar) {
@@ -1195,14 +1208,18 @@ class UnifiedPollingDisplayComponent {
                 gaugeElement.className = 'sentiment-gauge';
                 gaugeElement.setAttribute('data-value', valueKey);
                 
+                // Determine background color based on max value
+                const gaugeBackgroundColor = isAtMaxValue ? 'gold' : 'black';
+                
                 // Use consistent margins to prevent jumping - set them individually to prevent overrides
                 gaugeElement.style.cssText = `
                     display: block; 
-                    background: black; 
+                    background: ${gaugeBackgroundColor}; 
                     border-radius: 4px; 
                     padding: 4px 6px; 
                     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
                     width: fit-content;
+                    transition: background 0.5s ease;
                 `;
                 // Set margins individually to prevent CSS shorthand conflicts
                 gaugeElement.style.marginTop = '3px';

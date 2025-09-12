@@ -451,7 +451,7 @@ function processHighlightRequest(data) {
                 ${replyBlock}
                 <div class="plus2-popout-message-line">
                     ${badgesHTML}
-                    <span class="plus2-popout-username">${usernameHTML}:</span>
+                    <span class="plus2-popout-username">${usernameHTML}<span style="color: ${usernameColor};">:</span></span>
                     <span class="plus2-popout-message-body">${messageBodyHTML}</span>
                 </div>
             </div>`;

@@ -106,7 +106,8 @@
             behavior: {
                 decayInterval: settings.polling?.unified?.decayInterval || settings.behavior?.decayInterval || 500,
                 decayAmount: settings.polling?.unified?.decayAmount || settings.behavior?.decayAmount || 1,
-                recentMaxResetDelay: settings.polling?.unified?.recentMaxResetDelay || settings.behavior?.recentMaxResetDelay || 2000
+                recentMaxResetDelay: settings.polling?.unified?.recentMaxResetDelay || settings.behavior?.recentMaxResetDelay || 2000,
+                maxActivePollDuration: settings.polling?.unifiedPolling?.behavior?.maxActivePollDuration || 30000
             },
             
             // Poll type activation settings - corrected to use unifiedPolling paths
@@ -233,20 +234,23 @@
         return categories;
     }
 
-    // Yes/No detection logic
+    // Yes/No detection logic - exact word boundary matching only
     function matchYesNo(text, images) {
-        const yesTerms = ['yes', 'y'];
-        const noTerms = ['no', 'n'];
-        const words = text.toLowerCase().split(/\s+/);
-
-        let isYes = words.some(w => yesTerms.includes(w));
-        let isNo = words.some(w => noTerms.includes(w));
+        // Use regex with word boundaries to match only complete words
+        // This prevents "nothing" from matching "no" or "yesterday" from matching "yes"
+        const yesRegex = /\b(yes|y)\b/i;
+        const noRegex = /\b(no|n)\b/i;
+        
+        let isYes = yesRegex.test(text);
+        let isNo = noRegex.test(text);
 
         // Also check image alt text
         if (!isYes && !isNo) {
-            const alts = images.map(img => (img.alt || '').toLowerCase());
-            isYes = alts.some(alt => yesTerms.includes(alt));
-            isNo = alts.some(alt => noTerms.includes(alt));
+            const alts = images.map(img => img.alt || '').join(' ');
+            if (alts) {
+                isYes = yesRegex.test(alts);
+                isNo = noRegex.test(alts);
+            }
         }
 
         // Return specific value if only one type found
@@ -311,10 +315,18 @@
             
             // Check how many letters exceed the individual threshold
             const individualThreshold = config.lettersActivation?.individualThreshold || 3;
-            const lettersAboveIndividualThreshold = Object.values(letterCounts)
-                .filter(count => count >= individualThreshold).length;
+            const lettersAboveThreshold = Object.keys(letterCounts)
+                .filter(letter => letterCounts[letter] >= individualThreshold);
             
-            if (lettersAboveIndividualThreshold >= 2) {
+            // If only 'y' and 'n' are above threshold, skip letter poll to allow yes/no poll
+            // This prevents letter polls from activating when users are actually voting yes/no
+            if (lettersAboveThreshold.length === 2 && 
+                lettersAboveThreshold.includes('y') && 
+                lettersAboveThreshold.includes('n')) {
+                return false; // Don't activate letter poll, let yes/no poll potentially activate instead
+            }
+            
+            if (lettersAboveThreshold.length >= 2) {
                 activatePoll(pollType, relevantMessages);
                 return true;
             } else {
@@ -426,9 +438,9 @@
 
         // More flexible ending conditions:
         // 1. No recent activity AND poll has run for at least 5 seconds AND has at least 1 response
-        // 2. Force end after 30 seconds (reduced from 1 minute)
+        // 2. Force end after configured maximum duration
         const minAge = 5000; // 5 seconds minimum
-        const maxAge = 30000; // 30 seconds maximum
+        const maxAge = config.behavior?.maxActivePollDuration || 30000; // Use configured value or default
         
         if (pollAge >= minAge && recentActivity === 0 && totalResponses >= 1) {
             endPoll(config);
@@ -705,8 +717,35 @@
     function testMessageCategorization() {
         const config = getUnifiedPollConfig();
         const testMessages = [
+            // Basic yes/no matches (should match)
             { text: "yes", images: [], expected: ['yesno:yes'] },
             { text: "no", images: [], expected: ['yesno:no'] },
+            { text: "y", images: [], expected: ['yesno:yes'] },
+            { text: "n", images: [], expected: ['yesno:no'] },
+            { text: "YES", images: [], expected: ['yesno:yes'] },
+            { text: "NO", images: [], expected: ['yesno:no'] },
+            { text: "Y", images: [], expected: ['yesno:yes'] },
+            { text: "N", images: [], expected: ['yesno:no'] },
+            { text: "Yes", images: [], expected: ['yesno:yes'] },
+            { text: "No", images: [], expected: ['yesno:no'] },
+            
+            // Word boundary cases (should match)
+            { text: "yes!", images: [], expected: ['yesno:yes'] },
+            { text: "no?", images: [], expected: ['yesno:no'] },
+            { text: "I vote yes", images: [], expected: ['yesno:yes'] },
+            { text: "definitely no", images: [], expected: ['yesno:no'] },
+            { text: "y.", images: [], expected: ['yesno:yes'] },
+            { text: "n.", images: [], expected: ['yesno:no'] },
+            
+            // Partial word cases (should NOT match)
+            { text: "nothing", images: [], expected: ['sentiment:nothing'] },
+            { text: "yesterday", images: [], expected: ['sentiment:yesterday'] },
+            { text: "I am no longer happy", images: [], expected: ['sentiment:I am no longer happy'] },
+            { text: "noob", images: [], expected: ['sentiment:noob'] },
+            { text: "yep", images: [], expected: ['sentiment:yep'] },
+            { text: "nope", images: [], expected: ['sentiment:nope'] },
+            
+            // Other categories
             { text: "5", images: [], expected: ['number:5'] },
             { text: "a", images: [], expected: ['letter:a'] },
             { text: "hello world", images: [], expected: ['sentiment:hello world'] },
@@ -714,11 +753,71 @@
             { text: "lol", images: [], expected: ['sentiment:lol'] }
         ];
         
+        console.log('[Unified Polling] Running yes/no matching tests...');
+        let passCount = 0;
+        let failCount = 0;
+        
         testMessages.forEach(test => {
             const categories = categorizeMessage(test.text, test.images, config);
             const result = categories.map(c => `${c.type}:${c.value}`);
             const passed = JSON.stringify(result) === JSON.stringify(test.expected);
+            
+            if (passed) {
+                passCount++;
+            } else {
+                failCount++;
+                console.log(`[Test FAIL] Text: "${test.text}" | Expected: ${JSON.stringify(test.expected)} | Got: ${JSON.stringify(result)}`);
+            }
         });
+        
+        console.log(`[Unified Polling] Tests complete: ${passCount} passed, ${failCount} failed`);
+    }
+
+    // Test function specifically for letter/yes-no poll conflict resolution
+    function testLetterYesNoConflict() {
+        console.log('[Unified Polling] Testing letter vs yes/no poll conflict resolution...');
+        
+        const config = getUnifiedPollConfig();
+        
+        // Simulate message buffer with y/n letters that should NOT trigger letter poll
+        const messages = [
+            { category: { type: 'letter', value: 'y' }, timestamp: Date.now() },
+            { category: { type: 'letter', value: 'y' }, timestamp: Date.now() },
+            { category: { type: 'letter', value: 'y' }, timestamp: Date.now() },
+            { category: { type: 'letter', value: 'n' }, timestamp: Date.now() },
+            { category: { type: 'letter', value: 'n' }, timestamp: Date.now() },
+            { category: { type: 'letter', value: 'n' }, timestamp: Date.now() }
+        ];
+        
+        // Get letter poll type
+        const lettersPollType = Object.values(POLL_TYPES).find(type => type.key === 'letters');
+        
+        // Test the letter counts and threshold logic manually
+        const letterCounts = {};
+        messages.forEach(msg => {
+            const letter = msg.category.value;
+            letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+        });
+        
+        const individualThreshold = config.lettersActivation?.individualThreshold || 3;
+        const lettersAboveThreshold = Object.keys(letterCounts)
+            .filter(letter => letterCounts[letter] >= individualThreshold);
+        
+        const shouldSkipLetterPoll = lettersAboveThreshold.length === 2 && 
+            lettersAboveThreshold.includes('y') && 
+            lettersAboveThreshold.includes('n');
+        
+        console.log(`[Test] Letter counts:`, letterCounts);
+        console.log(`[Test] Letters above threshold (${individualThreshold}):`, lettersAboveThreshold);
+        console.log(`[Test] Should skip letter poll for y/n only scenario:`, shouldSkipLetterPoll);
+        
+        if (shouldSkipLetterPoll) {
+            console.log('✅ [Test PASS] Letter poll correctly skipped when only y/n above threshold');
+        } else {
+            console.log('❌ [Test FAIL] Letter poll should be skipped when only y/n above threshold');
+        }
+        
+        console.log('[Unified Polling] Letter vs yes/no conflict test complete');
     }
 
     // Sentiment tracking functions (always-on, independent of polls)
@@ -1038,6 +1137,7 @@
         getUnifiedPollConfig,
         categorizeMessage,
         testMessageCategorization,
+        testLetterYesNoConflict,
         POLL_TYPES
     };
 

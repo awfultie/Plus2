@@ -3,10 +3,10 @@
  * 
  * IMPORTANT: When adding new settings:
  * 1. Add to src/config/default-settings.json in nested location
- * 2. Add to FORM_ELEMENT_PATHS mapping (around line 388)  
+ * 2. Add to SettingsManager form mappings in settings-manager.js
  * 3. Create HTML form element with matching ID
  * 
- * DO NOT use legacy nestedMap approaches found in some functions below!
+ * All form mapping now goes through SettingsManager.getAllFormMappings()!
  * Refer to CLAUDE.md for full architecture guidelines.
  */
 
@@ -108,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingCooldownDurationInput = document.getElementById('unifiedPollingCooldownDuration');
   const unifiedPollingMinimumDurationInput = document.getElementById('unifiedPollingMinimumDuration');
   const unifiedPollingActivityCheckIntervalInput = document.getElementById('unifiedPollingActivityCheckInterval');
+  const unifiedPollingMaxActiveDurationInput = document.getElementById('unifiedPollingMaxActiveDuration');
   
   // Poll Type Elements
   const unifiedPollingYesNoEnabledInput = document.getElementById('unifiedPollingYesNoEnabled');
@@ -116,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingNoColorInput = document.getElementById('unifiedPollingNoColor');
   const unifiedPollingYesNoWidthInput = document.getElementById('unifiedPollingYesNoWidth');
   const unifiedPollingYesNoHeightInput = document.getElementById('unifiedPollingYesNoHeight');
+  const unifiedPollingYesNoAutoFitWidthInput = document.getElementById('unifiedPollingYesNoAutoFitWidth');
   
   const unifiedPollingNumbersEnabledInput = document.getElementById('unifiedPollingNumbersEnabled');
   const unifiedPollingNumbersThresholdInput = document.getElementById('unifiedPollingNumbersThreshold');
@@ -393,157 +395,13 @@ document.addEventListener('DOMContentLoaded', () => {
     target[lastKey] = value;
   }
 
-  /**
-   * Map form elements to their nested paths for direct structure usage
-   */
-  const FORM_ELEMENT_PATHS = {
-    // Legacy core settings removed - functionality replaced by unified polling
-    
-    // Display
-    'chromaKeyColor': 'display.chromaKeyColor',
-    'popoutBaseFontSize': 'display.popoutBaseFontSize',
-    'popoutDefaultWidth': 'display.popoutDefaultWidth',
-    'popoutDefaultHeight': 'display.popoutDefaultHeight',
-    'dockedViewHeight': 'display.dockedViewHeight',
-    'messageWidthCap': 'display.messageWidthCap',
-    'displayTime': 'display.displayTime',
-    'templateName': 'display.templateName',
-    'channelIdOverride': 'display.channelIdOverride',
-    
-    // Features
-    'enableHighlightTracking': 'features.enableHighlightTracking',
-    'appendMessages': 'features.appendMessages',
-    'enableLeaderboard': 'features.enableLeaderboard',
-    'enableWebhookIntegration': 'features.enableWebhookIntegration',
-    'enableYouTube': 'features.enableYouTube',
-    'enable7TVCompat': 'features.enableSevenTVCompatibility',
-    'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
-    'modPostApprovedUsers': 'features.modPostApprovedUsers',
-    'enableReplyTooltip': 'features.enableReplyTooltip',
-    'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
-    'enableChannelIdOverride': 'features.enableChannelIdOverride',
-    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
-    'manualWebhookUrl': 'display.manualWebhookUrl',
-    
-    // Unified Polling
-    'enableUnifiedPolling': 'polling.unified.enabled',
-    'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
-    'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
-    'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
-    'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
-    'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
-    
-    // Yes/No Polling
-    'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
-    'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
-    'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
-    'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
-    'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
-    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
-    
-    // Numbers Polling
-    'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
-    'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
-    'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
-    'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
-    'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
-    
-    // Letters Polling
-    'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
-    'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
-    'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
-    'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
-    'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
-    
-    // Sentiment Polling
-    'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
-    'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
-    'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
-    'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
-    'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
-    'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
-    'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
-    'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
-    'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
-    'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
-    'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-    'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
-    
-    // Integrations
-    'enableStreamview': 'integrations.streamview.enabled',
-    'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
-    'streamviewBaseUrl': 'integrations.streamview.baseUrl',
-    'streamviewSecretKey': 'integrations.streamview.secretKey',
-    'currentStreamview': 'integrations.streamview.current',
-    'webhookEndpoint': 'integrations.webhook.endpoint',
-    'webhookApiKey': 'integrations.webhook.apiKey',
-    'webhookChatMessages': 'integrations.webhook.events.chatMessages',
-    'webhookHighlightMessages': 'integrations.webhook.events.highlightMessages',
-    'webhookGaugeUpdates': 'integrations.webhook.events.gaugeUpdates',
-    'webhookPollUpdates': 'integrations.webhook.events.pollUpdates',
-    'webhookLeaderboardUpdates': 'integrations.webhook.events.leaderboardUpdates',
-    
-    // Styling
-    'messageBGColor': 'styling.messageBGColor',
-    'paragraphTextColor': 'styling.paragraphTextColor',
-    'enableUsernameColoring': 'styling.enableUsernameColoring',
-    'usernameDefaultColor': 'styling.usernameDefaultColor',
-    
-    // Gauge Styling
-    'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
-    'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
-    'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
-    'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
-    'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
-    'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
-    'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
-    'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
-    'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
-    'peakLabelLow': 'styling.gauge.peakLabels.low.text',
-    'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
-    'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
-    'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
-    'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
-    'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
-    'peakLabelMax': 'styling.gauge.peakLabels.max.text',
-    'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
-    'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
-    'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
-    'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
-    
-    // Polling Styling
-    'yesPollBarColor': 'styling.polling.yesPollBarColor',
-    'noPollBarColor': 'styling.polling.noPollBarColor',
-    'pollTextColor': 'styling.polling.pollTextColor',
-    'genericPollMinWidth': 'styling.polling.genericPollMinWidth',
-    
-    // Leaderboard Styling
-    'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
-    'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
-    'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
-    'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
-    
-    // Behavior
-    'decayInterval': 'behavior.decayInterval',
-    'decayAmount': 'behavior.decayAmount',
-    'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
-    'dockingBehavior': 'behavior.dockingBehavior',
-    'autoOpenPopout': 'behavior.autoOpenPopout',
-    'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
-    'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
-    'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
-    
-    // Leaderboard
-    'leaderboardHighlightValue': 'leaderboard.highlightValue',
-    'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays'
-  };
 
   // Track which elements are being actively edited to prevent conflicts
   const activelyEditingElements = new Set();
   
   async function populateForm(options) {
     // Use the nested structure directly instead of flat mapping
-    Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
+    Object.entries(window.SettingsManager.getAllFormMappings()).forEach(([elementId, nestedPath]) => {
       const element = document.getElementById(elementId);
       
       // Special handling for radio buttons (no element with direct ID)
@@ -608,201 +466,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAllPreviews(options);
   }
 
-  // Legacy populateForm for backward compatibility (unused now)
-  async function populateFormLegacy(options) {
-    const currentDefaults = await initializeSettings();
-    
-    // Map flat keys to nested paths (LEGACY - no longer used)
-    const nestedMap = {
-          'chromaKeyColor': 'display.chromaKeyColor',
-          'popoutBaseFontSize': 'display.popoutBaseFontSize',
-          'popoutDefaultWidth': 'display.popoutDefaultWidth',
-          'popoutDefaultHeight': 'display.popoutDefaultHeight',
-          'messageWidthCap': 'display.messageWidthCap',
-          'displayTime': 'display.displayTime',
-          // Legacy core settings removed - functionality replaced by unified polling
-          'enableHighlightTracking': 'features.enableHighlightTracking',
-          'appendMessages': 'features.appendMessages',
-          'enableUnifiedPolling': 'polling.unified.enabled',
-          'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
-          'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
-          'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
-          'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
-          'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
-          'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
-          'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
-          'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
-          'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
-          'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
-    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
-          'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
-          'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
-          'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
-          'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
-          'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
-          'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
-          'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
-          'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
-          'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
-          'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
-          'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
-          'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
-          'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
-          'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
-          'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
-          'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
-          'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
-          'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
-          'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-          'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
-          'enableLeaderboard': 'features.enableLeaderboard',
-          'enableWebhookIntegration': 'features.enableWebhookIntegration',
-          'enableYouTube': 'features.enableYouTube',
-          'enable7TVCompat': 'features.enableSevenTVCompatibility',
-          'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
-          'enableReplyTooltip': 'features.enableReplyTooltip',
-          'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
-          'enableStreamview': 'integrations.streamview.enabled',
-          'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
-          'enableChannelIdOverride': 'features.enableChannelIdOverride',
-          'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
-          'manualWebhookUrl': 'display.manualWebhookUrl',
-          'messageBGColor': 'styling.messageBGColor',
-          'paragraphTextColor': 'styling.paragraphTextColor',
-          'enableUsernameColoring': 'styling.enableUsernameColoring',
-          'usernameDefaultColor': 'styling.usernameDefaultColor',
-          'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
-          'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
-          'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
-          'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
-          'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
-          'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
-          'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
-          'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
-          'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
-          'peakLabelLow': 'styling.gauge.peakLabels.low.text',
-          'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
-          'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
-          'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
-          'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
-          'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
-          'peakLabelMax': 'styling.gauge.peakLabels.max.text',
-          'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
-          'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
-          'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
-          'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
-          'decayInterval': 'behavior.decayInterval',
-          'decayAmount': 'behavior.decayAmount',
-          'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
-          'dockingBehavior': 'behavior.dockingBehavior',
-          'autoOpenPopout': 'behavior.autoOpenPopout',
-          'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
-          'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
-          'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
-          'leaderboardHighlightValue': 'leaderboard.highlightValue',
-          'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
-          'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
-          'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
-          'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
-          'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
-          'webhookEndpoint': 'integrations.webhook.endpoint',
-          'webhookApiKey': 'integrations.webhook.apiKey',
-          'webhookEvents': 'integrations.webhook.events',
-          'enableStreamview': 'integrations.streamview.enabled',
-          'streamviewBaseUrl': 'integrations.streamview.baseUrl',
-          'streamviewSecretKey': 'integrations.streamview.secretKey',
-          'currentStreamview': 'integrations.streamview.current',
-          'browserSourceStyle': 'integrations.streamview.browserSourceStyle'
-        };
-    
-    // Helper function to get nested values 
-    function getNestedValue(obj, key) {
-      // First try the flat key (for backward compatibility)
-      if (obj[key] !== undefined) {
-        return obj[key];
-      }
-        
-        // Try nested path
-        const nestedPath = nestedMap[key];
-        if (nestedPath === null) {
-          // UI-only field that doesn't need storage
-          return undefined;
-        }
-        if (nestedPath) {
-          const keys = nestedPath.split('.');
-          let value = obj;
-          for (const k of keys) {
-            if (value && typeof value === 'object' && value[k] !== undefined) {
-              value = value[k];
-            } else {
-              return undefined;
-            }
-          }
-          return value;
-        }
-        
-        return undefined;
-      }
-    
-    // Iterate over all form fields that have mappings
-    Object.keys(nestedMap).forEach(key => {
-      const element = document.getElementById(key);
-      if (!element) return;
-      
-      const value = getNestedValue(options, key);
-      if (value === undefined) {
-        console.warn(`[Options] Could not find value for key: ${key}`);
-        return; // Skip this element if we can't find a value
-      }
-      
-      if (element.type === 'checkbox') {
-        element.checked = value;
-      } else if (element.type === 'range') {
-        element.value = value;
-        const valueDisplay = document.getElementById(`${key}Value`);
-        if (valueDisplay) {
-            if (key.includes('Duration')) valueDisplay.textContent = `${parseFloat(value).toFixed(1)}s`;
-            else if (key.includes('Intensity')) valueDisplay.textContent = `-${parseInt(value, 10)}px`;
-            else valueDisplay.textContent = parseFloat(value).toFixed(2);
-        }
-      } else {
-        element.value = value;
-      }
-    });
-
-    // Handle webhookEvents object separately
-    const webhookEvents = options.integrations?.webhook?.events || currentDefaults.integrations?.webhook?.events;
-    if (webhookChatMessagesInput && webhookEvents) webhookChatMessagesInput.checked = webhookEvents.chatMessages;
-    if (webhookHighlightMessagesInput && webhookEvents) webhookHighlightMessagesInput.checked = webhookEvents.highlightMessages;
-    if (webhookGaugeUpdatesInput && webhookEvents) webhookGaugeUpdatesInput.checked = webhookEvents.gaugeUpdates;
-    if (webhookPollUpdatesInput && webhookEvents) webhookPollUpdatesInput.checked = webhookEvents.pollUpdates;
-    if (webhookLeaderboardUpdatesInput && webhookEvents) webhookLeaderboardUpdatesInput.checked = webhookEvents.leaderboardUpdates;
-
-    // Handle radio buttons for dockingBehavior separately
-    const dockingValue = options.behavior?.dockingBehavior || currentDefaults.behavior?.dockingBehavior;
-    const radioToCheck = document.querySelector(`input[name="dockingBehavior"][value="${dockingValue}"]`);
-    if (radioToCheck) {
-        radioToCheck.checked = true;
-    }
-
-    // Toggle visibility of conditional sections
-    // Legacy counting section toggle removed - functionality replaced by unified polling
-    toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer);
-    toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
-    toggleSection(enableLeaderboardInput, leaderboardOptionsContainer);
-    if (enableWebhookIntegrationInput && webhookOptionsContainer) {
-      toggleSection(enableWebhookIntegrationInput, webhookOptionsContainer);
-    }
-    if (enableStreamviewInput && streamviewOptionsContainer) {
-      toggleSection(enableStreamviewInput, streamviewOptionsContainer);
-    }
-
-    // Enforce mutual exclusivity between compatibility modes
-    handleCompatibilityToggles();
-
-    // Update all visual previews
-    updateAllPreviews(options);
-  }
 
   // Helper function to set nested property using dot notation
   function setNestedProperty(obj, path, value) {
@@ -835,10 +498,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (partialOptions) {
+      // Get form mappings from centralized SettingsManager
+      const formMappings = window.SettingsManager.getAllFormMappings();
+      
       // Handle direct key-value updates (for individual field changes)
       Object.entries(partialOptions).forEach(([key, value]) => {
         // Find the nested path for this key
-        const nestedPath = FORM_ELEMENT_PATHS[key];
+        const nestedPath = formMappings[key];
         if (nestedPath) {
           setNestedValue(optionsToSave, nestedPath, value);
         } else {
@@ -852,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Apply the partial updates to merged settings
       Object.entries(partialOptions).forEach(([key, value]) => {
-        const nestedPath = FORM_ELEMENT_PATHS[key];
+        const nestedPath = formMappings[key];
         if (nestedPath) {
           setNestedValue(mergedSettings, nestedPath, value);
         }
@@ -862,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('[Options] Partial save completed for keys:', Object.keys(partialOptions));
     } else {
       // Full save from all form elements (existing behavior)
-      Object.entries(FORM_ELEMENT_PATHS).forEach(([elementId, nestedPath]) => {
+      Object.entries(window.SettingsManager.getAllFormMappings()).forEach(([elementId, nestedPath]) => {
         const element = document.getElementById(elementId);
         
         // Special handling for radio buttons (no element with direct ID)
@@ -905,174 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('[Options] Full save completed with keys:', Object.keys(optionsToSave));
       showStatus('Options saved!');
     }
-  }
-
-  // Legacy saveOptions for backward compatibility (unused now) 
-  async function saveOptionsLegacy() {
-    const optionsToSave = {};
-    const currentDefaults = await initializeSettings();
-    
-    // Mapping from flat form element IDs to nested paths (reuse from populateForm)
-    const nestedMap = {
-      'chromaKeyColor': 'display.chromaKeyColor',
-      'popoutBaseFontSize': 'display.popoutBaseFontSize',
-      'popoutDefaultWidth': 'display.popoutDefaultWidth',
-      'popoutDefaultHeight': 'display.popoutDefaultHeight',
-      'messageWidthCap': 'display.messageWidthCap',
-      'displayTime': 'display.displayTime',
-      // Legacy core settings removed - functionality replaced by unified polling
-      'enableHighlightTracking': 'features.enableHighlightTracking',
-      'appendMessages': 'features.appendMessages',
-      'enableUnifiedPolling': 'polling.unified.enabled',
-      'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
-      'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
-      'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
-      'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
-      'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
-      'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
-      'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
-      'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
-      'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
-      'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
-    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
-      'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
-      'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
-      'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplayItems',
-      'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
-      'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
-      'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
-      'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
-      'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
-      'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
-      'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
-      'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
-      'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
-      'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
-      'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
-      'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
-      'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
-      'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
-      'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
-      'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-      'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
-      'enableLeaderboard': 'features.enableLeaderboard',
-      'enableWebhookIntegration': 'features.enableWebhookIntegration',
-      'enableYouTube': 'features.enableYouTube',
-      'enable7TVCompat': 'features.enableSevenTVCompatibility',
-      'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
-      'enableReplyTooltip': 'features.enableReplyTooltip',
-      'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
-      'enableStreamview': 'integrations.streamview.enabled',
-      'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
-      'enableChannelIdOverride': 'features.enableChannelIdOverride',
-      'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
-      'manualWebhookUrl': 'display.manualWebhookUrl',
-      'messageBGColor': 'styling.messageBGColor',
-      'paragraphTextColor': 'styling.paragraphTextColor',
-      'enableUsernameColoring': 'styling.enableUsernameColoring',
-      'usernameDefaultColor': 'styling.usernameDefaultColor',
-      'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
-      'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
-      'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
-      'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
-      'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
-      'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
-      'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
-      'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
-      'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
-      'peakLabelLow': 'styling.gauge.peakLabels.low.text',
-      'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
-      'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
-      'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
-      'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
-      'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
-      'peakLabelMax': 'styling.gauge.peakLabels.max.text',
-      'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
-      'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
-      'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
-      'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
-      'decayInterval': 'behavior.decayInterval',
-      'decayAmount': 'behavior.decayAmount',
-      'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
-      'dockingBehavior': 'behavior.dockingBehavior',
-      'autoOpenPopout': 'behavior.autoOpenPopout',
-      'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
-      'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
-      'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
-      'leaderboardHighlightValue': 'leaderboard.highlightValue',
-      'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
-      'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
-      'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
-      'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
-      'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
-      'webhookEndpoint': 'integrations.webhook.endpoint',
-      'webhookApiKey': 'integrations.webhook.apiKey',
-      'enableStreamview': 'integrations.streamview.enabled',
-      'streamviewBaseUrl': 'integrations.streamview.baseUrl',
-      'streamviewSecretKey': 'integrations.streamview.secretKey',
-      'currentStreamview': 'integrations.streamview.current',
-      'browserSourceStyle': 'integrations.streamview.browserSourceStyle'
-    };
-    
-    // Process each form element and map it to nested structure
-    Object.keys(nestedMap).forEach(elementId => {
-      const element = document.getElementById(elementId);
-      if (element) {
-        let value;
-        if (element.type === 'checkbox') {
-          value = element.checked;
-        } else if (element.type === 'number' || element.type === 'range') {
-          const num = parseFloat(element.value);
-          value = !isNaN(num) ? num : 0;
-        } else {
-          value = element.value;
-        }
-        
-        console.log(`[Options] Saving ${elementId} = ${value} to path ${nestedMap[elementId]}`);
-        setNestedProperty(optionsToSave, nestedMap[elementId], value);
-      }
-    });
-    
-    // Handle special cases
-    
-    // Handle webhookEvents object 
-    setNestedProperty(optionsToSave, 'integrations.webhook.events', {
-      chatMessages: webhookChatMessagesInput ? webhookChatMessagesInput.checked : false,
-      highlightMessages: webhookHighlightMessagesInput ? webhookHighlightMessagesInput.checked : false,
-      gaugeUpdates: webhookGaugeUpdatesInput ? webhookGaugeUpdatesInput.checked : false,
-      pollUpdates: webhookPollUpdatesInput ? webhookPollUpdatesInput.checked : false,
-      leaderboardUpdates: webhookLeaderboardUpdatesInput ? webhookLeaderboardUpdatesInput.checked : false
-    });
-    
-    // Handle radio buttons for dockingBehavior
-    const selectedDockingRadio = document.querySelector('input[name="dockingBehavior"]:checked');
-    if (selectedDockingRadio) {
-      setNestedProperty(optionsToSave, 'behavior.dockingBehavior', selectedDockingRadio.value);
-    }
-
-    // Special handling for leaderboard dependency
-    if (enableHighlightTrackingInput && enableLeaderboardInput) {
-      setNestedProperty(optionsToSave, 'features.enableLeaderboard', enableHighlightTrackingInput.checked && enableLeaderboardInput.checked);
-    }
-    
-    // Include browser source styling options
-    if (window.browserSourceOptions) {
-      // Validate and fix any invalid heights before saving
-      const validatedBrowserSourceOptions = validateBrowserSourceOptions(window.browserSourceOptions);
-      setNestedProperty(optionsToSave, 'integrations.streamview.browserSourceStyle', validatedBrowserSourceOptions);
-    }
-
-    // Preserve currentStreamview when saving options
-    const existingSettings = await window.SettingsManager.getAllSettings();
-    if (existingSettings.integrations?.streamview?.current) {
-      setNestedProperty(optionsToSave, 'integrations.streamview.current', existingSettings.integrations.streamview.current);
-    }
-    
-    console.log('[Options] Final optionsToSave structure:', JSON.stringify(optionsToSave, null, 2));
-    await window.SettingsManager.setSettings(optionsToSave);
-    showStatus('Options saved!');
-    
-    // Auto-sync to streamview removed - browser source is now configured independently via web UI
   }
 
   // --- Sentiment Groups Management ---
@@ -1352,6 +850,25 @@ document.addEventListener('DOMContentLoaded', () => {
         loadActiveStreamview();
       }
     });
+  }
+
+  // Auto-fit width toggle for yes/no polling
+  if (unifiedPollingYesNoAutoFitWidthInput && unifiedPollingYesNoWidthInput) {
+    const toggleYesNoWidthInput = () => {
+      unifiedPollingYesNoWidthInput.disabled = unifiedPollingYesNoAutoFitWidthInput.checked;
+      if (unifiedPollingYesNoAutoFitWidthInput.checked) {
+        unifiedPollingYesNoWidthInput.style.opacity = '0.5';
+        unifiedPollingYesNoWidthInput.title = 'Auto-fit is enabled - width will be determined by popout window';
+      } else {
+        unifiedPollingYesNoWidthInput.style.opacity = '1';
+        unifiedPollingYesNoWidthInput.title = '';
+      }
+    };
+    
+    unifiedPollingYesNoAutoFitWidthInput.addEventListener('change', toggleYesNoWidthInput);
+    
+    // Initialize the state on page load
+    toggleYesNoWidthInput();
   }
 
   // Test webhook functionality
@@ -2263,111 +1780,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentDefaults = await initializeSettings();
       const currentOptions = JSON.parse(JSON.stringify(currentDefaults)); // Deep copy defaults first
       
-      // Mapping from flat form element IDs to nested paths (same as in saveOptions)
-      const nestedMap = {
-        'chromaKeyColor': 'display.chromaKeyColor',
-        'popoutBaseFontSize': 'display.popoutBaseFontSize',
-        'popoutDefaultWidth': 'display.popoutDefaultWidth',
-        'popoutDefaultHeight': 'display.popoutDefaultHeight',
-        'messageWidthCap': 'display.messageWidthCap',
-        'displayTime': 'display.displayTime',
-        // Legacy core settings removed - functionality replaced by unified polling
-        'enableHighlightTracking': 'features.enableHighlightTracking',
-        'appendMessages': 'features.appendMessages',
-        'enableUnifiedPolling': 'polling.unified.enabled',
-        'unifiedPollingLookbackWindow': 'polling.unified.lookbackWindow',
-        'unifiedPollingResultDisplayTime': 'polling.unified.resultDisplayTime',
-        'unifiedPollingCooldownDuration': 'polling.unified.cooldownDuration',
-        'unifiedPollingMinimumDuration': 'polling.unified.minimumPollDuration',
-        'unifiedPollingActivityCheckInterval': 'polling.unified.activityCheckInterval',
-        'unifiedPollingYesNoEnabled': 'polling.unifiedPolling.yesno.enabled',
-        'unifiedPollingYesNoThreshold': 'polling.unifiedPolling.yesno.activationThreshold',
-        'unifiedPollingYesColor': 'polling.unifiedPolling.yesno.styling.yesColor',
-        'unifiedPollingNoColor': 'polling.unifiedPolling.yesno.styling.noColor',
-        'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
-    'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
-        'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',
-        'unifiedPollingNumbersThreshold': 'polling.unifiedPolling.numbers.activationThreshold',
-        'unifiedPollingNumbersMaxDisplay': 'polling.unifiedPolling.numbers.maxDisplay',
-        'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
-        'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
-        'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
-        'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
-        'unifiedPollingLettersIndividualThreshold': 'polling.unifiedPolling.letters.individualThreshold',
-        'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
-        'unifiedPollingLettersMinWidth': 'polling.unifiedPolling.letters.minWidth',
-        'unifiedPollingSentimentEnabled': 'polling.unifiedPolling.sentiment.enabled',
-        'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
-        'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
-        'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
-        'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
-        'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
-        'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
-        'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
-        'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
-        'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
-        'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
-        'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
-        'enableLeaderboard': 'features.enableLeaderboard',
-        'enableWebhookIntegration': 'features.enableWebhookIntegration',
-        'enableYouTube': 'features.enableYouTube',
-        'enable7TVCompat': 'features.enableSevenTVCompatibility',
-        'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
-        'modPostApprovedUsers': 'features.modPostApprovedUsers',
-        'enableReplyTooltip': 'features.enableReplyTooltip',
-        'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
-        'enableStreamview': 'integrations.streamview.enabled',
-        'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
-        'enableChannelIdOverride': 'features.enableChannelIdOverride',
-        'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
-        'manualWebhookUrl': 'display.manualWebhookUrl',
-        'messageBGColor': 'styling.messageBGColor',
-        'paragraphTextColor': 'styling.paragraphTextColor',
-        'enableUsernameColoring': 'styling.enableUsernameColoring',
-        'usernameDefaultColor': 'styling.usernameDefaultColor',
-        'gaugeMaxValue': 'styling.gauge.gaugeMaxValue',
-        'gaugeMinDisplayThreshold': 'styling.gauge.gaugeMinDisplayThreshold',
-        'gaugeTrackColor': 'styling.gauge.gaugeTrackColor',
-        'gaugeTrackAlpha': 'styling.gauge.gaugeTrackAlpha',
-        'gaugeTrackBorderAlpha': 'styling.gauge.gaugeTrackBorderAlpha',
-        'gaugeTrackBorderColor': 'styling.gauge.gaugeTrackBorderColor',
-        'gaugeFillGradientStartColor': 'styling.gauge.gaugeFillGradientStartColor',
-        'gaugeFillGradientEndColor': 'styling.gauge.gaugeFillGradientEndColor',
-        'recentMaxIndicatorColor': 'styling.gauge.recentMaxIndicatorColor',
-        'peakLabelLow': 'styling.gauge.peakLabels.low.text',
-        'peakLabelLowColor': 'styling.gauge.peakLabels.low.color',
-        'peakLabelMid': 'styling.gauge.peakLabels.mid.text', 
-        'peakLabelMidColor': 'styling.gauge.peakLabels.mid.color',
-        'peakLabelHigh': 'styling.gauge.peakLabels.high.text',
-        'peakLabelHighColor': 'styling.gauge.peakLabels.high.color',
-        'peakLabelMax': 'styling.gauge.peakLabels.max.text',
-        'peakLabelMaxColor': 'styling.gauge.peakLabels.max.color',
-        'enablePeakLabelAnimation': 'styling.gauge.enablePeakLabelAnimation',
-        'peakLabelAnimationDuration': 'styling.gauge.peakLabelAnimationDuration',
-        'peakLabelAnimationIntensity': 'styling.gauge.peakLabelAnimationIntensity',
-        'decayInterval': 'behavior.decayInterval',
-        'decayAmount': 'behavior.decayAmount',
-        'recentMaxResetDelay': 'behavior.recentMaxResetDelay',
-        'dockingBehavior': 'behavior.dockingBehavior',
-        'autoOpenPopout': 'behavior.autoOpenPopout',
-        'requiredUrlSubstring': 'behavior.requiredUrlSubstring',
-        'inactivityTimeoutDuration': 'behavior.inactivityTimeoutDuration',
-        'maxPrunedCacheSize': 'behavior.maxPrunedCacheSize',
-        'leaderboardHighlightValue': 'leaderboard.highlightValue',
-        'leaderboardTimeWindowDays': 'leaderboard.timeWindowDays',
-        'leaderboardHeaderText': 'styling.leaderboard.leaderboardHeaderText',
-        'leaderboardBackgroundColor': 'styling.leaderboard.leaderboardBackgroundColor',
-        'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
-        'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
-        'webhookEndpoint': 'integrations.webhook.endpoint',
-        'webhookApiKey': 'integrations.webhook.apiKey',
-        'enableStreamview': 'integrations.streamview.enabled',
-        'streamviewBaseUrl': 'integrations.streamview.baseUrl',
-        'streamviewSecretKey': 'integrations.streamview.secretKey'
-      };
+      // Get form mappings from centralized SettingsManager
+      const formMappings = window.SettingsManager.getAllFormMappings();
       
       // Update currentOptions based on form elements
-      Object.keys(nestedMap).forEach(elementId => {
+      Object.keys(formMappings).forEach(elementId => {
         const element = document.getElementById(elementId);
         if (element) {
           let value;
@@ -2381,7 +1798,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           
           // Use the same setNestedProperty helper
-          setNestedProperty(currentOptions, nestedMap[elementId], value);
+          setNestedProperty(currentOptions, formMappings[elementId], value);
         }
       });
 
