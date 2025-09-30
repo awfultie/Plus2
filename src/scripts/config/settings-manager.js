@@ -19,7 +19,6 @@ async function loadDefaultSettings() {
             throw new Error(`Failed to load default settings: ${response.status}`);
         }
         DEFAULT_SETTINGS = await response.json();
-        console.log('[SettingsManager] Default settings loaded from JSON');
         return DEFAULT_SETTINGS;
     } catch (error) {
         console.error('[SettingsManager] Error loading default settings:', error);
@@ -53,11 +52,6 @@ const LEGACY_MIGRATION_MAP = {
     'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
-    'enableChannelIdOverride': 'features.enableChannelIdOverride',
-    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
-    'manualWebhookUrl': 'display.manualWebhookUrl',
-    'enableStreamview': 'integrations.streamview.enabled',
-    'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
     
     // Legacy core settings - migrate to unified polling
     'enableCounting': 'polling.unifiedPolling.sentiment.enabled', // Migrate to unified sentiment
@@ -129,26 +123,14 @@ const LEGACY_MIGRATION_MAP = {
     'leaderboardBackgroundAlpha': 'styling.leaderboard.leaderboardBackgroundAlpha',
     'leaderboardTextColor': 'styling.leaderboard.leaderboardTextColor',
     
-    // StreamView
-    'enableStreamview': 'integrations.streamview.enabled',
-    'streamviewBaseUrl': 'integrations.streamview.baseUrl',
-    'streamviewSecretKey': 'integrations.streamview.secretKey',
-    'currentStreamview': 'integrations.streamview.current',
-    'browserSourceStyle': 'integrations.streamview.browserSourceStyle',
-    'streamviewBatchInterval': 'integrations.streamview.batchInterval',
-    'streamviewRetryAttempts': 'integrations.streamview.retryAttempts',
-    'streamviewTimeout': 'integrations.streamview.timeout',
-    'activeViewUrl': 'integrations.streamview.activeViewUrl',
     
     // Webhook Integration
-    'activeWebhookUrl': 'integrations.webhook.activeWebhookUrl',
+    'activeWebhookUrl': 'integrations.streamview.current.webhookUrl',
+    'activeViewUrl': 'integrations.streamview.current.viewUrl',
     
     // Additional Features
     'enable7TVCompat': 'features.enableSevenTVCompatibility',
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility',
-    'enableChannelIdOverride': 'features.enableChannelIdOverride',
-    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
-    'manualWebhookUrl': 'display.manualWebhookUrl',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     
     // Display Options
@@ -157,7 +139,6 @@ const LEGACY_MIGRATION_MAP = {
     'dockingBehavior_none': 'display.dockingBehavior',
     'dockingBehavior_twitch': 'display.dockingBehavior',
     'dockingBehavior_youtube': 'display.dockingBehavior',
-    'channelIdOverride': 'display.channelIdOverride',
     'templateName': 'display.templateName',
     'messageWidthCap': 'display.messageWidthCap',
     
@@ -171,7 +152,6 @@ const LEGACY_MIGRATION_MAP = {
     'leaderboardBackgroundAlphaValue': 'styling.leaderboard.leaderboardBackgroundAlpha',
     
     // UI Container Fields (no storage needed)
-    'streamviewGenerateApiKey': null, // UI-only button
     'usernameColoringOptionsContainer': null, // UI-only container
     
     // Leaderboard Additional
@@ -195,6 +175,7 @@ const LEGACY_MIGRATION_MAP = {
     'unifiedPollingLettersMaxDisplay': 'polling.unifiedPolling.letters.maxDisplayItems',
     'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
     'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+    'unifiedPollingSentimentAutoFitWidth': 'polling.unifiedPolling.sentiment.autoFitWidth',
     
     // Additional Unified Polling Settings  
     'enableUnifiedPolling': 'polling.unified.enabled',
@@ -210,6 +191,26 @@ const LEGACY_MIGRATION_MAP = {
     'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
     'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
 };
+
+/**
+ * Get a nested property using dot notation
+ */
+function getNestedProperty(obj, path) {
+    if (!path || !obj) return undefined;
+
+    const keys = path.split('.');
+    let current = obj;
+
+    for (const key of keys) {
+        if (current && typeof current === 'object' && key in current) {
+            current = current[key];
+        } else {
+            return undefined;
+        }
+    }
+
+    return current;
+}
 
 /**
  * Set a nested property using dot notation
@@ -237,7 +238,6 @@ function setNestedProperty(obj, path, value) {
  * Migrate flat settings to nested structure
  */
 async function migrateFlatToNested(flatSettings) {
-    console.log('[SettingsManager] Migrating flat settings to nested structure');
     const nested = {};
     
     // Convert flat settings using migration map
@@ -297,7 +297,6 @@ async function migrateFlatToNested(flatSettings) {
         nested.integrations.streamview.current = flatSettings.currentStreamview;
     }
     
-    console.log('[SettingsManager] Migration completed:', Object.keys(nested));
     return nested;
 }
 
@@ -322,11 +321,15 @@ function smartMergeDefaults(defaults, stored) {
     const result = { ...defaults };
     
     function mergeRecursively(defaultObj, storedObj, currentResult) {
-        for (const key in storedObj) {
+        // Process ALL keys from both default and stored objects
+        const allKeys = new Set([...Object.keys(defaultObj), ...Object.keys(storedObj)]);
+        
+        for (const key of allKeys) {
+            const storedValue = storedObj[key];
+            const defaultValue = defaultObj[key];
+            
+            // If key exists in stored, use stored value (with problematic value check)
             if (storedObj.hasOwnProperty(key)) {
-                const storedValue = storedObj[key];
-                const defaultValue = defaultObj[key];
-                
                 // Skip undefined stored values
                 if (storedValue === undefined) {
                     continue;
@@ -346,13 +349,15 @@ function smartMergeDefaults(defaults, stored) {
                     );
                     
                     if (isStoredProblematic) {
-                        console.log(`[SettingsManager] Using default for problematic value: ${key} = ${storedValue} -> ${defaultValue}`);
                         currentResult[key] = defaultValue;
                     } else {
+                        // 🔥 CRITICAL FIX: Always preserve user values, including secret keys!
                         currentResult[key] = storedValue;
                     }
                 }
             }
+            // If key only exists in defaults but not stored, keep the default value (already set above)
+            // This handles new settings that weren't in user's old configuration
         }
     }
     
@@ -367,10 +372,10 @@ function smartMergeDefaults(defaults, stored) {
 function needsDefaultsRepair(stored) {
     // Check for known problematic zero values that should have defaults
     const problematicPaths = [
-        'polling.generic.sentiment.displayThreshold',
-        'polling.generic.sentiment.maxDisplayItems', 
-        'polling.generic.sentiment.maxGaugeValue',
-        'polling.generic.sentiment.maxGrowthWidth'
+        'polling.unifiedPolling.sentiment.activationThreshold',
+        'polling.unifiedPolling.sentiment.maxDisplayItems', 
+        'polling.unifiedPolling.sentiment.maxGaugeValue',
+        'polling.unifiedPolling.sentiment.maxGrowthWidth'
     ];
     
     for (const path of problematicPaths) {
@@ -392,7 +397,6 @@ function needsDefaultsRepair(stored) {
                 defaultCurrent = defaultCurrent[key];
             }
             if (defaultCurrent && defaultCurrent !== 0) {
-                console.log(`[SettingsManager] Found problematic zero value at ${path}: ${current}, should be ${defaultCurrent}`);
                 return true;
             }
         }
@@ -406,22 +410,13 @@ function needsDefaultsRepair(stored) {
  */
 async function getAllSettings() {
     await loadDefaultSettings();
-    const stored = await browser.storage.sync.get();  // Get ALL stored settings
+    let stored = await browser.storage.sync.get();  // Get ALL stored settings
     
-    console.log('[SettingsManager] Stored settings keys:', Object.keys(stored));
-    console.log('[SettingsManager] Stored settings sample:', {
-        chromaKeyColor: stored.chromaKeyColor,
-        display: stored.display,
-        styling: stored.styling,
-        features: stored.features
-    });
     
     // Check if we need to migrate from flat to nested
     const needsMigration = isOldFlatFormat(stored);
-    console.log('[SettingsManager] Needs migration:', needsMigration);
     
     if (needsMigration) {
-        console.log('[SettingsManager] Detected old flat format, migrating...');
         const migrated = await migrateFlatToNested(stored);
         
         // Save migrated settings with proper smart merge of defaults
@@ -429,60 +424,46 @@ async function getAllSettings() {
         await browser.storage.sync.clear();  // Clear old flat settings
         await browser.storage.sync.set(mergedSettings);
         
-        console.log('[SettingsManager] Migration complete, saved nested settings');
         return mergedSettings;
     }
     
     // Check if we need to repair missing defaults from previous migration
     const needsRepair = needsDefaultsRepair(stored);
-    console.log('[SettingsManager] Needs defaults repair:', needsRepair);
     
     if (needsRepair) {
-        console.log('[SettingsManager] Repairing settings with missing defaults...');
         const repairedSettings = smartMergeDefaults(DEFAULT_SETTINGS, stored);
         
         // Apply specific mappings for standalone keys like currentStreamview
         if (stored.currentStreamview !== undefined) {
-            console.log(`[SettingsManager] Mapping currentStreamview to integrations.streamview.current:`, stored.currentStreamview);
             setNestedProperty(repairedSettings, 'integrations.streamview.current', stored.currentStreamview);
         }
         
-        console.log('[SettingsManager] Final repaired settings after mapping:', {
-            streamviewEnabled: repairedSettings.integrations?.streamview?.enabled,
-            streamviewCurrent: repairedSettings.integrations?.streamview?.current,
-            hasCurrentStreamview: !!repairedSettings.integrations?.streamview?.current
-        });
         
-        await browser.storage.sync.set(repairedSettings);
-        console.log('[SettingsManager] Repair complete, updated stored settings');
-        return repairedSettings;
+        // Clean up legacy keys after repair to prevent repeated processing
+        const cleanedRepaired = await cleanupLegacySettings(repairedSettings);
+        await browser.storage.sync.set(cleanedRepaired);
+        return cleanedRepaired;
     }
     
     // Clean up any legacy settings that might still exist
     const cleanedSettings = await cleanupLegacySettings(stored);
     if (Object.keys(cleanedSettings).length !== Object.keys(stored).length) {
-        console.log('[SettingsManager] Legacy settings found and cleaned, updating storage...');
         await browser.storage.sync.set(cleanedSettings);
         stored = cleanedSettings;
     }
     
-    console.log('[SettingsManager] Using stored settings with nested structure (no migration needed)');
     
-    // Apply FORM_ELEMENT_PATHS mappings for standalone keys like currentStreamview
-    let finalSettings = smartMergeDefaults(DEFAULT_SETTINGS, stored);
-    
-    // Map standalone keys to nested paths
-    if (stored.currentStreamview !== undefined) {
-        console.log(`[SettingsManager] Mapping currentStreamview to integrations.streamview.current:`, stored.currentStreamview);
-        setNestedProperty(finalSettings, 'integrations.streamview.current', stored.currentStreamview);
+    // Check for one-time upgrade needs
+    const upgradeNeeded = await checkForUpgrades(stored);
+    if (upgradeNeeded) {
+        stored = await performUpgrades(stored);
+        await browser.storage.sync.set(stored);
     }
-    
-    console.log('[SettingsManager] Final settings after mapping:', {
-        streamviewEnabled: finalSettings.integrations?.streamview?.enabled,
-        streamviewCurrent: finalSettings.integrations?.streamview?.current,
-        hasCurrentStreamview: !!finalSettings.integrations?.streamview?.current
-    });
-    
+
+    // Use smart merge to combine defaults with stored settings
+    let finalSettings = smartMergeDefaults(DEFAULT_SETTINGS, stored);
+
+
     return finalSettings;
 }
 
@@ -510,12 +491,104 @@ async function setSettings(settingsToUpdate) {
 }
 
 /**
+ * Update a specific nested setting without affecting other values
+ * @param {string} path - Dot notation path (e.g., 'integrations.streamview.current')
+ * @param {*} value - The value to set
+ */
+async function updateNestedSetting(path, value) {
+    await loadDefaultSettings();
+    
+    const currentSettings = await getAllSettings();
+    
+    // Create a deep clone to avoid mutations
+    const updatedSettings = JSON.parse(JSON.stringify(currentSettings));
+    
+    // Set the nested value using existing helper
+    setNestedProperty(updatedSettings, path, value);
+    
+    console.log(`[SettingsManager] Updating nested setting: ${path}`, value);
+    
+    await browser.storage.sync.set(updatedSettings);
+    console.log('[SettingsManager] Nested setting updated without overwriting other values');
+}
+
+/**
  * Reset all settings to defaults
  */
 async function resetAllSettings() {
     await loadDefaultSettings();
     await browser.storage.sync.clear();
     return await browser.storage.sync.set(DEFAULT_SETTINGS);
+}
+
+/**
+ * Check if settings need one-time upgrades
+ * @param {Object} storedSettings - Current stored settings
+ * @returns {boolean} - True if upgrades are needed
+ */
+async function checkForUpgrades(storedSettings) {
+    // Check if sentiment upgrade has already been applied
+    const sentimentUpgradeApplied = storedSettings.upgradeFlags?.sentimentConfigUpgrade;
+
+    // If upgrade hasn't been applied yet, we need to upgrade
+    return !sentimentUpgradeApplied;
+}
+
+/**
+ * Perform one-time upgrades to settings
+ * @param {Object} storedSettings - Current stored settings
+ * @returns {Object} - Updated settings with upgrades applied
+ */
+async function performUpgrades(storedSettings) {
+    console.log('[SettingsManager] Performing one-time upgrades...');
+
+    const upgradedSettings = JSON.parse(JSON.stringify(storedSettings));
+
+    // Initialize upgrade flags if they don't exist
+    if (!upgradedSettings.upgradeFlags) {
+        upgradedSettings.upgradeFlags = {};
+    }
+
+    // Sentiment Configuration Upgrade
+    if (!upgradedSettings.upgradeFlags.sentimentConfigUpgrade) {
+        console.log('[SettingsManager] Applying sentiment configuration upgrade...');
+
+        // Set new sentiment configuration with specified values
+        const sentimentConfig = {
+            "enabled": true,
+            "activationThreshold": 6,
+            "priority": 4,
+            "maxDisplayItems": 2,
+            "maxGrowthWidth": 500,
+            "autoFitWidth": true,
+            "maxGaugeValue": 50,
+            "labelHeight": 20,
+            "baseColor": "#8956fb",
+            "blockList": "",
+            "allowListMode": false,
+            "groups": "[{\"label\":\"+2\",\"words\":[\"+2\"],\"partialMatch\":false,\"color\":\"#f41f1f\"},{\"label\":\"I WAS HERE!\",\"words\":[\"I WAS HERE!\",\"I WAS HERE\",\"i was here\",\"i was here!\"],\"partialMatch\":false,\"color\":\"#f4d11f\"},{\"label\":\"-2\",\"words\":[\"-2\"],\"partialMatch\":false,\"color\":\"#535455\"}]",
+            "minimumDisplayTime": 1000,
+            "decayInterval": 1100,
+            "decayAmount": 1,
+            "escalatedDecayEnabled": true,
+            "escalatedDecayThresholdTime": 4000,
+            "escalatedDecayMultiplier": 5,
+            "escalatedDecayMaxMultiplier": 50,
+            "anchorPoint": "bottom"
+        };
+
+        // Apply the configuration to the nested structure
+        if (!upgradedSettings.polling) upgradedSettings.polling = {};
+        if (!upgradedSettings.polling.unifiedPolling) upgradedSettings.polling.unifiedPolling = {};
+        upgradedSettings.polling.unifiedPolling.sentiment = sentimentConfig;
+
+        // Mark upgrade as completed
+        upgradedSettings.upgradeFlags.sentimentConfigUpgrade = true;
+
+        console.log('[SettingsManager] Sentiment configuration upgrade completed');
+    }
+
+    return upgradedSettings;
 }
 
 /**
@@ -657,8 +730,6 @@ const FORM_ELEMENT_PATHS = {
     'templateName': 'display.templateName',
     'messageWidthCap': 'display.messageWidthCap',
     'displayTime': 'display.displayTime',
-    'channelIdOverride': 'display.channelIdOverride',
-    'manualWebhookUrl': 'display.manualWebhookUrl',
     
     // Features
     'enableHighlightTracking': 'features.enableHighlightTracking',
@@ -672,8 +743,6 @@ const FORM_ELEMENT_PATHS = {
     'enableFrankerFaceZCompat': 'features.enableFrankerFaceZCompatibility', // Legacy key name
     'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
     'modPostApprovedUsers': 'features.modPostApprovedUsers',
-    'enableChannelIdOverride': 'features.enableChannelIdOverride',
-    'enableManualWebhookOverride': 'features.enableManualWebhookOverride',
     'enableReplyTooltip': 'features.enableReplyTooltip',
     
     // Styling
@@ -773,13 +842,19 @@ const FORM_ELEMENT_PATHS = {
     'unifiedPollingSentimentThreshold': 'polling.unifiedPolling.sentiment.activationThreshold',
     'unifiedPollingSentimentMaxDisplayItems': 'polling.unifiedPolling.sentiment.maxDisplayItems',
     'unifiedPollingSentimentMaxGrowthWidth': 'polling.unifiedPolling.sentiment.maxGrowthWidth',
+    'unifiedPollingSentimentAutoFitWidth': 'polling.unifiedPolling.sentiment.autoFitWidth',
     'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
     'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
     'unifiedPollingSentimentMinimumDisplayTime': 'polling.unifiedPolling.sentiment.minimumDisplayTime',
     'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
     'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',
+    'unifiedPollingSentimentEscalatedDecayEnabled': 'polling.unifiedPolling.sentiment.escalatedDecayEnabled',
+    'unifiedPollingSentimentEscalatedDecayThresholdTime': 'polling.unifiedPolling.sentiment.escalatedDecayThresholdTime',
+    'unifiedPollingSentimentEscalatedDecayMultiplier': 'polling.unifiedPolling.sentiment.escalatedDecayMultiplier',
+    'unifiedPollingSentimentEscalatedDecayMaxMultiplier': 'polling.unifiedPolling.sentiment.escalatedDecayMaxMultiplier',
     'unifiedPollingSentimentBaseColor': 'polling.unifiedPolling.sentiment.baseColor',
     'unifiedPollingSentimentBlockList': 'polling.unifiedPolling.sentiment.blockList',
+    'unifiedPollingSentimentAllowListMode': 'polling.unifiedPolling.sentiment.allowListMode',
     'unifiedPollingSentimentGroups': 'polling.unifiedPolling.sentiment.groups',
     'unifiedPollingSentimentAnchorPoint': 'polling.unifiedPolling.sentiment.anchorPoint',
     
@@ -790,7 +865,6 @@ const FORM_ELEMENT_PATHS = {
     // Webhook Integration
     'webhookEndpoint': 'integrations.webhook.endpoint',
     'webhookApiKey': 'integrations.webhook.apiKey',
-    'activeWebhookUrl': 'integrations.webhook.activeWebhookUrl',
     'webhookEvents': 'integrations.webhook.events', // Legacy key for all events
     'webhookChatMessages': 'integrations.webhook.events.chatMessages',
     'webhookHighlightMessages': 'integrations.webhook.events.highlightMessages',
@@ -804,11 +878,15 @@ const FORM_ELEMENT_PATHS = {
     'streamviewGenerateApiKey': 'integrations.streamview.generateApiKey',
     'streamviewBaseUrl': 'integrations.streamview.baseUrl',
     'streamviewSecretKey': 'integrations.streamview.secretKey',
-    'currentStreamview': 'integrations.streamview.current',
+    // 'currentStreamview' removed - individual URL fields now mapped directly
     'browserSourceStyle': 'integrations.streamview.browserSourceStyle',
     'streamviewBatchInterval': 'integrations.streamview.batchInterval',
     'streamviewRetryAttempts': 'integrations.streamview.retryAttempts',
-    'streamviewTimeout': 'integrations.streamview.timeout'
+    'streamviewTimeout': 'integrations.streamview.timeout',
+    'enableChannelIdOverride': 'integrations.streamview.channelIdOverride.enabled',
+    'channelIdOverride': 'integrations.streamview.channelIdOverride.channelId',
+    'enableManualWebhookOverride': 'integrations.streamview.manualWebhookOverride.enabled',
+    'manualWebhookUrl': 'integrations.streamview.manualWebhookOverride.webhookUrl'
 };
 
 /**
@@ -871,6 +949,7 @@ if (typeof window !== 'undefined') {
         getAllSettings,
         getSetting,
         setSettings,
+        updateNestedSetting,
         resetAllSettings,
         getDefaultValue,
         getDefaultSettings,
@@ -891,6 +970,7 @@ if (typeof globalThis !== 'undefined') {
         getAllSettings,
         getSetting,
         setSettings,
+        updateNestedSetting,
         resetAllSettings,
         getDefaultValue,
         getDefaultSettings,
@@ -911,6 +991,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getAllSettings,
         getSetting,
         setSettings,
+        updateNestedSetting,
         resetAllSettings,
         getDefaultValue,
         getDefaultSettings,

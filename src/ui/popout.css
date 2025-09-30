@@ -115,3 +115,9 @@
     color: var(--plus2-username-color);
     font-weight: bold;
 }
+
+/* Apply username color to the first span in mod post messages (usually the username) */
+.plus2-mod-post span:first-child {
+    color: var(--plus2-username-color);
+    font-weight: bold;
+}

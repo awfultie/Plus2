@@ -160,6 +160,7 @@ class UIInjection {
             { id: 'menu-copy-url', text: 'Copy Browser Source', action: (btn) => this._copyBrowserSourceUrl(btn), requires: ['enableStreamview', 'currentStreamview'] },
             { id: 'menu-toggle-leaderboard', text: this.leaderboardDisplayMode === 'shown' ? 'Hide Leaderboard' : 'Show Leaderboard', action: () => this._sendMessage({ type: 'TOGGLE_LEADERBOARD_MODE' }), requires: ['enableHighlightTracking', 'enableLeaderboard'] },
             { id: 'menu-poll-toggles', text: 'Polls on/off >', action: () => {}, submenu: true, hover: true },
+            { id: 'menu-flush-polls', text: 'Flush Active Polls', action: () => this._sendMessage({ type: 'FLUSH_POLLS' }) },
             { id: 'menu-open-options', text: 'Options', action: () => this._sendMessage({ type: 'OPEN_OPTIONS_PAGE' }) }
         ];
 
@@ -195,24 +196,24 @@ class UIInjection {
                 });
                 // Handle hover for submenu items
                 if (itemData.hover) {
-                    button.onmouseenter = () => {
+                    button.addEventListener('mouseenter', () => {
                         button.style.backgroundColor = '#3a3a3d';
                         this.createPollSubmenu(button);
-                    };
-                    button.onmouseleave = () => {
+                    });
+                    button.addEventListener('mouseleave', () => {
                         button.style.backgroundColor = 'transparent';
                         // Add delay before closing submenu to allow moving to it
                         this._submenuCloseTimer = setTimeout(() => {
                             this.closePollSubmenu();
                         }, 300);
-                    };
+                    });
                 } else {
-                    button.onmouseenter = () => {
+                    button.addEventListener('mouseenter', () => {
                         button.style.backgroundColor = '#3a3a3d';
                         // Close any open submenu when hovering other items
                         this.closePollSubmenu();
-                    };
-                    button.onmouseleave = () => button.style.backgroundColor = 'transparent';
+                    });
+                    button.addEventListener('mouseleave', () => button.style.backgroundColor = 'transparent');
                 }
 
                 button.addEventListener('click', (e) => {
@@ -311,17 +312,17 @@ class UIInjection {
         });
         
         // Add hover handlers to prevent closing
-        this.pollSubmenu.onmouseenter = () => {
+        this.pollSubmenu.addEventListener('mouseenter', () => {
             if (this._submenuCloseTimer) {
                 clearTimeout(this._submenuCloseTimer);
                 this._submenuCloseTimer = null;
             }
-        };
-        this.pollSubmenu.onmouseleave = () => {
+        });
+        this.pollSubmenu.addEventListener('mouseleave', () => {
             this._submenuCloseTimer = setTimeout(() => {
                 this.closePollSubmenu();
             }, 300);
-        };
+        });
         
         // No back button needed since main menu stays open
         
@@ -356,8 +357,8 @@ class UIInjection {
                 display: 'block', width: '100%', padding: '8px', border: 'none',
                 backgroundColor: 'transparent', color: '#efeff1', textAlign: 'left', cursor: 'pointer'
             });
-            button.onmouseenter = () => button.style.backgroundColor = '#3a3a3d';
-            button.onmouseleave = () => button.style.backgroundColor = 'transparent';
+            button.addEventListener('mouseenter', () => button.style.backgroundColor = '#3a3a3d');
+            button.addEventListener('mouseleave', () => button.style.backgroundColor = 'transparent');
             button.addEventListener('click', () => {
                 item.action();
                 // Recreate submenu with updated states
@@ -556,7 +557,11 @@ class UIInjection {
     
             if (container && typeof window !== 'undefined' && window.SettingsManager) {
                 const finalHeight = parseInt(container.style.height, 10);
-                window.SettingsManager.updateSetting('display.dockedViewHeight', finalHeight);
+                window.SettingsManager.setSettings({
+                  display: {
+                    dockedViewHeight: finalHeight
+                  }
+                });
             }
         };
     

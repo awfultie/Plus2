@@ -1,10 +1,10 @@
 {
   "display": {
     "chromaKeyColor": "#b9e6b7",
-    "popoutBaseFontSize": 20,
-    "popoutDefaultWidth": 800,
+    "popoutBaseFontSize": "20",
+    "popoutDefaultWidth": 850,
     "popoutDefaultHeight": 300,
-    "displayTime": 10000,
+    "displayTime": 14000,
     "dockedViewHeight": 400,
     "dockingBehavior": "none",
     "channelIdOverride": "",
@@ -28,9 +28,9 @@
   },
   "styling": {
     "messageBGColor": "#111111",
-    "paragraphTextColor": "#FFFFFF",
+    "paragraphTextColor": "#ffffff",
     "enableUsernameColoring": true,
-    "usernameDefaultColor": "#FF0000",
+    "usernameDefaultColor": "#ff0000",
     "gauge": {
       "gaugeMaxValue": 30,
       "gaugeMinDisplayThreshold": 3,
@@ -70,10 +70,10 @@
       "genericPollMinWidth": 200
     },
     "leaderboard": {
-      "leaderboardHeaderText": "Leaderboard",
+      "leaderboardHeaderText": "Plus2",
       "leaderboardBackgroundColor": "#000000",
-      "leaderboardBackgroundAlpha": 0,
-      "leaderboardTextColor": "#FFFFFF"
+      "leaderboardBackgroundAlpha": "0.1",
+      "leaderboardTextColor": "#ffffff"
     },
     "rawCssEditor": ""
   },
@@ -84,23 +84,23 @@
     "dockingBehavior": "none",
     "autoOpenPopout": true,
     "requiredUrlSubstring": "",
-    "inactivityTimeoutDuration": 5000,
+    "inactivityTimeoutDuration": 6000,
     "maxPrunedCacheSize": 3000
   },
   "polling": {
     "unified": {
       "enabled": true,
       "lookbackWindow": 10000,
-      "resultDisplayTime": 15000,
-      "cooldownDuration": 8000,
-      "minimumPollDuration": 10000,
+      "resultDisplayTime": 14000,
+      "cooldownDuration": 5000,
+      "minimumPollDuration": 5000,
       "activityCheckInterval": 3000
     },
     "unifiedPolling": {
       "behavior": {
         "minActivePollDuration": 5000,
         "cooldownDuration": 10000,
-        "maxActivePollDuration": 30000,
+        "maxActivePollDuration": 35000,
         "decayInterval": 500,
         "messageBufferSize": 50,
         "lookbackWindow": 30000,
@@ -108,54 +108,60 @@
       },
       "yesno": {
         "enabled": true,
-        "activationThreshold": 3,
+        "activationThreshold": 15,
         "priority": 1,
-        "width": 320,
+        "width": 600,
         "height": 24,
-        "autoFitWidth": false,
+        "autoFitWidth": true,
         "styling": {
-          "yesColor": "#00ff00",
-          "noColor": "#ff0000",
+          "yesColor": "#ff0000",
+          "noColor": "#0008ff",
           "customizable": true
         }
       },
       "numbers": {
         "enabled": true,
-        "activationThreshold": 5,
+        "activationThreshold": 15,
         "priority": 2,
         "maxDisplay": 10,
         "maxDigits": 4,
-        "minWidth": 200
+        "minWidth": 300
       },
       "letters": {
         "enabled": true,
-        "activationThreshold": 5,
-        "individualThreshold": 2,
+        "activationThreshold": 15,
+        "individualThreshold": 3,
         "priority": 3,
-        "maxDisplayItems": 15,
-        "minWidth": 200
+        "maxDisplayItems": 5,
+        "minWidth": 300
       },
       "sentiment": {
         "enabled": true,
-        "activationThreshold": 5,
+        "activationThreshold": 6,
         "priority": 4,
-        "maxDisplayItems": 5,
-        "maxGrowthWidth": 150,
-        "maxGaugeValue": 30,
-        "labelHeight": 18,
-        "baseColor": "#2196F3",
+        "maxDisplayItems": 2,
+        "maxGrowthWidth": 500,
+        "autoFitWidth": true,
+        "maxGaugeValue": 50,
+        "labelHeight": 20,
+        "baseColor": "#8956fb",
         "blockList": "",
-        "groups": "[{\"category\":\"positive\",\"items\":[\"lol\",\"lmao\",\"lmfao\",\"haha\",\"hehe\",\"wow\",\"nice\",\"good\",\"great\",\"amazing\",\"awesome\",\"cool\",\"poggers\",\"pog\",\"kappa\",\"omegalul\",\"lul\"],\"color\":\"#00FF00\"},{\"category\":\"negative\",\"items\":[\"bad\",\"terrible\",\"awful\",\"hate\",\"sucks\",\"boring\",\"meh\",\"ugh\",\"no\",\"nah\",\"disappointing\",\"sad\",\"disappointed\"],\"color\":\"#FF0000\"},{\"category\":\"neutral\",\"items\":[\"ok\",\"okay\",\"fine\",\"sure\",\"maybe\",\"idk\",\"hmm\",\"interesting\",\"huh\"],\"color\":\"#FFFF00\"}]",
-        "minimumDisplayTime": 2000,
-        "decayInterval": 500,
+        "allowListMode": false,
+        "groups": "[{\"label\":\"+2\",\"words\":[\"+2\"],\"partialMatch\":false,\"color\":\"#f41f1f\"},{\"label\":\"I WAS HERE!\",\"words\":[\"I WAS HERE!\",\"I WAS HERE\",\"i was here\",\"i was here!\"],\"partialMatch\":false,\"color\":\"#f4d11f\"},{\"label\":\"-2\",\"words\":[\"-2\"],\"partialMatch\":false,\"color\":\"#535455\"}]",
+        "minimumDisplayTime": 1000,
+        "decayInterval": 1100,
         "decayAmount": 1,
-        "anchorPoint": "top"
+        "escalatedDecayEnabled": true,
+        "escalatedDecayThresholdTime": 4000,
+        "escalatedDecayMultiplier": 5,
+        "escalatedDecayMaxMultiplier": 50,
+        "anchorPoint": "bottom"
       }
     }
   },
   "leaderboard": {
-    "highlightValue": 10,
-    "timeWindowDays": 30
+    "highlightValue": 1,
+    "timeWindowDays": 7
   },
   "integrations": {
     "webhook": {
@@ -171,16 +177,27 @@
       }
     },
     "streamview": {
-      "enabled": true,
+      "enabled": false,
       "generateApiKey": false,
-      "baseUrl": "http://localhost:3000",
+      "baseUrl": "https://streamview.channel",
       "secretKey": "",
       "current": null,
       "browserSourceStyle": null,
-      "batchInterval": 1000,
+      "batchInterval": 300,
       "retryAttempts": 3,
       "timeout": 5000,
-      "activeViewUrl": "http://localhost:3000/view/67c6cd15-3e68-4c25-9e93-dd0ed69a7bdc"
+      "templates": {
+        "index": [],
+        "Default": {}
+      },
+      "channelIdOverride": {
+        "enabled": false,
+        "channelId": ""
+      },
+      "manualWebhookOverride": {
+        "enabled": false,
+        "webhookUrl": ""
+      }
     }
   }
 }

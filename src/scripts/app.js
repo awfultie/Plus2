@@ -39,7 +39,8 @@
         uiInjection.handleAutoDocking();
 
         // Process existing messages for UI only (no webhook events for old messages)
-        messageProcessor.processExistingMessagesUIOnly(chatContainer);
+        // Add UI elements (highlight buttons, tooltips) to existing messages without triggering polling/tracking
+        processExistingMessagesUIOnly(chatContainer);
 
         // Create message observer for new messages
         messageObserver = new MutationObserver((mutationsList) => {
@@ -156,6 +157,20 @@
 
         // Add tooltip hover listeners
         tooltipHandler.addHoverListeners(messageElement);
+    }
+
+    // Process existing messages for UI only (no polling/tracking)
+    function processExistingMessagesUIOnly(chatContainer) {
+        if (!chatContainer) return;
+
+        const existingMessages = chatContainer.querySelectorAll(platformAdapter.selectors.chatMessage);
+        existingMessages.forEach(messageElement => {
+            const messageElements = extractMessageElements(messageElement);
+            if (messageElements.hoverTarget && messageElements.chatMessage) {
+                // Only add UI elements, don't process for polling/tracking
+                addUIToMessage(messageElements.hoverTarget);
+            }
+        });
     }
 
     // --- Initialization ---

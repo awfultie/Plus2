@@ -74,7 +74,7 @@
             border: 1px solid #888; background: #555; color: white; border-radius: 3px;
             vertical-align: middle; z-index: 100;
         `;
-        highlightButton.onclick = (e) => {
+        highlightButton.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent other click listeners
             const badgesHTML = node.querySelector(currentSelectors.badges)?.innerHTML || '';
             const usernameHTML = node.querySelector(currentSelectors.username)?.innerHTML || '';
@@ -86,7 +86,7 @@
                 badgesHTML, usernameHTML, messageBodyHTML, replyHTML, username,
                 channelUrl: window.location.href
             });
-        };
+        });
 
         const authorContainer = node.querySelector(currentSelectors.authorContainer);
         if (authorContainer) {
@@ -113,9 +113,41 @@
         const targetNode = document.querySelector(currentSelectors.chatContainer);
         if (targetNode) {
             observer.observe(targetNode, { childList: true, subtree: platform.isTwitch });
-            targetNode.querySelectorAll(currentSelectors.chatMessage).forEach(processChatMessage);
+            // Add UI elements (highlight buttons) to existing messages without triggering polling/tracking
+            targetNode.querySelectorAll(currentSelectors.chatMessage).forEach(addUIOnlyToMessage);
         } else {
             setTimeout(startObserver, 2000);
+        }
+    }
+
+    // Add only UI elements without sending messages to background
+    function addUIOnlyToMessage(messageNode) {
+        const textEl = messageNode.querySelector(currentSelectors.messageContent);
+        const usernameEl = messageNode.querySelector(currentSelectors.username);
+
+        if (textEl && usernameEl && !messageNode.querySelector('#plus2-highlight-button')) {
+            // Add highlight button without processing message content
+            const highlightButton = document.createElement('button');
+            highlightButton.id = 'plus2-highlight-button';
+            highlightButton.textContent = 'H';
+            highlightButton.title = 'Highlight this message in Plus2';
+            highlightButton.style.cssText = `
+                margin-left: 8px; padding: 2px 5px; font-size: 10px; cursor: pointer;
+                border: 1px solid #888; background: #555; color: white; border-radius: 3px;
+            `;
+
+            highlightButton.addEventListener('click', () => {
+                const text = textEl.textContent || '';
+                const images = Array.from(textEl.querySelectorAll(currentSelectors.chatImage)).map(img => ({
+                    alt: img.alt || '',
+                    src: img.src || ''
+                }));
+                const username = usernameEl.textContent || '';
+
+                sendToBackground('HIGHLIGHT_MESSAGE_REQUEST', { text, images, username });
+            });
+
+            messageNode.appendChild(highlightButton);
         }
     }
 

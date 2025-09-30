@@ -14,18 +14,19 @@
         startTime: 0,
         messageBuffer: [],
         activeTracker: null,
-        
+
         // Timers
         activityCheckTimerId: null,
         clearTimerId: null,
         cooldownTimerId: null,
-        
+
     };
 
     // Separate sentiment tracking state (always-on, independent of polls)
     let sentimentState = {
         items: {}, // { term: { count: number, lastSeen: timestamp } }
         displayTimes: {}, // { term: timestamp } - when item first met threshold
+        maxValueTimes: {}, // { term: timestamp } - when item first reached max value
         lastDecayTime: Date.now(),
         decayInterval: null,
         shouldDisplay: false,
@@ -73,12 +74,11 @@
         broadcastToPopouts = deps.broadcastToPopouts;
         broadcastPollUpdate = deps.broadcastPollUpdate;
         webhookClient = deps.webhookClient;
-        
+
         // Start sentiment decay process
         const config = getUnifiedPollConfig();
         startSentimentDecay(config);
-        
-        
+
     }
 
     // Update settings when they change
@@ -104,7 +104,7 @@
             
             // Behavior settings (for decay) - should come from polling.unified
             behavior: {
-                decayInterval: settings.polling?.unified?.decayInterval || settings.behavior?.decayInterval || 500,
+                decayInterval: settings.polling?.unified?.decayInterval || settings.behavior?.decayInterval || 100,
                 decayAmount: settings.polling?.unified?.decayAmount || settings.behavior?.decayAmount || 1,
                 recentMaxResetDelay: settings.polling?.unified?.recentMaxResetDelay || settings.behavior?.recentMaxResetDelay || 2000,
                 maxActivePollDuration: settings.polling?.unifiedPolling?.behavior?.maxActivePollDuration || 30000
@@ -132,8 +132,13 @@
                 maxGrowthWidth: settings.polling?.unifiedPolling?.sentiment?.maxGrowthWidth || 150,
                 maxGaugeValue: settings.polling?.unifiedPolling?.sentiment?.maxGaugeValue || 30,
                 minimumDisplayTime: settings.polling?.unifiedPolling?.sentiment?.minimumDisplayTime || 2000,
-                decayInterval: settings.polling?.unifiedPolling?.sentiment?.decayInterval || 500,
+                decayInterval: settings.polling?.unifiedPolling?.sentiment?.decayInterval || 100,
                 decayAmount: settings.polling?.unifiedPolling?.sentiment?.decayAmount || 1,
+                // Escalated decay settings
+                escalatedDecayEnabled: settings.polling?.unifiedPolling?.sentiment?.escalatedDecayEnabled !== false,
+                escalatedDecayThresholdTime: settings.polling?.unifiedPolling?.sentiment?.escalatedDecayThresholdTime || 8000, // 8 seconds default
+                escalatedDecayMultiplier: settings.polling?.unifiedPolling?.sentiment?.escalatedDecayMultiplier || 5, // 5x decay rate per period at max
+                escalatedDecayMaxMultiplier: settings.polling?.unifiedPolling?.sentiment?.escalatedDecayMaxMultiplier || 50, // Max 50x decay rate
                 groups: (() => {
                     try {
                         return JSON.parse(settings.polling?.unifiedPolling?.sentiment?.groups || '[]');
@@ -141,7 +146,8 @@
                         return [];
                     }
                 })(),
-                blockList: (settings.polling?.unifiedPolling?.sentiment?.blockList || '').split(',').map(w => w.trim()).filter(w => w.length > 0)
+                blockList: (settings.polling?.unifiedPolling?.sentiment?.blockList || '').split(',').map(w => w.trim()).filter(w => w.length > 0),
+                allowListMode: settings.polling?.unifiedPolling?.sentiment?.allowListMode || false
             },
             
         };
@@ -515,7 +521,7 @@
     }
 
     // Clear poll data and reset state
-    function clearPollData() {
+    function clearPollData(clearSentimentData = false) {
         unifiedState.isActive = false;
         unifiedState.activePollType = null;
         unifiedState.isConcluded = false;
@@ -523,10 +529,14 @@
         unifiedState.messageBuffer = []; // Clear message buffer
         unifiedState.isOnCooldown = false; // Clear cooldown for testing
         
-        // Clear sentiment data as well
-        sentimentState.items = {};
-        sentimentState.displayTimes = {};
-        sentimentState.shouldDisplay = false;
+        // Optionally clear sentiment data (only for manual resets/flushes)
+        if (clearSentimentData) {
+            sentimentState.items = {};
+            sentimentState.displayTimes = {};
+            sentimentState.maxValueTimes = {};
+            sentimentState.shouldDisplay = false;
+            sentimentState.lastItemCount = 0;
+        }
         
         
         if (unifiedState.clearTimerId) clearTimeout(unifiedState.clearTimerId);
@@ -538,9 +548,33 @@
         if (unifiedState.cooldownTimerId) clearTimeout(unifiedState.cooldownTimerId);
         unifiedState.cooldownTimerId = null;
         
-        internalBroadcastPollUpdate();
+        // Force broadcast to clear all displays immediately
+        // Send explicit clear message to ensure UI is cleared
+        if (broadcastToPopouts) {
+            broadcastToPopouts({
+                type: 'UNIFIED_POLL_UPDATE',
+                data: {
+                    isActive: false,
+                    pollType: null,
+                    isConcluded: false,
+                    shouldDisplay: false,
+                    counts: {},
+                    totalResponses: 0,
+                    startTime: 0,
+                    winnerMessage: '',
+                    sentimentData: {
+                        type: 'sentiment',
+                        isActive: false,
+                        shouldDisplay: false,
+                        items: [],
+                        maxDisplayItems: 5,
+                        maxGrowthWidth: 150
+                    }
+                }
+            });
+        }
         
-        // Broadcast sentiment clear
+        // Also broadcast sentiment clear separately for compatibility
         broadcastSentimentUpdate([], getUnifiedPollConfig());
     }
 
@@ -861,9 +895,29 @@
         
         const deduplicatedItems = Array.from(uniqueItems.values());
 
+        // Allow list mode: if enabled, only process terms that match sentiment groups
+        let filteredItems = deduplicatedItems;
+        if (config.sentiment.allowListMode && config.sentiment.groups && config.sentiment.groups.length > 0) {
+            filteredItems = deduplicatedItems.filter(category => {
+                const term = category.value;
+                return config.sentiment.groups.some(group =>
+                    group.words && group.words.some(groupWord => {
+                        if (group.partialMatch) {
+                            // Partial matching - check if term contains the group word or vice versa
+                            return term.toLowerCase().includes(groupWord.toLowerCase()) ||
+                                   groupWord.toLowerCase().includes(term.toLowerCase());
+                        } else {
+                            // Exact matching
+                            return groupWord.toLowerCase() === term.toLowerCase();
+                        }
+                    })
+                );
+            });
+        }
+
         const currentTime = Date.now();
-        
-        deduplicatedItems.forEach(category => {
+
+        filteredItems.forEach(category => {
             const term = category.value;
             
             // Skip blocked terms
@@ -920,33 +974,33 @@
     function updateSentimentDisplay(config) {
         const threshold = config.sentiment?.activationThreshold || 15;
         const maxItems = config.sentiment?.maxDisplayItems || 5;
-        const minimumDisplayTime = config.sentiment?.minimumDisplayTime || 2000;
         const now = Date.now();
         
-        // Track when items first meet threshold
+        // Track when items first meet threshold and max value
+        const maxGaugeValue = config.sentiment?.maxGaugeValue || 30;
         Object.entries(sentimentState.items).forEach(([term, data]) => {
             if (data.count >= threshold && !sentimentState.displayTimes[term]) {
                 sentimentState.displayTimes[term] = now;
             }
+            // Track when item reaches max value (only set, never clear here - cleared when it hits 0)
+            if (data.count >= maxGaugeValue && !sentimentState.maxValueTimes[term]) {
+                sentimentState.maxValueTimes[term] = now;
+            }
         });
         
-        // Get items that should be displayed (meet threshold OR within minimum display time)
+        // Get items that should be displayed (meet threshold to start, continue until count reaches 0)
         const displayItems = Object.entries(sentimentState.items)
             .filter(([term, data]) => {
-                const meetsThreshold = data.count >= threshold;
-                const firstDisplayTime = sentimentState.displayTimes[term];
-                const withinMinimumTime = firstDisplayTime && (now - firstDisplayTime) < minimumDisplayTime;
-                
-                return meetsThreshold || withinMinimumTime;
+                // Show any item with count > 0 AND has previously met threshold
+                return data.count > 0 && sentimentState.displayTimes[term];
             })
             .sort((a, b) => b[1].count - a[1].count)
             .slice(0, maxItems);
             
-        // Clean up displayTimes for items that are no longer needed
+        // Clean up displayTimes for items that are no longer needed (count <= 0)
         Object.keys(sentimentState.displayTimes).forEach(term => {
             const data = sentimentState.items[term];
-            const firstDisplayTime = sentimentState.displayTimes[term];
-            if (!data || (data.count < threshold && (now - firstDisplayTime) >= minimumDisplayTime)) {
+            if (!data || data.count <= 0) {
                 delete sentimentState.displayTimes[term];
             }
         });
@@ -967,8 +1021,13 @@
             clearInterval(sentimentState.decayInterval);
         }
 
-        const decayInterval = config.sentiment?.decayInterval || config.behavior?.decayInterval || 500;
-        const decayAmount = config.sentiment?.decayAmount || 1;
+        const decayInterval = config.sentiment?.decayInterval || config.behavior?.decayInterval || 100;
+        const baseDecayAmount = config.sentiment?.decayAmount || 1;
+        const maxGaugeValue = config.sentiment?.maxGaugeValue || 30;
+        const escalatedDecayEnabled = config.sentiment?.escalatedDecayEnabled !== false;
+        const escalatedDecayThresholdTime = config.sentiment?.escalatedDecayThresholdTime || 8000;
+        const escalatedDecayMultiplier = config.sentiment?.escalatedDecayMultiplier || 5;
+        const escalatedDecayMaxMultiplier = config.sentiment?.escalatedDecayMaxMultiplier || 50;
 
         sentimentState.decayInterval = setInterval(() => {
             const currentTime = Date.now();
@@ -976,15 +1035,34 @@
 
             Object.entries(sentimentState.items).forEach(([term, data]) => {
                 if (data.count > 0) {
+                    let decayAmount = baseDecayAmount;
+                    
+                    // Apply escalated decay if enabled and item has been at max for too long
+                    if (escalatedDecayEnabled && sentimentState.maxValueTimes[term]) {
+                        const timeAtMax = currentTime - sentimentState.maxValueTimes[term];
+                        
+                        if (timeAtMax > escalatedDecayThresholdTime) {
+                            // Calculate multiplier based on how long it's been at max
+                            // Every escalatedDecayThresholdTime period adds the multiplier
+                            const periodsAtMax = Math.floor(timeAtMax / escalatedDecayThresholdTime);
+                            const multiplier = Math.min(
+                                1 + (periodsAtMax * (escalatedDecayMultiplier - 1)),
+                                escalatedDecayMaxMultiplier
+                            );
+                            decayAmount = baseDecayAmount * multiplier;
+                        }
+                    }
+                    
                     data.count = Math.max(0, data.count - decayAmount);
                     hasChanges = true;
                 }
             });
 
-            // Remove items that have decayed to 0
+            // Remove items that have decayed to 0 or below
             Object.keys(sentimentState.items).forEach(term => {
-                if (sentimentState.items[term].count === 0) {
+                if (sentimentState.items[term].count <= 0) {
                     delete sentimentState.items[term];
+                    delete sentimentState.maxValueTimes[term]; // Clean up max value tracking
                     hasChanges = true;
                 }
             });
@@ -1082,19 +1160,12 @@
 
     function getSentimentState() {
         const config = getUnifiedPollConfig();
-        const threshold = config.sentiment?.activationThreshold || 15;
         const maxItems = config.sentiment?.maxDisplayItems || 5;
-        const minimumDisplayTime = config.sentiment?.minimumDisplayTime || 2000;
-        const now = Date.now();
         
         const displayItems = Object.entries(sentimentState.items)
             .filter(([term, data]) => {
-                // Filter by threshold OR minimum display time
-                const meetsThreshold = data.count >= threshold;
-                const firstDisplayTime = sentimentState.displayTimes[term];
-                const withinMinimumTime = firstDisplayTime && (now - firstDisplayTime) < minimumDisplayTime;
-                
-                if (!meetsThreshold && !withinMinimumTime) return false;
+                // Show any item with count > 0 AND has previously met threshold
+                if (data.count <= 0 || !sentimentState.displayTimes[term]) return false;
                 
                 // Skip yes/no terms if a yes/no poll is active
                 if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {

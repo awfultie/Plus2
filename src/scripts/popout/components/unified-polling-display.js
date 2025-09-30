@@ -985,6 +985,7 @@ class UnifiedPollingDisplayComponent {
                                  this.settings.polling?.generic?.sentiment?.maxGaugeValue || 30;
         const sentimentMaxGrowthWidth = this.settings.polling?.unifiedPolling?.sentiment?.maxGrowthWidth || 
                                        this.settings.polling?.generic?.sentiment?.maxGrowthWidth || 150;
+        const sentimentAutoFitWidth = this.settings.polling?.unifiedPolling?.sentiment?.autoFitWidth || false;
         const sentimentBaseColor = this.settings.polling?.unifiedPolling?.sentiment?.baseColor || '#2196F3';
         const anchorPoint = this.settings.polling?.unifiedPolling?.sentiment?.anchorPoint || 'top';
         
@@ -1036,19 +1037,33 @@ class UnifiedPollingDisplayComponent {
                 this.sentimentTimestamps.set(valueKey, Date.now());
                 
                 // Calculate fill width
-            const baseWidth = 100;
+            const baseWidth = 30;
             const countRatio = count / sentimentGaugeMax;
             
             let fillWidthPx;
-            if (countRatio <= 1) {
-                fillWidthPx = baseWidth * countRatio;
+            if (sentimentAutoFitWidth) {
+                // Auto-fit: proportional scaling where max value = max available width
+                const availableWidth = contentElement.offsetWidth || 400; // Fallback width
+                const paddingOffset = 15; // Account for padding, borders, and margins
+                const maxWidth = availableWidth - paddingOffset;
+
+                // Direct proportional calculation: each unit of count = (maxWidth / maxValue) pixels
+                const pixelsPerUnit = maxWidth / sentimentGaugeMax;
+                const proportionalWidth = count * pixelsPerUnit;
+                fillWidthPx = Math.max(baseWidth, Math.min(proportionalWidth, maxWidth));
             } else {
-                const overflowAmount = (countRatio - 1) * baseWidth;
-                const cappedOverflow = Math.min(overflowAmount, sentimentMaxGrowthWidth - baseWidth);
-                fillWidthPx = baseWidth + cappedOverflow;
+                // Manual mode: proportional scaling where max value = maxGrowthWidth setting
+                const maxWidth = sentimentMaxGrowthWidth;
+
+                // Direct proportional calculation: each unit of count = (maxWidth / maxValue) pixels
+                const pixelsPerUnit = maxWidth / sentimentGaugeMax;
+                const proportionalWidth = count * pixelsPerUnit;
+                fillWidthPx = Math.max(baseWidth, Math.min(proportionalWidth, maxWidth));
             }
             
-            const isAtMaxWidth = fillWidthPx >= sentimentMaxGrowthWidth;
+            const isAtMaxWidth = sentimentAutoFitWidth ? 
+                (fillWidthPx >= (contentElement.offsetWidth - 15 || 400)) : 
+                (fillWidthPx >= sentimentMaxGrowthWidth);
             const isAtMaxValue = count >= sentimentGaugeMax;
             
             // Check if this sentiment item belongs to a custom group with a specific color
@@ -1514,11 +1529,16 @@ class UnifiedPollingDisplayComponent {
                                      (sentimentData && sentimentData.counts && Object.entries(sentimentData.counts).filter(([, count]) => count > 0).length > 0);
         
         if (!hasValidSentimentData) {
-            // Remove the container if no valid sentiment data
+            // Hide the container if no valid sentiment data (don't remove to preserve transitions)
             if (sentimentContainer) {
-                sentimentContainer.remove();
+                sentimentContainer.style.display = 'none';
             }
             return;
+        }
+
+        // Show the container when we have data
+        if (sentimentContainer) {
+            sentimentContainer.style.display = '';
         }
         
         // Render sentiment gauges in the container

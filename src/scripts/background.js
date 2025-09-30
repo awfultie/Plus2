@@ -5,7 +5,7 @@
 // Firefox: modules loaded via manifest.json background.scripts array
 
 // --- Service Worker State ---
-let settings = {};
+let settings;
 let webhookClient = null;
 let streamviewClient = null;
 
@@ -252,28 +252,31 @@ async function getLeaderboardData() {
 
 async function loadSettings() {
     
+    // Initialize settings if undefined
+    if (settings === undefined) {
+        settings = {};
+    }
+    
     // Wait a bit for SettingsManager to initialize, then check again
     await new Promise(resolve => setTimeout(resolve, 100));
-    console.log('[Background] SettingsManager available after wait:', typeof SettingsManager !== 'undefined');
     
     // Use SettingsManager for centralized configuration
     if (typeof SettingsManager !== 'undefined' && SettingsManager.getAllSettings) {
         try {
             settings = await SettingsManager.getAllSettings();
-            console.log('[SETTINGS DEBUG] Loaded settings via SettingsManager:', {
-                streamviewEnabled: settings.integrations?.streamview?.enabled,
-                streamviewCurrent: settings.integrations?.streamview?.current,
-                hasCurrentStreamview: !!settings.integrations?.streamview?.current
-            });
         } catch (error) {
             console.error('[Background] Error loading settings via SettingsManager:', error);
+            console.error('[Background] Full error stack:', error.stack);
             // Fallback to direct storage
-            settings = await browser.storage.sync.get();
-            console.log('[SETTINGS DEBUG] Loaded settings via fallback storage:', {
-                streamviewEnabled: settings.integrations?.streamview?.enabled,
-                streamviewCurrent: settings.integrations?.streamview?.current,
-                hasCurrentStreamview: !!settings.integrations?.streamview?.current
-            });
+            try {
+                const fallbackSettings = await browser.storage.sync.get();
+                settings = fallbackSettings;
+            } catch (assignmentError) {
+                console.error('[Background] Error in fallback assignment:', assignmentError);
+                console.error('[Background] Assignment error stack:', assignmentError.stack);
+                // Use empty object as last resort
+                settings = {};
+            }
         }
     } else {
         // Fallback for environments where SettingsManager is not available
@@ -498,18 +501,9 @@ function processHighlightRequest(data) {
     });
 
     // Send highlight message to webhook - always send for streamview, check settings for legacy webhooks
-    console.log('[HIGHLIGHT DEBUG] About to send webhook event, webhookClient exists:', !!webhookClient);
     if (webhookClient) {
-        console.log('[HIGHLIGHT DEBUG] Sending highlight_message to webhook:', {
-            highlightData,
-            platform: isYouTube ? 'youtube' : 'twitch',
-            channelUrl,
-            webhookClientEnabled: webhookClient.isEnabled()
-        });
         webhookClient.sendEvent('highlight_message', highlightData, 
             isYouTube ? 'youtube' : 'twitch', channelUrl);
-    } else {
-        console.log('[HIGHLIGHT DEBUG] webhookClient not initialized!');
     }
 
     broadcastLeaderboardUpdate(); // Update leaderboard visibility
@@ -666,7 +660,6 @@ function initializeUnifiedPolling() {
             webhookClient: webhookClient
         });
         console.log('[Background] ✅ Unified Polling system initialized successfully');
-        console.log('[Background] Unified polling enabled in settings:', !!settings.polling?.unifiedPolling);
         
         // Run a quick test if enabled
         if (settings.polling?.unifiedPolling) {
@@ -704,10 +697,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             initializationPromise.then(() => {
                 console.log('[Background] initializationPromise resolved, getting leaderboard data');
                 getLeaderboardData().then(leaderboardData => {
-                    console.log('[Background] About to send settings with keys:', typeof settings, Object.keys(settings).length);
-                    console.log('[Background] Sending initial state to popout');
-                    console.log('[Background] Settings keys:', Object.keys(settings));
-                    console.log('[Background] Settings display:', settings.display);
                     const response = {
                         settings: settings,
                         gauge: getGaugeState(),
@@ -792,6 +781,16 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             openPopout();
             break;
             
+        case 'FLUSH_POLLS': // Sent from popup menu to flush active polls
+            console.log('[Background] Flushing active polls...');
+            if (unifiedPolling) {
+                unifiedPolling.clearPollData(true); // Clear sentiment data when manually flushing
+                sendResponse({ success: true });
+            } else {
+                sendResponse({ success: false, error: 'Unified polling not initialized' });
+            }
+            break;
+            
         case 'SAVE_SETTINGS': // Save settings from UI
             settings = message.settings;
             
@@ -838,7 +837,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 
                 console.log('[Background] Testing message processing...');
                 testMessages.forEach(msg => {
-                    console.log(`[Background] Processing test message: "${msg.text}"`);
                     unifiedPolling.processUnifiedMessage(msg.text, msg.images, { username: 'test_user' });
                 });
                 
@@ -846,8 +844,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const pollState = unifiedPolling.getUnifiedPollState();
                 const gaugeState = getGaugeState(); // Use local deprecated gauge state function
                 
-                console.log('[Background] Current poll state:', pollState);
-                console.log('[Background] Current gauge state:', gaugeState);
                 
                 sendResponse({ success: true, pollState, gaugeState });
             } else {
@@ -859,7 +855,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'RESET_UNIFIED_POLLING': // Reset command
             console.log('[Background] Resetting unified polling system...');
             if (unifiedPolling) {
-                unifiedPolling.clearPollData();
+                unifiedPolling.clearPollData(true); // Clear sentiment data when manually resetting
                 sendResponse({ success: true });
             } else {
                 sendResponse({ success: false, error: 'Unified polling not initialized' });
@@ -897,7 +893,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
 
         case 'CREATE_STREAMVIEW': // Sent from options page
-            streamviewClient.createStreamview().then(result => {
+            // Force reload settings to ensure we have the latest secret key
+            loadSettings().then(() => {
+                return streamviewClient.createStreamview();
+            }).then(result => {
                 sendResponse({ success: true, data: result });
             }).catch(error => {
                 const errorMessage = (error instanceof Error) ? error.message : String(error);

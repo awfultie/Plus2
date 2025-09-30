@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const panels = document.querySelectorAll('.options-panel');
   const optionsNavMenu = document.getElementById('options-nav-menu');
 
-  function showPanel(targetId) {
+  function showPanel(targetId, anchor = null) {
     panels.forEach(panel => panel.classList.remove('active'));
     navLinks.forEach(link => link.classList.remove('active'));
 
@@ -26,23 +26,116 @@ document.addEventListener('DOMContentLoaded', () => {
     if (targetPanel) targetPanel.classList.add('active');
     if (targetLink) targetLink.classList.add('active');
     
+    // Handle anchor navigation
+    if (anchor) {
+      setTimeout(() => {
+        const anchorElement = document.getElementById(anchor);
+        if (anchorElement) {
+          // If the anchor element is a details element, open it if it's closed
+          if (anchorElement.tagName.toLowerCase() === 'details' && !anchorElement.open) {
+            anchorElement.open = true;
+          }
+          anchorElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100); // Small delay to ensure panel is visible
+    }
+    
     // Use session storage to remember the active tab during the session
     sessionStorage.setItem('activeOptionsPanel', targetId);
+    if (anchor) {
+      sessionStorage.setItem('activeOptionsAnchor', anchor);
+    }
   }
 
   if (optionsNavMenu) {
     optionsNavMenu.addEventListener('click', (e) => {
       e.preventDefault();
       const target = e.target.closest('.nav-link');
-      if (target && target.dataset.target) {
-        showPanel(target.dataset.target);
+      if (target) {
+        // Handle expandable section headers
+        if (target.classList.contains('nav-section-header')) {
+          // Map panel targets to their correct subsection IDs
+          const panelToSubsection = {
+            'panel-general': 'general-subsection',
+            'panel-popout': 'popout-subsection',
+            'panel-unified-polling': 'polling-subsection',
+            'panel-tracking': 'tracking-subsection',
+            'panel-streamview': 'streamview-subsection'
+          };
+          
+          const panelTarget = target.getAttribute('data-target');
+          const subsectionId = panelToSubsection[panelTarget];
+          const subsection = document.getElementById(subsectionId);
+          const expandIcon = target.querySelector('.expand-icon');
+          
+          if (subsection && expandIcon) {
+            const isExpanded = subsection.classList.contains('expanded');
+            
+            if (isExpanded) {
+              // Collapse
+              subsection.classList.remove('expanded');
+              target.classList.remove('expanded');
+              expandIcon.style.transform = 'rotate(0deg)';
+            } else {
+              // Expand
+              subsection.classList.add('expanded');
+              target.classList.add('expanded');
+              expandIcon.style.transform = 'rotate(90deg)';
+            }
+          }
+          
+          // Still show the panel when clicking section header
+          if (target.dataset.target) {
+            showPanel(target.dataset.target);
+          }
+        } 
+        // Handle subsection navigation with anchors
+        else if (target.dataset.target && target.dataset.anchor) {
+          showPanel(target.dataset.target, target.dataset.anchor);
+        }
+        // Handle regular navigation
+        else if (target.dataset.target) {
+          showPanel(target.dataset.target);
+        }
       }
     });
   }
 
   // Restore the last active panel on page load, or default to the first one
   const lastActivePanel = sessionStorage.getItem('activeOptionsPanel') || (navLinks.length > 0 ? navLinks[0].dataset.target : 'panel-general');
-  showPanel(lastActivePanel);
+  const lastActiveAnchor = sessionStorage.getItem('activeOptionsAnchor');
+  showPanel(lastActivePanel, lastActiveAnchor);
+
+  // Initialize expandable sections - show the section that contains the active panel
+  function initializeExpandedSections() {
+    const activePanel = sessionStorage.getItem('activeOptionsPanel');
+    if (activePanel) {
+      // Find which section this panel belongs to and expand it
+      const sectionMapping = {
+        'panel-general': 'general-subsection',
+        'panel-popout': 'popout-subsection', 
+        'panel-unified-polling': 'polling-subsection',
+        'panel-tracking': 'tracking-subsection',
+        'panel-streamview': 'streamview-subsection'
+      };
+      
+      const subsectionId = sectionMapping[activePanel];
+      if (subsectionId) {
+        const subsection = document.getElementById(subsectionId);
+        const headerLink = document.querySelector(`[data-target="${activePanel}"].nav-section-header`);
+        const expandIcon = headerLink?.querySelector('.expand-icon');
+        
+        if (subsection && headerLink && expandIcon) {
+          subsection.classList.add('expanded');
+          headerLink.classList.add('expanded');
+          expandIcon.style.transform = 'rotate(90deg)';
+        }
+      }
+    }
+  }
+  
+  // Initialize expanded sections after a short delay to ensure DOM is ready
+  setTimeout(initializeExpandedSections, 50);
 
   // --- Element References ---
   const statusEl = document.getElementById('status');
@@ -133,11 +226,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingSentimentThresholdInput = document.getElementById('unifiedPollingSentimentThreshold');
   const unifiedPollingSentimentMaxDisplayItemsInput = document.getElementById('unifiedPollingSentimentMaxDisplayItems');
   const unifiedPollingSentimentMaxGrowthWidthInput = document.getElementById('unifiedPollingSentimentMaxGrowthWidth');
+  const unifiedPollingSentimentAutoFitWidthInput = document.getElementById('unifiedPollingSentimentAutoFitWidth');
   const unifiedPollingSentimentLabelHeightInput = document.getElementById('unifiedPollingSentimentLabelHeight');
   const unifiedPollingSentimentMaxGaugeValueInput = document.getElementById('unifiedPollingSentimentMaxGaugeValue');
   const unifiedPollingSentimentBaseColorInput = document.getElementById('unifiedPollingSentimentBaseColor');
   const unifiedPollingSentimentDecayIntervalInput = document.getElementById('unifiedPollingSentimentDecayInterval');
   const unifiedPollingSentimentDecayAmountInput = document.getElementById('unifiedPollingSentimentDecayAmount');
+  const unifiedPollingSentimentEscalatedDecayEnabledInput = document.getElementById('unifiedPollingSentimentEscalatedDecayEnabled');
+  const unifiedPollingSentimentEscalatedDecayThresholdTimeInput = document.getElementById('unifiedPollingSentimentEscalatedDecayThresholdTime');
+  const unifiedPollingSentimentEscalatedDecayMultiplierInput = document.getElementById('unifiedPollingSentimentEscalatedDecayMultiplier');
+  const unifiedPollingSentimentEscalatedDecayMaxMultiplierInput = document.getElementById('unifiedPollingSentimentEscalatedDecayMaxMultiplier');
   const unifiedPollingSentimentBlockListInput = document.getElementById('unifiedPollingSentimentBlockList');
   const unifiedPollingSentimentGroupsInput = document.getElementById('unifiedPollingSentimentGroups');
   
@@ -871,6 +969,25 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleYesNoWidthInput();
   }
 
+  // Sentiment Auto-fit Width Toggle Logic
+  if (unifiedPollingSentimentAutoFitWidthInput && unifiedPollingSentimentMaxGrowthWidthInput) {
+    const toggleSentimentWidthInput = () => {
+      unifiedPollingSentimentMaxGrowthWidthInput.disabled = unifiedPollingSentimentAutoFitWidthInput.checked;
+      if (unifiedPollingSentimentAutoFitWidthInput.checked) {
+        unifiedPollingSentimentMaxGrowthWidthInput.style.opacity = '0.5';
+        unifiedPollingSentimentMaxGrowthWidthInput.title = 'Auto-fit is enabled - width will be determined by popout window';
+      } else {
+        unifiedPollingSentimentMaxGrowthWidthInput.style.opacity = '1';
+        unifiedPollingSentimentMaxGrowthWidthInput.title = '';
+      }
+    };
+    
+    unifiedPollingSentimentAutoFitWidthInput.addEventListener('change', toggleSentimentWidthInput);
+    
+    // Initialize the state on page load
+    toggleSentimentWidthInput();
+  }
+
   // Test webhook functionality
   if (testWebhookButton) {
     testWebhookButton.addEventListener('click', async () => {
@@ -1011,7 +1128,8 @@ document.addEventListener('DOMContentLoaded', () => {
       await saveOptions();
 
       // Check if we have an existing streamview to update
-      const { currentStreamview } = await browser.storage.sync.get(['currentStreamview']);
+      const settings = await window.SettingsManager.getAllSettings();
+      const currentStreamview = settings.integrations?.streamview?.current;
       
       if (currentStreamview && currentStreamview.id) {
         // Show confirmation dialog for existing connection
@@ -1082,14 +1200,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
           
-          await window.SettingsManager.updateSetting('integrations.streamview.current', streamviewData);
+          // Use targeted update to avoid overwriting user's custom baseUrl, secretKey, etc.
+          await window.SettingsManager.updateNestedSetting('integrations.streamview.current', streamviewData);
           
-          // Verify storage immediately after setting
-          const verification = await browser.storage.sync.get(['currentStreamview']);
+          // Update form elements with the new URLs to ensure persistence on form save
+          const viewUrlInput = document.getElementById('activeViewUrl');
+          const webhookUrlInput = document.getElementById('activeWebhookUrl');
           
-          // Storage.onChanged listener will automatically reload settings
+          if (viewUrlInput) {
+            viewUrlInput.value = streamviewData.viewUrl || '';
+          }
           
+          if (webhookUrlInput) {
+            webhookUrlInput.value = streamviewData.webhookUrl || '';
+          }
+          
+          // Save the updated form to persist the URLs through the SettingsManager
+          await saveOptions();
+          
+          // Settings updated - display will be refreshed by updateActiveStreamviewDisplay call below
           await updateActiveStreamviewDisplay();
+          
+          // Automatically redirect to the browser source config page with secret key
+          if (apiData.configUrl || streamviewData.configUrl) {
+            const configUrl = apiData.configUrl || streamviewData.configUrl;
+            
+            // Get the current secret key for injection
+            const settings = await window.SettingsManager.getAllSettings();
+            const streamviewSecretKey = settings.integrations?.streamview?.secretKey;
+            
+            // Create tab and inject secret key into localStorage if available
+            browser.tabs.create({ url: configUrl }).then(async (tab) => {
+              if (streamviewSecretKey && tab.id) {
+                await injectSecretKeyWithRetry(tab.id, streamviewSecretKey, 'new browser source');
+              }
+            });
+          }
         } else {
           const errorMessage = response ? response.error : 'No response from background script';
           showStatus(`❌ Failed to create streamview: ${errorMessage || 'An unknown error occurred.'}`, 5000);
@@ -1111,27 +1257,28 @@ document.addEventListener('DOMContentLoaded', () => {
   async function updateActiveStreamviewDisplay() {
     const activeContainer = document.getElementById('activeStreamviewContainer');
     const noStreamviewMessage = document.getElementById('noStreamviewMessage');
-    const { currentStreamview, webhookEvents } = await browser.storage.sync.get(['currentStreamview', 'webhookEvents']);
     
-
+    // Get current streamview from SettingsManager instead of legacy storage
+    const settings = await window.SettingsManager.getAllSettings();
+    const currentStreamview = settings.integrations?.streamview?.current;
+    const webhookEvents = settings.integrations?.webhook?.events;
+    
     if (currentStreamview && currentStreamview.id) {
         activeContainer.style.display = 'block';
         noStreamviewMessage.style.display = 'none';
 
         // Note: activeStreamviewName element doesn't exist in HTML - name is shown in the section header
         
-        // Set URL values and log for debugging
+        // Set URL values
         const viewUrlInput = document.getElementById('activeViewUrl');
         const webhookUrlInput = document.getElementById('activeWebhookUrl');
         
         if (viewUrlInput) {
             viewUrlInput.value = currentStreamview.viewUrl || '';
-        } else {
         }
         
         if (webhookUrlInput) {
             webhookUrlInput.value = currentStreamview.webhookUrl || '';
-        } else {
         }
         
         // Always show the copy button when there's an active streamview
@@ -1173,14 +1320,97 @@ document.addEventListener('DOMContentLoaded', () => {
     showStatus('✅ URL copied to clipboard!', 2000);
   }
 
+  // Helper function for reliable secret key injection
+  async function injectSecretKeyWithRetry(tabId, secretKey, context, maxRetries = 5) {
+    let retries = 0;
+    const attemptInjection = async () => {
+      try {
+        // First, wait for the page to be ready
+        await waitForPageLoad(tabId);
+        
+        // Then inject the secret key
+        const results = await browser.tabs.executeScript(tabId, {
+          code: `
+            try {
+              localStorage.setItem('streamviewSecretKey', '${secretKey}');
+              console.log('[Plus2] Secret key injected into localStorage for ${context}');
+              
+              // Dispatch a custom event to notify the page that the secret key is available
+              window.dispatchEvent(new CustomEvent('secretKeyInjected', { 
+                detail: { secretKey: '${secretKey}' } 
+              }));
+              
+              // Return success indicator
+              'SECRET_KEY_INJECTED_SUCCESS';
+            } catch (error) {
+              console.error('[Plus2] Error storing secret key:', error);
+              throw error;
+            }
+          `
+        });
+        
+        // Verify injection succeeded
+        if (results && results[0] === 'SECRET_KEY_INJECTED_SUCCESS') {
+          console.log(`[Plus2] Secret key successfully injected for ${context}`);
+          return true;
+        } else {
+          throw new Error('Injection verification failed');
+        }
+        
+      } catch (error) {
+        retries++;
+        if (retries < maxRetries) {
+          console.warn(`[Plus2] Secret key injection attempt ${retries} failed for ${context}, retrying...`, error.message);
+          await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Progressive delay: 1s, 2s, 3s
+          return attemptInjection();
+        } else {
+          console.error(`[Plus2] Failed to inject secret key for ${context} after ${maxRetries} attempts:`, error.message);
+          return false;
+        }
+      }
+    };
+    
+    return attemptInjection();
+  }
+
+  // Helper function to wait for page to be ready
+  async function waitForPageLoad(tabId, timeout = 10000) {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeout) {
+      try {
+        const results = await browser.tabs.executeScript(tabId, {
+          code: `
+            // Check if page is ready, localStorage is available, and React/Next.js is likely loaded
+            (document.readyState === 'complete' && 
+            typeof localStorage !== 'undefined' && 
+            typeof window !== 'undefined' &&
+            (document.getElementById('__next') || document.querySelector('[data-reactroot]') || document.body.children.length > 0)) 
+            ? 'PAGE_READY' : 'PAGE_LOADING'
+          `
+        });
+        
+        if (results && results[0] === 'PAGE_READY') {
+          return true;
+        }
+        
+        // Wait a bit before next check
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        // Tab might not be ready yet, wait and retry
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+    
+    throw new Error('Page load timeout');
+  }
+
   // Helper functions for browser source configuration
-  function getActiveStreamviewId() {
-    return new Promise((resolve) => {
-      browser.storage.sync.get(['currentStreamview']).then((result) => {
-        const { currentStreamview } = result;
-        resolve(currentStreamview && currentStreamview.id ? currentStreamview.id : null);
-      });
-    });
+  async function getActiveStreamviewId() {
+    const settings = await window.SettingsManager.getAllSettings();
+    const currentStreamview = settings.integrations?.streamview?.current;
+    return currentStreamview && currentStreamview.id ? currentStreamview.id : null;
   }
 
   function getStreamviewBaseUrl() {
@@ -1226,13 +1456,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Secret key management event listeners
   if (generateSecretKeyButton) {
-    generateSecretKeyButton.addEventListener('click', () => {
+    generateSecretKeyButton.addEventListener('click', async () => {
       const newSecret = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
       streamviewSecretKeyInput.value = newSecret;
       streamviewSecretKeyInput.type = 'text'; // Show the generated key
       showStatus('✅ New secret key generated!', 2000);
       // Auto-save the new secret key
-      saveOptions({ streamviewSecretKey: newSecret });
+      await window.SettingsManager.setSettings({
+        integrations: {
+          streamview: {
+            secretKey: newSecret
+          }
+        }
+      });
     });
   }
 
@@ -1249,20 +1485,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (clearSecretKeyButton) {
-    clearSecretKeyButton.addEventListener('click', () => {
+    clearSecretKeyButton.addEventListener('click', async () => {
       if (confirm('Are you sure you want to clear your secret key? You will lose access to any protected StreamViews.')) {
         streamviewSecretKeyInput.value = '';
         showStatus('🗑️ Secret key cleared', 2000);
         // Auto-save the cleared secret key
-        saveOptions({ streamviewSecretKey: '' });
+        await window.SettingsManager.setSettings({
+          integrations: {
+            streamview: {
+              secretKey: ''
+            }
+          }
+        });
       }
     });
   }
 
   if (streamviewSecretKeyInput) {
-    streamviewSecretKeyInput.addEventListener('input', () => {
+    streamviewSecretKeyInput.addEventListener('input', async () => {
       // Auto-save secret key changes
-      saveOptions({ streamviewSecretKey: streamviewSecretKeyInput.value });
+      await window.SettingsManager.setSettings({
+        integrations: {
+          streamview: {
+            secretKey: streamviewSecretKeyInput.value
+          }
+        }
+      });
     });
   }
 
@@ -1283,8 +1531,9 @@ document.addEventListener('DOMContentLoaded', () => {
     saveCurrentConfigAsTemplate.isRunning = true;
     
     try {
-      // Get current streamview configuration
-      const { currentStreamview } = await browser.storage.sync.get(['currentStreamview']);
+      // Get current streamview configuration from SettingsManager
+      const settings = await window.SettingsManager.getAllSettings();
+      const currentStreamview = settings.integrations?.streamview?.current;
       if (!currentStreamview || !currentStreamview.id) {
         showStatus('❌ No active StreamView to save as template', 3000);
         saveCurrentConfigAsTemplate.isRunning = false;
@@ -1296,7 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Build headers - include secret key if available
       const headers = {};
-      const { streamviewSecretKey } = await browser.storage.sync.get(['streamviewSecretKey']);
+      const streamviewSecretKey = settings.integrations?.streamview?.secretKey;
       if (streamviewSecretKey) {
         headers['x-secret-key'] = streamviewSecretKey;
       }
@@ -1311,8 +1560,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Check if template already exists
-      const { streamviewTemplateIndex = [] } = await browser.storage.sync.get(['streamviewTemplateIndex']);
-      const templateKey = `streamview_template_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const streamviewTemplateIndex = settings.integrations?.streamview?.templates?.index || [];
       
       if (streamviewTemplateIndex.includes(templateName)) {
         const overwrite = confirm(`Template "${templateName}" already exists. Do you want to overwrite it?`);
@@ -1330,13 +1578,29 @@ document.addEventListener('DOMContentLoaded', () => {
         createdFrom: currentStreamview.id
       };
       
-      // Save individual template
-      await browser.storage.sync.set({ [templateKey]: templateData });
+      // Save individual template  
+      await window.SettingsManager.setSettings({
+        integrations: {
+          streamview: {
+            templates: {
+              [templateName]: templateData
+            }
+          }
+        }
+      });
       
       // Update template index (list of template names) only if it's a new template
       if (!streamviewTemplateIndex.includes(templateName)) {
         streamviewTemplateIndex.push(templateName);
-        await browser.storage.sync.set({ streamviewTemplateIndex });
+        await window.SettingsManager.setSettings({
+          integrations: {
+            streamview: {
+              templates: {
+                index: streamviewTemplateIndex
+              }
+            }
+          }
+        });
       }
       
       // Clear the input (list will refresh automatically via storage change listener)
@@ -1360,8 +1624,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
       // Get template index (list of template names)
-      const { streamviewTemplateIndex = [] } = await browser.storage.sync.get(['streamviewTemplateIndex']);
-      const templateNames = streamviewTemplateIndex;
+      const settings = await window.SettingsManager.getAllSettings();
+      const templateNames = settings.integrations?.streamview?.templates?.index || [];
       
       if (templateNames.length === 0) {
         templatesListEl.innerHTML = '<div style="color: #666; font-style: italic;">No templates saved yet</div>';
@@ -1427,7 +1691,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   async function loadTemplateToCurrentView(templateName) {
     try {
-      const { currentStreamview } = await browser.storage.sync.get(['currentStreamview']);
+      // Get current streamview from SettingsManager
+      const settings = await window.SettingsManager.getAllSettings();
+      const currentStreamview = settings.integrations?.streamview?.current;
       if (!currentStreamview || !currentStreamview.id) {
         showStatus('❌ No active StreamView to load template into', 3000);
         return;
@@ -1458,8 +1724,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'Content-Type': 'application/json'
       };
       
-      // Add secret key header if stored in localStorage
-      const { streamviewSecretKey } = await browser.storage.sync.get(['streamviewSecretKey']);
+      // Add secret key header if available in settings
+      const streamviewSecretKey = settings.integrations?.streamview?.secretKey;
       if (streamviewSecretKey) {
         headers['x-secret-key'] = streamviewSecretKey;
       }
@@ -1528,14 +1794,31 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteButton.style.opacity = '0.6';
       }
       
-      // Remove individual template
-      const templateKey = `streamview_template_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      await browser.storage.sync.remove([templateKey]);
+      // Delete the individual template from nested structure
+      const currentSettings = await window.SettingsManager.getAllSettings();
+      const templates = { ...currentSettings.integrations?.streamview?.templates };
+      delete templates[templateName];
+      
+      await window.SettingsManager.setSettings({
+        integrations: {
+          streamview: {
+            templates: templates
+          }
+        }
+      });
       
       // Update template index
-      const { streamviewTemplateIndex = [] } = await browser.storage.sync.get(['streamviewTemplateIndex']);
+      const streamviewTemplateIndex = currentSettings.integrations?.streamview?.templates?.index || [];
       const updatedIndex = streamviewTemplateIndex.filter(name => name !== templateName);
-      await browser.storage.sync.set({ streamviewTemplateIndex: updatedIndex });
+      await window.SettingsManager.setSettings({
+        integrations: {
+          streamview: {
+            templates: {
+              index: updatedIndex
+            }
+          }
+        }
+      });
       
       // Remove the template item from the DOM immediately (real-time update)
       if (templateItem) {
@@ -1595,24 +1878,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const configUrl = `${streamviewBaseUrl}/config/${activeStreamviewId}`;
         
         // Create tab and inject secret key into localStorage if available
-        chrome.tabs.create({ url: configUrl }, (tab) => {
+        browser.tabs.create({ url: configUrl }).then(async (tab) => {
           // Get the current settings to check for secret key
-          browser.storage.sync.get(['streamviewSecretKey']).then(({ streamviewSecretKey }) => {
-            if (streamviewSecretKey && tab.id) {
-              // Wait a moment for the tab to load, then inject the secret key
-              setTimeout(() => {
-                chrome.scripting.executeScript({
-                  target: { tabId: tab.id },
-                  func: (secretKey) => {
-                    localStorage.setItem('streamviewSecretKey', secretKey);
-                  },
-                  args: [streamviewSecretKey]
-                }).catch(error => {
-                  console.log('Could not inject secret key:', error);
-                });
-              }, 1000);
-            }
-          });
+          const settings = await window.SettingsManager.getAllSettings();
+          const streamviewSecretKey = settings.integrations?.streamview?.secretKey;
+          if (streamviewSecretKey && tab.id) {
+            await injectSecretKeyWithRetry(tab.id, streamviewSecretKey, 'existing streamview');
+          }
         });
       } else {
         showStatus('❌ No active streamview found. Please create a streamview first.', 3000);
@@ -1642,7 +1914,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (applyChannelIdOverrideButton) {
-    applyChannelIdOverrideButton.addEventListener('click', () => {
+    applyChannelIdOverrideButton.addEventListener('click', async () => {
       const channelId = channelIdOverrideInput ? channelIdOverrideInput.value.trim() : '';
       
       if (!channelId) {
@@ -1677,22 +1949,30 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('activeViewUrl').value = viewUrl;
       }
       
-      // Save the updated URLs to currentStreamview in storage
-      browser.storage.sync.get(['currentStreamview']).then(({ currentStreamview }) => {
+      try {
+        // Save the updated URLs to currentStreamview in storage
+        const settings = await window.SettingsManager.getAllSettings();
+        let currentStreamview = settings.integrations?.streamview?.current;
         if (currentStreamview) {
           currentStreamview.webhookUrl = webhookUrl;
           currentStreamview.viewUrl = viewUrl;
           currentStreamview.id = channelId; // Also update the ID to match the channel
-          return window.SettingsManager.updateSetting('integrations.streamview.current', currentStreamview);
+          
+          // Use targeted update to preserve user's custom settings
+          await window.SettingsManager.updateNestedSetting('integrations.streamview.current', currentStreamview);
+          
+          // Save the updated form to persist the URLs through the SettingsManager
+          await saveOptions();
+          
+          // Refresh the display with updated URLs
+          await updateActiveStreamviewDisplay();
         }
-      }).then(() => {
-        // Storage.onChanged listener will automatically reload settings
-      }).catch(error => {
+        
+        showStatus(`✅ Channel ID override applied for channel: ${channelId}`, 3000);
+      } catch (error) {
         console.error('Error applying channel ID override:', error);
         showStatus(`❌ Error applying override: ${error.message}`, 5000);
-      });
-      
-      showStatus(`✅ Channel ID override applied for channel: ${channelId}`, 3000);
+      }
     });
   }
 
@@ -1709,7 +1989,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (applyManualWebhookOverrideButton && manualWebhookUrlInput) {
-    applyManualWebhookOverrideButton.addEventListener('click', () => {
+    applyManualWebhookOverrideButton.addEventListener('click', async () => {
       const webhookUrl = manualWebhookUrlInput.value.trim();
       
       if (!webhookUrl) {
@@ -1726,10 +2006,24 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Save the manual webhook URL to settings and update currentStreamview
-      browser.storage.sync.get(['settings', 'currentStreamview']).then(async ({ settings, currentStreamview }) => {
+      try {
+        // Get current settings using SettingsManager
+        const settings = await window.SettingsManager.getAllSettings();
+        
         // Update the manualWebhookUrl in settings
-        if (!settings.display) settings.display = {};
-        settings.display.manualWebhookUrl = webhookUrl;
+        await window.SettingsManager.setSettings({
+          integrations: {
+            streamview: {
+              manualWebhookOverride: {
+                enabled: true,
+                webhookUrl: webhookUrl
+              }
+            }
+          }
+        });
+        
+        // Get currentStreamview from the nested settings structure
+        let currentStreamview = settings.integrations?.streamview?.current;
         
         // Update currentStreamview with the manual URL
         if (!currentStreamview) {
@@ -1743,16 +2037,15 @@ document.addEventListener('DOMContentLoaded', () => {
           currentStreamview.manualOverride = true; // Flag to track manual override
         }
         
-        // Update both main settings and currentStreamview
-        await window.SettingsManager.setSettings(settings);
-        return window.SettingsManager.updateSetting('integrations.streamview.current', currentStreamview);
-      }).then(() => {
+        // Update currentStreamview using targeted update to preserve user settings
+        await window.SettingsManager.updateNestedSetting('integrations.streamview.current', currentStreamview);
+        
         showStatus(`✅ Manual webhook URL applied: ${webhookUrl}`, 3000);
         updateActiveStreamviewDisplay(); // Refresh the display
-      }).catch(error => {
+      } catch (error) {
         console.error('Error applying manual webhook override:', error);
         showStatus(`❌ Error applying override: ${error.message}`, 5000);
-      });
+      }
     });
   }
 
@@ -1766,7 +2059,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Also refresh when streamview settings might have changed
   if (typeof browser !== 'undefined' && browser.storage) {
     browser.storage.onChanged.addListener((changes) => {
-      if (changes.streamviewTemplateIndex || changes.streamviewBaseUrl || Object.keys(changes).some(key => key.startsWith('streamview_template_'))) {
+      // Check for template changes in nested structure
+      if (changes.integrations && 
+          (changes.integrations.newValue?.streamview?.templates !== changes.integrations.oldValue?.streamview?.templates ||
+           changes.integrations.newValue?.streamview?.baseUrl !== changes.integrations.oldValue?.streamview?.baseUrl)) {
         refreshTemplatesList();
       }
     });
@@ -1872,7 +2168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.addEventListener('load', async (e) => {
       try {
         const importedSettings = JSON.parse(e.target.result);
         if (typeof importedSettings === 'object' && importedSettings !== null) {
@@ -1891,7 +2187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } finally {
         event.target.value = null;
       }
-    };
+    });
     reader.readAsText(file);
   });
 
