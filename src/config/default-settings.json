@@ -137,7 +137,7 @@
       },
       "sentiment": {
         "enabled": true,
-        "activationThreshold": 6,
+        "activationThreshold": 15,
         "priority": 4,
         "maxDisplayItems": 2,
         "maxGrowthWidth": 500,

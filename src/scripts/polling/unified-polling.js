@@ -886,9 +886,14 @@
         if (allSentimentItems.length === 0) return;
 
         // Deduplicate items - each unique term should only count once per message
+        // Prioritize emotes over text when they have the same value
         const uniqueItems = new Map();
         allSentimentItems.forEach(item => {
-            if (!uniqueItems.has(item.value)) {
+            const existingItem = uniqueItems.get(item.value);
+            if (!existingItem || (item.emoteData && !existingItem.emoteData)) {
+                // Keep this item if:
+                // 1. No existing item with this value, OR
+                // 2. This item has emoteData but the existing one doesn't (prioritize emotes)
                 uniqueItems.set(item.value, item);
             }
         });
@@ -956,14 +961,21 @@
             // Update or create sentiment item
             if (!sentimentState.items[trackingKey]) {
                 sentimentState.items[trackingKey] = {
-                    count: 0,
+                    timestamps: [], // Array of timestamps for time-windowed counting
                     lastSeen: 0,
                     isGroup: !!groupMatch,
                     emoteData: category.emoteData // Store emote data if available
                 };
             }
 
-            sentimentState.items[trackingKey].count++;
+            // Add current timestamp and clean old ones outside lookback window
+            const lookbackWindow = config.lookbackWindowMs || 10000;
+            const cutoffTime = currentTime - lookbackWindow;
+
+            sentimentState.items[trackingKey].timestamps.push(currentTime);
+            sentimentState.items[trackingKey].timestamps = sentimentState.items[trackingKey].timestamps.filter(
+                timestamp => timestamp > cutoffTime
+            );
             sentimentState.items[trackingKey].lastSeen = currentTime;
         });
 
@@ -975,32 +987,39 @@
         const threshold = config.sentiment?.activationThreshold || 15;
         const maxItems = config.sentiment?.maxDisplayItems || 5;
         const now = Date.now();
-        
+
         // Track when items first meet threshold and max value
         const maxGaugeValue = config.sentiment?.maxGaugeValue || 30;
         Object.entries(sentimentState.items).forEach(([term, data]) => {
-            if (data.count >= threshold && !sentimentState.displayTimes[term]) {
+            const currentCount = data.timestamps ? data.timestamps.length : 0;
+            if (currentCount >= threshold && !sentimentState.displayTimes[term]) {
                 sentimentState.displayTimes[term] = now;
             }
             // Track when item reaches max value (only set, never clear here - cleared when it hits 0)
-            if (data.count >= maxGaugeValue && !sentimentState.maxValueTimes[term]) {
+            if (currentCount >= maxGaugeValue && !sentimentState.maxValueTimes[term]) {
                 sentimentState.maxValueTimes[term] = now;
             }
         });
-        
+
         // Get items that should be displayed (meet threshold to start, continue until count reaches 0)
         const displayItems = Object.entries(sentimentState.items)
             .filter(([term, data]) => {
+                const currentCount = data.timestamps ? data.timestamps.length : 0;
                 // Show any item with count > 0 AND has previously met threshold
-                return data.count > 0 && sentimentState.displayTimes[term];
+                return currentCount > 0 && sentimentState.displayTimes[term];
             })
-            .sort((a, b) => b[1].count - a[1].count)
+            .sort((a, b) => {
+                const countA = a[1].timestamps ? a[1].timestamps.length : 0;
+                const countB = b[1].timestamps ? b[1].timestamps.length : 0;
+                return countB - countA;
+            })
             .slice(0, maxItems);
-            
+
         // Clean up displayTimes for items that are no longer needed (count <= 0)
         Object.keys(sentimentState.displayTimes).forEach(term => {
             const data = sentimentState.items[term];
-            if (!data || data.count <= 0) {
+            const currentCount = data && data.timestamps ? data.timestamps.length : 0;
+            if (!data || currentCount <= 0) {
                 delete sentimentState.displayTimes[term];
             }
         });
@@ -1031,10 +1050,15 @@
 
         sentimentState.decayInterval = setInterval(() => {
             const currentTime = Date.now();
+            const threshold = config.sentiment?.activationThreshold || 15;
             let hasChanges = false;
 
             Object.entries(sentimentState.items).forEach(([term, data]) => {
-                if (data.count > 0) {
+                // Only decay items that have reached the activation threshold at some point
+                // (either currently above threshold OR have a displayTime indicating they were shown)
+                const currentCount = data.timestamps ? data.timestamps.length : 0;
+                const hasBeenDisplayed = sentimentState.displayTimes[term] !== undefined;
+                if (currentCount > 0 && (currentCount >= threshold || hasBeenDisplayed)) {
                     let decayAmount = baseDecayAmount;
                     
                     // Apply escalated decay if enabled and item has been at max for too long
@@ -1053,14 +1077,20 @@
                         }
                     }
                     
-                    data.count = Math.max(0, data.count - decayAmount);
-                    hasChanges = true;
+                    // Remove the oldest timestamps based on decay amount
+                    if (data.timestamps && data.timestamps.length > 0) {
+                        const timestampsToRemove = Math.min(decayAmount, data.timestamps.length);
+                        data.timestamps.splice(0, timestampsToRemove); // Remove oldest timestamps
+                        hasChanges = true;
+                    }
                 }
             });
 
-            // Remove items that have decayed to 0 or below
+            // Remove items that have no timestamps left
             Object.keys(sentimentState.items).forEach(term => {
-                if (sentimentState.items[term].count <= 0) {
+                const data = sentimentState.items[term];
+                const currentCount = data.timestamps ? data.timestamps.length : 0;
+                if (currentCount <= 0) {
                     delete sentimentState.items[term];
                     delete sentimentState.maxValueTimes[term]; // Clean up max value tracking
                     hasChanges = true;
@@ -1077,10 +1107,12 @@
 
     // Helper function to create enhanced sentiment item data
     function createEnhancedSentimentItem(term, data, config) {
+        const currentCount = data.timestamps ? data.timestamps.length : 0;
         const item = {
             term,
-            count: data.count,
-            percentage: Math.min(100, (data.count / (config.sentiment?.maxGaugeValue || 30)) * 100)
+            count: currentCount,
+            percentage: Math.min(100, (currentCount / (config.sentiment?.maxGaugeValue || 30)) * 100),
+            emoteData: data.emoteData // Include emote data for display
         };
 
         // Debug logging for enhanced sentiment data creation

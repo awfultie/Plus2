@@ -18,6 +18,15 @@
             authorContainer: '.chat-line__username-container',
             reply: '.reply-line',
         },
+        twitch7tv: {
+            chatContainer: '.chat-scrollable-area__message-container',
+            chatMessage: '.seventv-user-message',
+            username: '.seventv-chat-user-username',
+            messageBody: '.seventv-chat-message-body', // 7TV message body
+            badges: '.seventv-chat-user-badge-list',
+            authorContainer: '.seventv-chat-user',
+            reply: '.reply-line',
+        },
         youtube: {
             chatContainer: '#items.yt-live-chat-item-list-renderer',
             chatMessage: 'yt-live-chat-text-message-renderer',
@@ -29,7 +38,14 @@
         }
     };
 
-    const currentSelectors = platform.isTwitch ? selectors.twitch : selectors.youtube;
+    // Function to get current selectors (dynamically detect 7TV)
+    function getCurrentSelectors() {
+        if (!platform.isTwitch) return selectors.youtube;
+
+        // Check if 7TV is active by looking for 7TV elements in the DOM
+        const is7TVActive = document.querySelector('.seventv-message') !== null;
+        return is7TVActive ? selectors.twitch7tv : selectors.twitch;
+    }
 
     function sendToBackground(type, data) {
         try {
@@ -51,15 +67,39 @@
         }
         node.classList.add('plus2-processed');
 
+        const currentSelectors = getCurrentSelectors();
         const messageBodyEl = node.querySelector(currentSelectors.messageBody);
         const usernameEl = node.querySelector(currentSelectors.username);
 
         if (messageBodyEl && usernameEl) {
             const text = messageBodyEl.textContent || '';
-            const images = Array.from(messageBodyEl.querySelectorAll('img')).map(img => ({
-                alt: img.alt || '',
-                src: img.src || ''
-            }));
+            const images = Array.from(messageBodyEl.querySelectorAll('img')).map(img => {
+                let src = img.src || '';
+
+                // Enhanced 7TV emote handling
+                if (img.classList.contains('seventv-chat-emote') && img.srcset) {
+                    // Extract the highest resolution URL from srcset for 7TV emotes
+                    // srcset format: "//cdn.7tv.app/emote/ID/1x.avif 1x, //cdn.7tv.app/emote/ID/2x.avif 2x"
+                    const srcsetEntries = img.srcset.split(',').map(entry => entry.trim());
+                    const highestRes = srcsetEntries[srcsetEntries.length - 1]; // Get last (highest res)
+                    if (highestRes) {
+                        const url = highestRes.split(' ')[0]; // Extract URL part before resolution descriptor
+                        if (url.startsWith('//')) {
+                            src = 'https:' + url; // Add protocol to protocol-relative URLs
+                        } else {
+                            src = url;
+                        }
+                    }
+                }
+
+                return {
+                    alt: img.alt || '',
+                    src: src,
+                    // Add 7TV-specific metadata for better emote handling
+                    is7TV: img.classList.contains('seventv-chat-emote'),
+                    className: img.className || ''
+                };
+            });
             const username = usernameEl.textContent || '';
 
             sendToBackground('CHAT_MESSAGE_FOUND', { text, images, username });
@@ -76,11 +116,12 @@
         `;
         highlightButton.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent other click listeners
-            const badgesHTML = node.querySelector(currentSelectors.badges)?.innerHTML || '';
-            const usernameHTML = node.querySelector(currentSelectors.username)?.innerHTML || '';
-            const messageBodyHTML = node.querySelector(currentSelectors.messageBody)?.innerHTML || '';
+            const selectors = getCurrentSelectors();
+            const badgesHTML = node.querySelector(selectors.badges)?.innerHTML || '';
+            const usernameHTML = node.querySelector(selectors.username)?.innerHTML || '';
+            const messageBodyHTML = node.querySelector(selectors.messageBody)?.innerHTML || '';
             const username = usernameEl.textContent;
-            const replyHTML = currentSelectors.reply ? (node.querySelector(currentSelectors.reply)?.innerHTML || '') : '';
+            const replyHTML = selectors.reply ? (node.querySelector(selectors.reply)?.innerHTML || '') : '';
 
             sendToBackground('HIGHLIGHT_MESSAGE_REQUEST', {
                 badgesHTML, usernameHTML, messageBodyHTML, replyHTML, username,
@@ -99,10 +140,11 @@
             if (mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType !== Node.ELEMENT_NODE) return;
-                    if (node.matches && node.matches(currentSelectors.chatMessage)) {
+                    const selectors = getCurrentSelectors();
+                    if (node.matches && node.matches(selectors.chatMessage)) {
                         processChatMessage(node);
                     } else if (node.querySelectorAll) {
-                        node.querySelectorAll(currentSelectors.chatMessage).forEach(processChatMessage);
+                        node.querySelectorAll(selectors.chatMessage).forEach(processChatMessage);
                     }
                 });
             }
@@ -110,11 +152,12 @@
     });
 
     function startObserver() {
-        const targetNode = document.querySelector(currentSelectors.chatContainer);
+        const selectors = getCurrentSelectors();
+        const targetNode = document.querySelector(selectors.chatContainer);
         if (targetNode) {
             observer.observe(targetNode, { childList: true, subtree: platform.isTwitch });
             // Add UI elements (highlight buttons) to existing messages without triggering polling/tracking
-            targetNode.querySelectorAll(currentSelectors.chatMessage).forEach(addUIOnlyToMessage);
+            targetNode.querySelectorAll(selectors.chatMessage).forEach(addUIOnlyToMessage);
         } else {
             setTimeout(startObserver, 2000);
         }
@@ -122,8 +165,9 @@
 
     // Add only UI elements without sending messages to background
     function addUIOnlyToMessage(messageNode) {
-        const textEl = messageNode.querySelector(currentSelectors.messageContent);
-        const usernameEl = messageNode.querySelector(currentSelectors.username);
+        const selectors = getCurrentSelectors();
+        const textEl = messageNode.querySelector(selectors.messageBody);
+        const usernameEl = messageNode.querySelector(selectors.username);
 
         if (textEl && usernameEl && !messageNode.querySelector('#plus2-highlight-button')) {
             // Add highlight button without processing message content
@@ -138,7 +182,7 @@
 
             highlightButton.addEventListener('click', () => {
                 const text = textEl.textContent || '';
-                const images = Array.from(textEl.querySelectorAll(currentSelectors.chatImage)).map(img => ({
+                const images = Array.from(textEl.querySelectorAll('img')).map(img => ({
                     alt: img.alt || '',
                     src: img.src || ''
                 }));

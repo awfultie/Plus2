@@ -556,7 +556,7 @@ async function performUpgrades(storedSettings) {
         // Set new sentiment configuration with specified values
         const sentimentConfig = {
             "enabled": true,
-            "activationThreshold": 6,
+            "activationThreshold": 15,
             "priority": 4,
             "maxDisplayItems": 2,
             "maxGrowthWidth": 500,
