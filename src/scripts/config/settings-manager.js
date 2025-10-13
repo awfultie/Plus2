@@ -555,7 +555,7 @@ async function performUpgrades(storedSettings) {
 
         // Set new sentiment configuration with specified values
         const sentimentConfig = {
-            "enabled": true,
+            "enabled": false,
             "activationThreshold": 15,
             "priority": 4,
             "maxDisplayItems": 2,
@@ -820,6 +820,7 @@ const FORM_ELEMENT_PATHS = {
     'unifiedPollingYesNoWidth': 'polling.unifiedPolling.yesno.width',
     'unifiedPollingYesNoHeight': 'polling.unifiedPolling.yesno.height',
     'unifiedPollingYesNoAutoFitWidth': 'polling.unifiedPolling.yesno.autoFitWidth',
+    'unifiedPollingYesNoPosition': 'polling.unifiedPolling.yesno.position',
     
     // Numbers Polling
     'unifiedPollingNumbersEnabled': 'polling.unifiedPolling.numbers.enabled',

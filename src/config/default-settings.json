@@ -110,9 +110,10 @@
         "enabled": true,
         "activationThreshold": 15,
         "priority": 1,
-        "width": 600,
+        "width": 400,
         "height": 24,
         "autoFitWidth": true,
+        "position": "top",
         "styling": {
           "yesColor": "#ff0000",
           "noColor": "#0008ff",
@@ -136,7 +137,7 @@
         "minWidth": 300
       },
       "sentiment": {
-        "enabled": true,
+        "enabled": false,
         "activationThreshold": 15,
         "priority": 4,
         "maxDisplayItems": 2,

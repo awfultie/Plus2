@@ -50,7 +50,7 @@ class MessageProcessor {
                 this._addUIToMessage(hoverTarget);
                 const messageId = chatMessageElement.getAttribute('msg-id');
                 if (messageId && !this.processedMessageIDs.has(messageId)) {
-                    this.processNewMessage(hoverTarget, chatMessageElement, messageId);
+                    this.processNewMessage(hoverTarget, chatMessageElement, messageId, { skipBackgroundMessage: true });
                 }
             }
         });
@@ -63,7 +63,7 @@ class MessageProcessor {
             if (chatMessageElement && !this.processedMessageElements.has(chatMessageElement)) {
                 this._addUIToMessage(twitchMessageLine);
                 if (!this.processedMessageElements.has(chatMessageElement)) {
-                    this.processNewMessage(twitchMessageLine, chatMessageElement, chatMessageElement);
+                    this.processNewMessage(twitchMessageLine, chatMessageElement, chatMessageElement, { skipBackgroundMessage: true });
                 }
             }
         });
@@ -74,7 +74,7 @@ class MessageProcessor {
         ytMessages.forEach(messageNode => {
             this._addUIToMessage(messageNode);
             if (!this.processedMessageElements.has(messageNode)) {
-                this.processNewMessage(messageNode, messageNode, messageNode);
+                this.processNewMessage(messageNode, messageNode, messageNode, { skipBackgroundMessage: true });
             }
         });
     }
@@ -125,24 +125,43 @@ class MessageProcessor {
         }
     }
 
-    processNewMessage(hoverTargetElement, chatMessageElementForContent, itemToMarkAsProcessed) {
+    processNewMessage(hoverTargetElement, chatMessageElementForContent, itemToMarkAsProcessed, options = {}) {
         try {
-            // 1. Send message data to background for counting/polling
+            // 1. Send message data to background for counting/polling (skip for existing messages to prevent reload spikes)
             const messageContentContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.messageContent);
             const usernameContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.username);
-            if (messageContentContainer) {
+            if (messageContentContainer && !options.skipBackgroundMessage) {
                 const text = (messageContentContainer.textContent || "").trim();
-                const images = Array.from(messageContentContainer.querySelectorAll(this.adapter.selectors.chatImage)).map(img => ({
-                    alt: img.alt,
-                    src: img.src
-                }));
+                const images = Array.from(messageContentContainer.querySelectorAll(this.adapter.selectors.chatImage)).map(img => {
+                    let src = img.src;
+
+                    // Handle 7TV emotes that use srcset instead of src
+                    if ((!src || src === '') && img.hasAttribute('srcset')) {
+                        const srcset = img.getAttribute('srcset');
+                        const firstSrc = srcset.split(',')[0].trim().split(' ')[0];
+                        if (firstSrc) {
+                            // Add https: protocol if it's protocol-relative
+                            src = firstSrc.startsWith('//') ? 'https:' + firstSrc : firstSrc;
+                        }
+                    }
+
+                    // Handle protocol-relative URLs
+                    if (src && src.startsWith('//')) {
+                        src = 'https:' + src;
+                    }
+
+                    return {
+                        alt: img.alt,
+                        src: src
+                    };
+                });
                 const username = usernameContainer ? (usernameContainer.textContent || "").trim() : '';
-                
+
                 // Debug logging for 7TV mode
                 if (this.settings.features?.enableSevenTVCompatibility && images.length > 0) {
                     console.log('[MessageProcessor] 7TV emotes extracted:', images.map(img => ({ name: img.alt, url: img.src })));
                 }
-                
+
                 if (typeof browser !== 'undefined' && browser.runtime?.id) {
                     browser.runtime.sendMessage({
                         type: 'CHAT_MESSAGE_FOUND',

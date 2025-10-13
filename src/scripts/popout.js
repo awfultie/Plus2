@@ -119,7 +119,7 @@ function buildHighlightContainerStructure() {
 
     // Legacy generic poll container creation removed - functionality replaced by unified polling
 
-    // Unified Poll Container - positioned absolutely, can stack with messages
+    // Unified Poll Container - uses flex layout to support positioning
     unifiedPollDisplayContainerElement = document.createElement('div');
     unifiedPollDisplayContainerElement.id = 'unifiedPollDisplayContainer';
     Object.assign(unifiedPollDisplayContainerElement.style, {
@@ -131,14 +131,11 @@ function buildHighlightContainerStructure() {
         display: 'none',
         padding: '10px',
         boxSizing: 'border-box',
-        backgroundColor: '#111111',
-        textAlign: 'left',
-        borderRadius: '8px',
-        minWidth: '250px',
-        width: 'calc(100% - 20px)',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        pointerEvents: 'auto'
+        pointerEvents: 'auto',
+        // Use flex layout to support child ordering
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start'
     });
     highlightedMessageContainer.appendChild(unifiedPollDisplayContainerElement);
 
@@ -153,6 +150,9 @@ function initializeComponents() {
     // Initialize Unified Polling Display Component
     unifiedPollingComponent = new window.popoutUtils.UnifiedPollingDisplayComponent();
     unifiedPollingComponent.initialize(unifiedPollDisplayContainerElement, settings);
+
+    // Make component globally accessible for positioning
+    window.unifiedPollingComponent = unifiedPollingComponent;
     
     // Initialize LeaderboardComponent
     leaderboardComponent = new window.popoutUtils.LeaderboardComponent(leaderboardContainerElement);
@@ -193,8 +193,19 @@ function adjustFontSizeToFit(messageElement) {
     // Use a timeout of 0 to allow the browser to render the element with the new base font size
     // before we start checking its dimensions. This avoids race conditions.
     setTimeout(() => {
-        const containerWidth = messageTarget.clientWidth - 10; // -10 for padding
-        let availableHeight = messageTarget.clientHeight;
+        // Calculate available width based on message width cap setting
+        let containerWidth;
+        if (settings.display?.messageWidthCap && settings.display.messageWidthCap > 0) {
+            // Use the configured width cap
+            containerWidth = settings.display.messageWidthCap;
+        } else {
+            // Use full container width with padding
+            containerWidth = messageTarget.clientWidth - 20; // -20 for padding (10px on each side)
+        }
+
+        // Calculate available height - use the full viewport height minus padding and margins
+        // messageTarget.clientHeight might be 0 or very small if no explicit height is set
+        let availableHeight = window.innerHeight - 40; // Account for container padding and margins
 
         // Legacy gauge space reservation removed - unified polling handles sizing
 
@@ -205,11 +216,25 @@ function adjustFontSizeToFit(messageElement) {
         const precision = 0.5; // How close we need to be
         let safety = 20; // Prevent potential infinite loops
 
+        // Store original constraints but set width to target for proper measurement
+        const originalMaxWidth = messageElement.style.maxWidth;
+        const originalWidth = messageElement.style.width;
+
+        // Set the element to the target width for measurement
+        messageElement.style.maxWidth = `${containerWidth}px`;
+        messageElement.style.width = `${containerWidth}px`;
+
         // Apply max size first to get initial dimensions
         content.style.fontSize = `${maxFontSize}px`;
 
+        // Force a reflow to get accurate measurements
+        content.offsetHeight;
+
         // If it already fits at the max size, we're done.
-        if (content.scrollWidth <= containerWidth && content.scrollHeight <= availableHeight) {
+        if (content.scrollHeight <= availableHeight) {
+            // Restore original constraints
+            messageElement.style.maxWidth = originalMaxWidth;
+            messageElement.style.width = originalWidth;
             return;
         }
 
@@ -220,8 +245,11 @@ function adjustFontSizeToFit(messageElement) {
             let midFontSize = (minFontSize + maxFontSize) / 2;
             content.style.fontSize = `${midFontSize}px`;
 
-            // If it overflows, the new maximum is our midpoint.
-            if (content.scrollWidth > containerWidth || content.scrollHeight > availableHeight) {
+            // Force reflow for accurate measurement
+            content.offsetHeight;
+
+            // Only check height since width is constrained by container
+            if (content.scrollHeight > availableHeight) {
                 maxFontSize = midFontSize;
             } else {
                 // It fits, so we can try a larger size. The new minimum is our midpoint.
@@ -232,6 +260,10 @@ function adjustFontSizeToFit(messageElement) {
 
         // Apply the final calculated size (the largest that was found to fit).
         content.style.fontSize = `${minFontSize}px`;
+
+        // Restore original width constraints
+        messageElement.style.maxWidth = originalMaxWidth;
+        messageElement.style.width = originalWidth;
     }, 0);
 }
 
@@ -260,17 +292,43 @@ function updateContainerPositions() {
     
     // Position poll container
     if (pollContainer && pollIsVisible) {
-        // Always maintain centering
-        pollContainer.style.left = '50%';
-        pollContainer.style.transform = 'translateX(-50%)';
-        
+        // Set poll container to use flex display to support child ordering
+        pollContainer.style.display = 'flex';
+
         if (isYesNoPoll) {
-            // Yes/no polls always get highest priority and stay centered at top
+            // Yes/no polls get higher priority and position based on settings
             pollContainer.style.zIndex = '70'; // Higher than messages (50) and sentiment gauges
-            pollContainer.style.top = '10px';
-            
-            if (messageHasContent) {
-                // Push messages down when yes/no poll is present
+            pollContainer.style.left = '50%';
+            pollContainer.style.transform = 'translateX(-50%)';
+
+            // Get position setting from component settings
+            const unifiedComponent = window.unifiedPollingComponent;
+            const position = unifiedComponent?.yesNoPosition || 'top';
+
+            // Position based on setting
+            switch (position) {
+                case 'top':
+                    pollContainer.style.top = '10px';
+                    pollContainer.style.bottom = 'auto';
+                    break;
+                case 'middle':
+                    pollContainer.style.top = '50%';
+                    pollContainer.style.transform = 'translate(-50%, -50%)';
+                    pollContainer.style.bottom = 'auto';
+                    break;
+                case 'bottom':
+                    pollContainer.style.top = 'auto';
+                    pollContainer.style.bottom = '10px';
+                    pollContainer.style.transform = 'translateX(-50%)';
+                    break;
+                default:
+                    pollContainer.style.top = '10px';
+                    pollContainer.style.bottom = 'auto';
+                    break;
+            }
+
+            if (messageHasContent && position === 'top') {
+                // Only push messages down when yes/no poll is at the top
                 if (messageTarget) {
                     messageTarget.style.top = `${pollContainer.offsetHeight + 20}px`;
                 }
@@ -279,6 +337,8 @@ function updateContainerPositions() {
             // Other polls (sentiment, numbers, letters) go below messages
             pollContainer.style.zIndex = '40';
             pollContainer.style.top = `${currentTop}px`;
+            pollContainer.style.left = '50%';
+            pollContainer.style.transform = 'translateX(-50%)';
         }
     }
 }

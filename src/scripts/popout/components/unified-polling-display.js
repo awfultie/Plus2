@@ -68,10 +68,11 @@ class UnifiedPollingDisplayComponent {
         // Set poll type for positioning logic
         this.container.dataset.pollType = pollType || '';
 
-        // Setup main container - always fits content with 10px padding from popout edges
-        this.container.style.maxWidth = '100%';
+        // Setup main container - always fits content with proper width constraints
+        this.container.style.maxWidth = 'calc(100vw - 20px)'; // Account for parent padding
+        this.container.style.width = 'fit-content';
         this.container.style.boxSizing = 'border-box';
-        this.container.style.position = 'relative'; // Always relative, let external positioning handle placement
+        // Don't override position - let external positioning handle placement
         this.container.style.backgroundColor = 'transparent'; // Always transparent for main container
         this.container.style.padding = '0'; // No padding on main container
 
@@ -89,7 +90,7 @@ class UnifiedPollingDisplayComponent {
         if (!contentElement) {
             contentElement = document.createElement('div');
             contentElement.className = 'unified-poll-content';
-            contentElement.style.cssText = 'color: #fff; max-width: 100%; box-sizing: border-box; overflow: hidden;';
+            contentElement.style.cssText = 'color: #fff; max-width: 100%; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; align-items: center;';
             this.container.appendChild(contentElement);
         }
 
@@ -649,7 +650,8 @@ class UnifiedPollingDisplayComponent {
         // Configurable width gauge container, bounded by window width
         const autoFitWidth = this.settings.polling?.unifiedPolling?.yesno?.autoFitWidth || false;
         const configuredWidth = this.settings.polling?.unifiedPolling?.yesno?.width || 320;
-        const availableWidth = window.innerWidth - 40; // Account for padding/margins
+        // Account for parent container padding (10px on each side) + some margin
+        const availableWidth = window.innerWidth - 60; // 20px for parent padding + 40px for safety margins
         const gaugeWidth = autoFitWidth ? availableWidth : Math.min(configuredWidth, availableWidth);
         const gaugeHeight = this.settings.polling?.unifiedPolling?.yesno?.height || 24;
 
@@ -804,7 +806,8 @@ class UnifiedPollingDisplayComponent {
         // Configurable width gauge container, bounded by window width
         const autoFitWidth = this.settings.polling?.unifiedPolling?.yesno?.autoFitWidth || false;
         const configuredWidth = this.settings.polling?.unifiedPolling?.yesno?.width || 320;
-        const availableWidth = window.innerWidth - 40; // Account for padding/margins
+        // Account for parent container padding (10px on each side) + some margin
+        const availableWidth = window.innerWidth - 60; // 20px for parent padding + 40px for safety margins
         const gaugeWidth = autoFitWidth ? availableWidth : Math.min(configuredWidth, availableWidth);
         const gaugeHeight = this.settings.polling?.unifiedPolling?.yesno?.height || 24;
 
@@ -896,7 +899,7 @@ class UnifiedPollingDisplayComponent {
                 ">${isTie ? 'TIE!' : (yesIsWinner ? `YES ${yesPercentage}%` : `NO ${noPercentage}%`)}</div>` : ''}
             `;
             
-            // Center the gauge bar within the content element and ensure it stays above sentiment
+            // Center the gauge bar within the content element
             Object.assign(gaugeBar.style, {
                 margin: '0 auto',
                 display: 'block',
@@ -1152,7 +1155,7 @@ class UnifiedPollingDisplayComponent {
             if (gaugeElement) {
                 // Reuse existing element - just update the fill width and color
                 usedGauges.add(gaugeElement);
-                
+
                 // Update the gauge background color based on max value
                 const gaugeBackgroundColor = isAtMaxValue ? 'gold' : 'black';
                 gaugeElement.style.background = gaugeBackgroundColor;
@@ -1215,7 +1218,7 @@ class UnifiedPollingDisplayComponent {
                 }
             } else {
                 // Before creating new gauge element, ensure no duplicates exist
-                const duplicateElements = contentElement.querySelectorAll(`[data-value="${valueKey}"]`);
+                const duplicateElements = contentElement.querySelectorAll(`[data-value="${CSS.escape(valueKey)}"]`);
                 duplicateElements.forEach(dup => dup.remove());
                 
                 // Create new gauge element
@@ -1388,15 +1391,21 @@ class UnifiedPollingDisplayComponent {
      */
     setupYesNoPollContainer(titleElement, contentElement) {
         titleElement.style.display = 'none'; // Always hide title for yes/no polls
-        
+
+        // Get position setting (top, middle, bottom)
+        const position = this.settings.polling?.unifiedPolling?.yesno?.position || 'top';
+
         // Set container to flex layout for yes/no + sentiment stacking
         Object.assign(contentElement.style, {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'flex-start', // Start from top
+            justifyContent: 'flex-start',
             textAlign: 'center'
         });
+
+        // Store position for use in renderCleanYesNoGauges
+        this.yesNoPosition = position;
     }
 
     /**
@@ -1619,7 +1628,7 @@ class UnifiedPollingDisplayComponent {
             ];
             
             allContainers.forEach(container => {
-                const gauge = container.querySelector(`[data-value="${key}"]`);
+                const gauge = container.querySelector(`[data-value="${CSS.escape(key)}"]`);
                 if (gauge) {
                     gauge.remove();
                 }

@@ -30,7 +30,8 @@
         lastDecayTime: Date.now(),
         decayInterval: null,
         shouldDisplay: false,
-        lastItemCount: 0 // Track display item count to detect changes
+        lastItemCount: 0, // Track display item count to detect changes
+        lastCountSnapshots: {} // Track last count value for each term to detect stuck gauges
     };
 
 
@@ -966,6 +967,9 @@
                     isGroup: !!groupMatch,
                     emoteData: category.emoteData // Store emote data if available
                 };
+            } else if (category.emoteData && !sentimentState.items[trackingKey].emoteData) {
+                // Update emoteData if this message has it and the stored item doesn't
+                sentimentState.items[trackingKey].emoteData = category.emoteData;
             }
 
             // Add current timestamp and clean old ones outside lookback window
@@ -1060,11 +1064,11 @@
                 const hasBeenDisplayed = sentimentState.displayTimes[term] !== undefined;
                 if (currentCount > 0 && (currentCount >= threshold || hasBeenDisplayed)) {
                     let decayAmount = baseDecayAmount;
-                    
+
                     // Apply escalated decay if enabled and item has been at max for too long
                     if (escalatedDecayEnabled && sentimentState.maxValueTimes[term]) {
                         const timeAtMax = currentTime - sentimentState.maxValueTimes[term];
-                        
+
                         if (timeAtMax > escalatedDecayThresholdTime) {
                             // Calculate multiplier based on how long it's been at max
                             // Every escalatedDecayThresholdTime period adds the multiplier
@@ -1076,7 +1080,7 @@
                             decayAmount = baseDecayAmount * multiplier;
                         }
                     }
-                    
+
                     // Remove the oldest timestamps based on decay amount
                     if (data.timestamps && data.timestamps.length > 0) {
                         const timestampsToRemove = Math.min(decayAmount, data.timestamps.length);
@@ -1093,7 +1097,53 @@
                 if (currentCount <= 0) {
                     delete sentimentState.items[term];
                     delete sentimentState.maxValueTimes[term]; // Clean up max value tracking
+                    delete sentimentState.displayTimes[term]; // Clean up display times tracking
+                    delete sentimentState.lastCountSnapshots[term]; // Clean up stuck gauge tracking
                     hasChanges = true;
+                }
+            });
+
+            // Stuck gauge detection: clean up items that have been stuck at the same value for too long
+            const stuckGaugeTimeout = 15000; // 15 seconds of no change = stuck gauge
+            Object.entries(sentimentState.lastCountSnapshots).forEach(([term, snapshot]) => {
+                const data = sentimentState.items[term];
+                if (!data) {
+                    // Item no longer exists, clean up snapshot
+                    delete sentimentState.lastCountSnapshots[term];
+                    delete sentimentState.displayTimes[term];
+                    hasChanges = true;
+                    return;
+                }
+
+                const currentCount = data.timestamps ? data.timestamps.length : 0;
+
+                // If count hasn't changed and enough time has passed, force remove
+                if (snapshot.count === currentCount && (currentTime - snapshot.timestamp) > stuckGaugeTimeout) {
+                    console.log(`[Unified Polling] Removing stuck gauge for "${term}" (count: ${currentCount}, stuck for ${Math.round((currentTime - snapshot.timestamp) / 1000)}s)`);
+                    delete sentimentState.items[term];
+                    delete sentimentState.maxValueTimes[term];
+                    delete sentimentState.displayTimes[term];
+                    delete sentimentState.lastCountSnapshots[term];
+                    hasChanges = true;
+                }
+                // If count has changed, update the snapshot
+                else if (snapshot.count !== currentCount) {
+                    sentimentState.lastCountSnapshots[term] = {
+                        count: currentCount,
+                        timestamp: currentTime
+                    };
+                }
+            });
+
+            // Update snapshots for all current displayed items
+            Object.entries(sentimentState.items).forEach(([term, data]) => {
+                const currentCount = data.timestamps ? data.timestamps.length : 0;
+                // Only track items that have been displayed
+                if (sentimentState.displayTimes[term] && !sentimentState.lastCountSnapshots[term]) {
+                    sentimentState.lastCountSnapshots[term] = {
+                        count: currentCount,
+                        timestamp: currentTime
+                    };
                 }
             });
 
@@ -1193,11 +1243,12 @@
     function getSentimentState() {
         const config = getUnifiedPollConfig();
         const maxItems = config.sentiment?.maxDisplayItems || 5;
-        
+
         const displayItems = Object.entries(sentimentState.items)
             .filter(([term, data]) => {
+                const currentCount = data.timestamps ? data.timestamps.length : 0;
                 // Show any item with count > 0 AND has previously met threshold
-                if (data.count <= 0 || !sentimentState.displayTimes[term]) return false;
+                if (currentCount <= 0 || !sentimentState.displayTimes[term]) return false;
                 
                 // Skip yes/no terms if a yes/no poll is active
                 if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {
@@ -1209,7 +1260,11 @@
                 
                 return true;
             })
-            .sort((a, b) => b[1].count - a[1].count)
+            .sort((a, b) => {
+                const countA = a[1].timestamps ? a[1].timestamps.length : 0;
+                const countB = b[1].timestamps ? b[1].timestamps.length : 0;
+                return countB - countA;
+            })
             .slice(0, maxItems);
 
         const sentimentStateData = {
