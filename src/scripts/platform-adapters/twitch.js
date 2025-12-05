@@ -69,7 +69,15 @@ class TwitchAdapter extends BasePlatformAdapter {
 
         const usernameElement = messageDiv.querySelector('.seventv-chat-user-username');
         const username = usernameElement ? usernameElement.textContent.trim() : null;
-        const usernameHTML = usernameElement ? usernameElement.outerHTML : '';
+
+        // Extract username color from 7TV element, or use default
+        let usernameHTML = '';
+        if (usernameElement) {
+            const computedStyle = window.getComputedStyle(usernameElement);
+            const usernameColor = computedStyle.color || 'rgb(255, 0, 0)'; // Default red if no color
+            // Create username HTML with extracted color
+            usernameHTML = `<span style="color: ${usernameColor};">${username}</span>`;
+        }
 
         const badgesHTML = Array.from(messageDiv.querySelectorAll('.seventv-chat-badge'))
             .map(badge => badge.outerHTML)
@@ -98,6 +106,14 @@ class TwitchAdapter extends BasePlatformAdapter {
                    if (firstSrc) {
                        img.setAttribute('src', firstSrc);
                    }
+                }
+
+                // Detect and mark wide emotes
+                const isWide = img.classList.contains('seventv-chat-emote--wide') ||
+                              img.dataset.width === '2' ||
+                              img.dataset.flags?.includes('WIDE');
+                if (isWide) {
+                    img.setAttribute('data-emote-wide', 'true');
                 }
             });
         }

@@ -818,6 +818,19 @@
           </div>
         </div>
 
+        <!-- Scrolling Messages -->
+        <div class="nav-section">
+          <a href="#" class="nav-link nav-section-header" data-target="panel-scrolling-messages">
+            <span>Scrolling Messages</span>
+            <span class="expand-icon">▶</span>
+          </a>
+          <div class="nav-subsection" id="scrolling-messages-subsection">
+            <a href="#" class="nav-link" data-target="panel-scrolling-messages" data-anchor="scrolling-ticker">Ticker Settings</a>
+            <a href="#" class="nav-link" data-target="panel-scrolling-messages" data-anchor="scrolling-appearance">Appearance</a>
+            <a href="#" class="nav-link" data-target="panel-scrolling-messages" data-anchor="scrolling-behavior">Behavior</a>
+          </div>
+        </div>
+
         <!-- Tracking & Leaderboard -->
         <div class="nav-section">
           <a href="#" class="nav-link nav-section-header" data-target="panel-tracking">
@@ -1000,7 +1013,109 @@
         </div>
       </div>
 
-      <!-- Message Counter Panel removed - functionality replaced by unified polling -->      <!-- Unified Polling Panel -->
+      <!-- Message Counter Panel removed - functionality replaced by unified polling -->
+
+      <!-- Scrolling Messages Panel -->
+      <div id="panel-scrolling-messages" class="options-panel">
+        <h2>Scrolling Messages Ticker</h2>
+        <p>Configure the scrolling message ticker feature for the popout window. Choose between different modes and customize appearance and behavior.</p>
+
+        <h3 id="scrolling-ticker">Ticker Settings</h3>
+        <div class="input-group">
+          <label for="scrollingMessagesMode">Scrolling Mode</label>
+          <select id="scrollingMessagesMode" name="scrollingMessagesMode" style="width: auto;">
+            <option value="disabled">Disabled - Normal highlights only</option>
+            <option value="highlightWithScroll">Highlight with Scroll - All highlights scroll (no normal display)</option>
+            <option value="autoQueue">Auto-Queue - Long messages scroll, short messages display normally</option>
+          </select>
+          <span class="tooltip-icon" data-tooltip="Choose how scrolling messages work: Disabled = traditional highlights, Highlight with Scroll = all highlights scroll, Auto-Queue = automatically scroll long messages while keeping short ones as normal highlights.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesAutoQueueMinLength">Auto-Queue Minimum Length (characters)</label>
+          <input type="number" id="scrollingMessagesAutoQueueMinLength" min="10" max="1000" step="10" value="100">
+          <span class="tooltip-icon" data-tooltip="In Auto-Queue mode, messages with more than this many characters will scroll. Manual highlights always display normally.">?</span>
+        </div>
+
+        <h3 id="scrolling-appearance">Appearance</h3>
+        <div class="input-group">
+          <label for="scrollingMessagesBackgroundColor">Background Color</label>
+          <input type="color" id="scrollingMessagesBackgroundColor" value="#000000">
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesBackgroundAlpha">Background Opacity</label>
+          <input type="range" id="scrollingMessagesBackgroundAlpha" min="0" max="1" step="0.01" value="0.7">
+          <span id="scrollingMessagesBackgroundAlphaValue">0.70</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesDirection">Scroll Direction</label>
+          <select id="scrollingMessagesDirection" name="scrollingMessagesDirection" style="width: auto;">
+            <option value="horizontal">Horizontal (left to right)</option>
+            <option value="vertical">Vertical (scroll upwards)</option>
+          </select>
+          <span class="tooltip-icon" data-tooltip="Choose between horizontal (ticker style) or vertical (scrolling upwards) message display.">?</span>
+        </div>
+
+        <div class="form-inline-group">
+          <input type="checkbox" id="scrollingMessagesFadeOutEnabled">
+          <label for="scrollingMessagesFadeOutEnabled">Enable Fade Out Transition</label>
+          <span class="tooltip-icon" data-tooltip="Messages will fade out smoothly before disappearing.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesFadeOutDuration">Fade Out Duration (milliseconds)</label>
+          <input type="number" id="scrollingMessagesFadeOutDuration" min="100" max="2000" step="100" value="500">
+          <span class="tooltip-icon" data-tooltip="How long the fade out animation takes. 500ms (0.5 seconds) is recommended.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesFontSize">Font Size (pixels)</label>
+          <input type="number" id="scrollingMessagesFontSize" min="10" max="48" step="1" value="16">
+          <span class="tooltip-icon" data-tooltip="Font size for scrolling messages. Default is 16px.">?</span>
+        </div>
+
+        <h3 id="scrolling-behavior">Behavior</h3>
+        <div class="input-group">
+          <label for="scrollingMessagesSpeed">Scroll Speed (pixels/second)</label>
+          <input type="number" id="scrollingMessagesSpeed" min="10" max="500" step="5" value="50">
+          <span class="tooltip-icon" data-tooltip="Lower values = slower scrolling. 50 is a good starting point for legibility.">?</span>
+        </div>
+
+        <div class="form-inline-group">
+          <input type="checkbox" id="scrollingMessagesSpeedMultiplierEnabled">
+          <label for="scrollingMessagesSpeedMultiplierEnabled">Enable Speed Multiplier</label>
+          <span class="tooltip-icon" data-tooltip="Increase scroll speed as the queue grows to clear messages faster.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesSpeedMultiplierPerMessage">Speed Multiplier Per Message</label>
+          <input type="number" id="scrollingMessagesSpeedMultiplierPerMessage" min="1.0" max="2.0" step="0.05" value="1.15">
+          <span class="tooltip-icon" data-tooltip="Speed increases by this multiplier for each message in the queue. 1.15 = 15% faster per queued message.">?</span>
+        </div>
+
+        <h3>Vertical Scrolling Settings</h3>
+        <div class="input-group">
+          <label for="scrollingMessagesVerticalMaxHeight">Maximum Container Height (pixels)</label>
+          <input type="number" id="scrollingMessagesVerticalMaxHeight" min="50" max="500" step="10" value="200">
+          <span class="tooltip-icon" data-tooltip="Maximum height of the vertical scrolling container. Container grows as messages are added, up to this limit.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesVerticalMaxMessages">Maximum Visible Messages</label>
+          <input type="number" id="scrollingMessagesVerticalMaxMessages" min="1" max="20" step="1" value="5">
+          <span class="tooltip-icon" data-tooltip="Maximum number of messages to display at once. Older messages are removed when this limit is reached.">?</span>
+        </div>
+
+        <div class="input-group">
+          <label for="scrollingMessagesVerticalMaxWidth">Maximum Message Width (pixels)</label>
+          <input type="number" id="scrollingMessagesVerticalMaxWidth" min="200" max="1920" step="50" value="600">
+          <span class="tooltip-icon" data-tooltip="Maximum width for vertical scrolling messages. Longer messages will wrap to multiple lines. Set to 0 for no width limit.">?</span>
+        </div>
+      </div>
+
+      <!-- Unified Polling Panel -->
       <div id="panel-unified-polling" class="options-panel">
         <h2>Unified Polling System</h2>
         <p>This advanced polling system automatically detects and visualizes all types of chat polls including Yes/No, numbers, letters, and sentiment tracking with priority-based activation.</p>
@@ -1134,6 +1249,37 @@
                 <span class="tooltip-icon" data-tooltip="Minimum width for the number poll background container.">?</span>
               </div>
               <input type="number" id="unifiedPollingNumbersMinWidth" min="100" max="800" step="10">
+
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingNumbersSimplifiedView">
+                <label for="unifiedPollingNumbersSimplifiedView">Simplified View</label>
+                <span class="tooltip-icon" data-tooltip="When enabled, displays only running average and top value during active polls. Full results still shown after poll concludes.">?</span>
+              </div>
+
+              <h4>Lurker Override</h4>
+              <div class="form-inline-group">
+                <input type="checkbox" id="unifiedPollingNumbersLurkerOverrideEnabled">
+                <label for="unifiedPollingNumbersLurkerOverrideEnabled">Enable Lurker Override</label>
+                <span class="tooltip-icon" data-tooltip="When at least 10 people post '7', displays 'Thank You Lurkers!' and flashes usernames with animation.">?</span>
+              </div>
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersLurkerOverrideThreshold">Lurker Threshold</label>
+                <span class="tooltip-icon" data-tooltip="Number of '7' messages needed to trigger lurker override.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersLurkerOverrideThreshold" min="5" max="50" step="1">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersLurkerOverrideDisplayDuration">Display Duration (ms)</label>
+                <span class="tooltip-icon" data-tooltip="How long the lurker override message stays active.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersLurkerOverrideDisplayDuration" min="1000" max="30000" step="1000">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingNumbersLurkerOverrideAnimationDuration">Animation Duration (ms)</label>
+                <span class="tooltip-icon" data-tooltip="Duration of the username flash animation.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingNumbersLurkerOverrideAnimationDuration" min="100" max="5000" step="100">
             </div>
           </details>
 
@@ -1216,6 +1362,12 @@
                 <span class="tooltip-icon" data-tooltip="Maximum value for sentiment gauge calculations. Gauges are 100% full at this count.">?</span>
               </div>
               <input type="number" id="unifiedPollingSentimentMaxGaugeValue" min="1" max="100">
+
+              <div class="label-with-tooltip">
+                <label for="unifiedPollingSentimentMaxMessageLength">Max Message Length</label>
+                <span class="tooltip-icon" data-tooltip="Maximum message length (in characters) to track as sentiment. Messages longer than this are ignored to filter out paragraphs and spam.">?</span>
+              </div>
+              <input type="number" id="unifiedPollingSentimentMaxMessageLength" min="1" max="200" step="1" value="50">
 
               <div class="label-with-tooltip">
                 <label for="unifiedPollingSentimentBaseColor">Base Color</label>

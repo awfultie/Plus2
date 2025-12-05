@@ -131,6 +131,13 @@ class MessageProcessor {
             const messageContentContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.messageContent);
             const usernameContainer = chatMessageElementForContent.querySelector(this.adapter.selectors.username);
             if (messageContentContainer && !options.skipBackgroundMessage) {
+                // Check if this message has already been timestamped (prevents re-processing on DOM manipulation)
+                const existingTimestamp = chatMessageElementForContent.getAttribute('data-plus2-timestamp');
+                if (existingTimestamp) {
+                    // Message was already processed, skip it
+                    return;
+                }
+
                 const text = (messageContentContainer.textContent || "").trim();
                 const images = Array.from(messageContentContainer.querySelectorAll(this.adapter.selectors.chatImage)).map(img => {
                     let src = img.src;
@@ -150,9 +157,15 @@ class MessageProcessor {
                         src = 'https:' + src;
                     }
 
+                    // Detect wide emotes (7TV wide emotes)
+                    const isWide = img.dataset.emoteWide === 'true' ||
+                                  img.classList.contains('seventv-chat-emote--wide') ||
+                                  img.dataset.width === '2';
+
                     return {
                         alt: img.alt,
-                        src: src
+                        src: src,
+                        isWide: isWide
                     };
                 });
                 const username = usernameContainer ? (usernameContainer.textContent || "").trim() : '';
@@ -162,10 +175,20 @@ class MessageProcessor {
                     console.log('[MessageProcessor] 7TV emotes extracted:', images.map(img => ({ name: img.alt, url: img.src })));
                 }
 
+                // Mark the element with a timestamp when first processed for real
+                // This helps prevent re-processing if DOM is manipulated or message is re-rendered
+                const messageTimestamp = Date.now();
+                chatMessageElementForContent.setAttribute('data-plus2-timestamp', messageTimestamp.toString());
+
                 if (typeof browser !== 'undefined' && browser.runtime?.id) {
                     browser.runtime.sendMessage({
                         type: 'CHAT_MESSAGE_FOUND',
-                        data: { text, images, username }
+                        data: {
+                            text,
+                            images,
+                            username,
+                            messageTimestamp // Use the timestamp when message was first seen
+                        }
                     }).catch(e => { /* Silently ignore */ });
                 }
             }

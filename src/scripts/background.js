@@ -13,8 +13,12 @@ let streamviewClient = null;
 
 // Message deduplication - track processed messages to prevent double counting
 let processedMessages = new Set();
-const MESSAGE_DEDUP_EXPIRY = 30000; // 30 seconds
+const MESSAGE_DEDUP_EXPIRY = 600000; // 10 minutes (increased from 30s to prevent reload duplicates)
 const MESSAGE_DEDUP_MAX_SIZE = 1000; // Maximum number of messages to track
+
+// Session tracking - track when the extension starts to reject stale messages on page reload
+let sessionStartTime = Date.now();
+let chatObserverStartTime = null; // Track when chat observer started (null = not started yet)
 
 // Poll State
 let yesCount = 0;
@@ -113,6 +117,7 @@ function cleanupProcessedMessages() {
     }
 }
 function getChannelNameFromUrl(url) {
+    if (!url) return 'unknown';
     const match = url.match(/\/popout\/([^/]+)\/|\.tv\/([^/]+)/);
     if (match) {
         return match[1] || match[2];
@@ -343,27 +348,40 @@ async function loadSettings() {
 // Legacy setupDecayMechanism removed - functionality replaced by unified sentiment tracking
 
 function processChatMessage(data) {
-    const { text, images, isModPost, modReplyContent, channelUrl, username, badges } = data;
-    
+    const { text, images, isModPost, modReplyContent, channelUrl, username, badges, messageTimestamp } = data;
+
     // Clean up old processed messages periodically
     if (Math.random() < 0.01) { // 1% chance to clean up on each message
         cleanupProcessedMessages();
     }
-    
+
     // Create message hash for deduplication (skip for testing user)
     if (username !== 'awful_tie') {
         const timestamp = Date.now();
+
+        // Reject messages that appear to be from before this session started
+        // This prevents page reloads from re-counting old messages in the DOM
+        // Allow 5 second buffer for processing delays
+        if (messageTimestamp && messageTimestamp < (sessionStartTime - 5000)) {
+            console.log('[Background] Rejecting stale message from before session start:', {
+                username,
+                messageAge: Math.round((timestamp - messageTimestamp) / 1000) + 's',
+                sessionAge: Math.round((timestamp - sessionStartTime) / 1000) + 's'
+            });
+            return;
+        }
+
         const messageHash = createMessageHash(text, username || 'unknown', timestamp);
         const messageKey = `${messageHash}|TIMESTAMP|${timestamp}`;
-        
+
         // Check if we've already processed this message recently
-        const isDuplicate = processedMessages.has(messageKey) || 
+        const isDuplicate = processedMessages.has(messageKey) ||
             Array.from(processedMessages).some(entry => entry.startsWith(messageHash + '|TIMESTAMP|'));
-        
+
         if (isDuplicate) {
             return;
         }
-        
+
         // Mark this message as processed
         processedMessages.add(messageKey);
     } else {
@@ -372,6 +390,59 @@ function processChatMessage(data) {
     if (isModPost && settings.features?.enableModPostReplyHighlight && modReplyContent) {
         processHighlightRequest({ isModPost: true, html: modReplyContent, channelUrl });
         // Don't return - let it continue to polling
+    }
+
+    // Check if we should auto-queue this message for scrolling based on length
+    // IMPORTANT: Only auto-queue messages that arrive AFTER the chat observer started
+    // This prevents scrolling ALL existing messages when the page first loads
+    if (settings.features?.scrollingMessages?.mode === 'autoQueue' && chatObserverStartTime !== null) {
+        const minLength = settings.features?.scrollingMessages?.autoQueueMinLength || 100;
+        const messageLength = text.length;
+
+        // Only process messages that were timestamped AFTER the observer started
+        // This ensures we only scroll truly new messages, not existing ones in the chat
+        const isNewMessage = messageTimestamp && messageTimestamp >= chatObserverStartTime;
+
+        if (messageLength > minLength && isNewMessage) {
+            console.log('[Background] Auto-queueing long message for scrolling', {
+                length: messageLength,
+                minLength,
+                username,
+                text: text.substring(0, 50) + '...',
+                messageTime: new Date(messageTimestamp).toISOString(),
+                observerStartTime: new Date(chatObserverStartTime).toISOString()
+            });
+
+            // Construct HTML for the message
+            const messageBodyHTML = text + images.map(img =>
+                `<img class="chat-image" src="${img.src}" alt="${img.alt}">`
+            ).join('');
+
+            // Create username HTML with default styling
+            const usernameHTML = `<span style="color: ${settings.styling?.usernameDefaultColor || '#FF0000'};">${username}</span>`;
+
+            // Create badges HTML if badges exist
+            const badgesHTML = badges && badges.length > 0
+                ? badges.map(b => `<span class="chat-badge">${b}</span>`).join('')
+                : '';
+
+            processHighlightRequest({
+                badgesHTML,
+                usernameHTML,
+                messageBodyHTML,
+                replyHTML: '',
+                username,
+                channelUrl,
+                isManualHighlight: false // This is automatic
+            });
+        } else if (messageLength > minLength && !isNewMessage) {
+            console.log('[Background] Skipping auto-queue for existing message', {
+                length: messageLength,
+                username,
+                messageTime: messageTimestamp ? new Date(messageTimestamp).toISOString() : 'unknown',
+                observerStartTime: chatObserverStartTime ? new Date(chatObserverStartTime).toISOString() : 'not started'
+            });
+        }
     }
 
     // Check if unified polling is enabled
@@ -395,9 +466,8 @@ function processChatMessage(data) {
 }
 
 function processHighlightRequest(data) {
-    
-    let { badgesHTML, usernameHTML, messageBodyHTML, replyHTML, username, channelUrl, isModPost, html } = data;
-    
+    let { badgesHTML, usernameHTML, messageBodyHTML, replyHTML, username, channelUrl, isModPost, html, isManualHighlight } = data;
+
     // Ensure proper UTF-8 encoding for emoji support
     if (messageBodyHTML) {
         messageBodyHTML = decodeURIComponent(encodeURIComponent(messageBodyHTML));
@@ -453,7 +523,7 @@ function processHighlightRequest(data) {
             <div class="plus2-popout-message-entry" style="background-color: ${settings.styling?.messageBGColor};">
                 ${replyBlock}
                 <div class="plus2-popout-message-line">
-                    ${badgesHTML}
+                    ${badgesHTML || ''}
                     <span class="plus2-popout-username">${usernameHTML}<span style="color: ${usernameColor};">:</span></span>
                     <span class="plus2-popout-message-body">${messageBodyHTML}</span>
                 </div>
@@ -476,7 +546,6 @@ function processHighlightRequest(data) {
         if (currentNonAppendTrackerId !== null && activeHighlightTrackers.has(currentNonAppendTrackerId)) {
             saveLogEntry(activeHighlightTrackers.get(currentNonAppendTrackerId).logEntry);
             activeHighlightTrackers.delete(currentNonAppendTrackerId);
-            // Legacy generic poll update removed - unified polling handles display updates
         }
         currentNonAppendTrackerId = trackerId;
     }
@@ -488,11 +557,12 @@ function processHighlightRequest(data) {
         displayTime: settings.display?.displayTime,
         platform: isYouTube ? 'youtube' : 'twitch',
         username: username || 'unknown',
-        usernameColor: usernameColor, // Add username color
-        badges: badgesHTML ? ['badge'] : [], // Simple badge detection
+        usernameColor: usernameColor,
+        badges: badgesHTML ? ['badge'] : [],
         messageBody: messageBodyHTML || '',
         reply: replyHTML || '',
-        isModPost: isModPost || false
+        isModPost: isModPost || false,
+        isManualHighlight: isManualHighlight || false
     };
 
     broadcastToPopouts({
@@ -681,6 +751,13 @@ function initializeUnifiedPolling() {
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
+        case 'CHAT_OBSERVER_STARTED':
+            // Mark the time when the chat observer starts watching for new messages
+            chatObserverStartTime = Date.now();
+            console.log('[Background] Chat observer started, will only auto-queue messages from now on');
+            sendResponse({ success: true });
+            break;
+
         case 'CHAT_MESSAGE_FOUND':
             processChatMessage(message.data);
             sendResponse({ success: true });
@@ -928,6 +1005,9 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         activeHighlightTrackers.clear();
         currentNonAppendTrackerId = null;
         processedMessages.clear(); // Clear processed message history for new stream
+        sessionStartTime = Date.now(); // Reset session start time for new page load
+        chatObserverStartTime = null; // Reset chat observer start time (will be set when observer starts)
+        console.log('[Background] Session start time reset for new page load');
         broadcastLeaderboardUpdate();
 
         // Auto-open logic for popout chat windows

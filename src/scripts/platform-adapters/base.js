@@ -36,9 +36,9 @@ class BasePlatformAdapter {
 
     sendHighlightMessage(messageParts) {
         if (typeof browser !== 'undefined' && browser.runtime?.id) {
-            browser.runtime.sendMessage({ 
-                type: 'HIGHLIGHT_MESSAGE_REQUEST', 
-                data: messageParts 
+            browser.runtime.sendMessage({
+                type: 'HIGHLIGHT_MESSAGE_REQUEST',
+                data: { ...messageParts, isManualHighlight: true }
             }).catch(e => {
                 // Silently ignore "context invalidated" or "receiving end does not exist" errors
             });

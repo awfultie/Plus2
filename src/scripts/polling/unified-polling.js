@@ -34,6 +34,14 @@
         lastCountSnapshots: {} // Track last count value for each term to detect stuck gauges
     };
 
+    // Lurker override state (for number poll "7" tracking)
+    let lurkerOverrideState = {
+        isActive: false,
+        lurkerUsernames: [], // Array of { username, timestamp }
+        displayTimeout: null,
+        thankYouShown: false
+    };
+
 
     // External dependencies (injected during initialization)
     let settings = {};
@@ -119,7 +127,13 @@
             numbersActivation: {
                 threshold: settings.polling?.unifiedPolling?.numbers?.activationThreshold || settings.polling?.types?.numbers?.activationThreshold || 7,
                 enabled: settings.polling?.unifiedPolling?.numbers?.enabled !== false,
-                maxDigits: settings.polling?.unifiedPolling?.numbers?.maxDigits || 4
+                maxDigits: settings.polling?.unifiedPolling?.numbers?.maxDigits || 4,
+                lurkerOverride: {
+                    enabled: settings.polling?.unifiedPolling?.numbers?.lurkerOverride?.enabled || false,
+                    threshold: settings.polling?.unifiedPolling?.numbers?.lurkerOverride?.threshold || 10,
+                    displayDuration: settings.polling?.unifiedPolling?.numbers?.lurkerOverride?.displayDuration || 5000,
+                    animationDuration: settings.polling?.unifiedPolling?.numbers?.lurkerOverride?.animationDuration || 1000
+                }
             },
             lettersActivation: {
                 totalThreshold: settings.polling?.unifiedPolling?.letters?.activationThreshold || settings.polling?.types?.letters?.activationThreshold || 10,
@@ -182,6 +196,9 @@
         // Process sentiment tracking (always-on, independent of polls)
         processSentimentTracking(unifiedMessage, config);
 
+        // Process lurker override tracking (for number "7")
+        processLurkerOverride(unifiedMessage, config);
+
         // If already active, update tracking
         if (unifiedState.isActive) {
             updateActivePollTracking(unifiedMessage);
@@ -218,12 +235,13 @@
         }
 
         // 4. Sentiment/words (longer text, not just numbers)
-        if (trimmedText.length > 1 && !/^\d+$/.test(trimmedText)) {
+        const maxMessageLength = config.sentiment?.maxMessageLength || 50;
+        if (trimmedText.length > 1 && trimmedText.length <= maxMessageLength && !/^\d+$/.test(trimmedText)) {
             // Skip yes/no terms from sentiment categorization when yes/no poll is active
             const yesNoTerms = ['yes', 'y', 'no', 'n'];
             const isYesNoTerm = yesNoTerms.includes(trimmedText.toLowerCase());
             const yesNoPollActive = unifiedState.isActive && unifiedState.activePollType === 'yesno';
-            
+
             if (!(isYesNoTerm && yesNoPollActive)) {
                 categories.push({ type: 'sentiment', value: trimmedText.toLowerCase() });
             }
@@ -295,8 +313,13 @@
     function checkPollTypeActivation(pollType, messages, config) {
         const typeKey = pollType.key;
         const isEnabled = config[`${typeKey}Activation`]?.enabled !== false;
-        
+
         if (!isEnabled) {
+            return false;
+        }
+
+        // Don't activate number polls if lurker override is active
+        if (typeKey === 'numbers' && lurkerOverrideState.isActive) {
             return false;
         }
 
@@ -925,7 +948,7 @@
 
         filteredItems.forEach(category => {
             const term = category.value;
-            
+
             // Skip blocked terms
             if (config.sentiment.blockList?.includes(term.toLowerCase())) {
                 return;
@@ -937,6 +960,11 @@
                 if (yesNoTerms.includes(term.toLowerCase())) {
                     return;
                 }
+            }
+
+            // Skip "7" and 7-variants (77, 777, etc.) if lurker override is active
+            if (lurkerOverrideState.isActive && /^7+$/.test(term)) {
+                return;
             }
 
             // Check if term belongs to a custom group
@@ -1249,7 +1277,7 @@
                 const currentCount = data.timestamps ? data.timestamps.length : 0;
                 // Show any item with count > 0 AND has previously met threshold
                 if (currentCount <= 0 || !sentimentState.displayTimes[term]) return false;
-                
+
                 // Skip yes/no terms if a yes/no poll is active
                 if (unifiedState.isActive && unifiedState.activePollType === 'yesno') {
                     const yesNoTerms = ['yes', 'y', 'no', 'n'];
@@ -1257,7 +1285,7 @@
                         return false;
                     }
                 }
-                
+
                 return true;
             })
             .sort((a, b) => {
@@ -1280,6 +1308,153 @@
         return sentimentStateData;
     }
 
+    // Lurker Override Functions
+
+    // Helper function to check if a number is composed only of 7s (7, 77, 777, etc.)
+    function isOnlySevens(number) {
+        const str = String(number);
+        return /^7+$/.test(str);
+    }
+
+    function processLurkerOverride(message, config) {
+        const lurkerConfig = config.numbersActivation?.lurkerOverride;
+        if (!lurkerConfig?.enabled) return;
+
+        // Don't process lurker override if a number poll is active or would activate
+        if (unifiedState.isActive && unifiedState.activePollType === 'numbers') {
+            return;
+        }
+
+        // Check if message is "7" or multiple 7s (77, 777, 7777, etc.)
+        const numberCategory = message.categories.find(c => c.type === 'number' && isOnlySevens(c.value));
+        if (!numberCategory || !message.username) return;
+
+        // Count total 7-related messages in the message buffer (7, 77, 777, etc.)
+        const currentTime = Date.now();
+        const lookbackWindow = config.lookbackWindowMs || 10000;
+        const cutoffTime = currentTime - lookbackWindow;
+
+        const sevenCount = unifiedState.messageBuffer.filter(msg => {
+            return msg.timestamp > cutoffTime &&
+                   msg.categories.some(c => c.type === 'number' && isOnlySevens(c.value));
+        }).length;
+
+        // Check if a number poll would activate (more diverse numbers beyond just 7s)
+        const numberMessages = unifiedState.messageBuffer.filter(msg => {
+            return msg.timestamp > cutoffTime &&
+                   msg.categories.some(c => c.type === 'number');
+        });
+
+        // Get unique numbers, but treat all 7-variants (7, 77, 777) as the same
+        const uniqueNumbers = new Set(
+            numberMessages.flatMap(msg =>
+                msg.categories
+                    .filter(c => c.type === 'number')
+                    .map(c => isOnlySevens(c.value) ? 7 : c.value) // Normalize all 7s variants to just 7
+            )
+        );
+
+        // If we have many different numbers (not just 7s/77s/777s), don't activate lurker mode
+        // Allow number poll to take priority
+        const numbersThreshold = config.numbersActivation?.threshold || 15;
+        if (uniqueNumbers.size > 1 && numberMessages.length >= numbersThreshold) {
+            return; // Let number poll activate instead
+        }
+
+        // If threshold is met, activate lurker override
+        if (sevenCount >= lurkerConfig.threshold && !lurkerOverrideState.isActive) {
+            activateLurkerOverride(config);
+        }
+
+        // If lurker override is active, track this user
+        if (lurkerOverrideState.isActive) {
+            // Add username if not already in the list
+            if (!lurkerOverrideState.lurkerUsernames.some(u => u.username === message.username)) {
+                lurkerOverrideState.lurkerUsernames.push({
+                    username: message.username,
+                    timestamp: currentTime
+                });
+
+                // Broadcast update with new lurker
+                broadcastLurkerOverrideUpdate(config);
+            }
+        }
+    }
+
+    function activateLurkerOverride(config) {
+        const lurkerConfig = config.numbersActivation?.lurkerOverride;
+
+        lurkerOverrideState.isActive = true;
+        lurkerOverrideState.thankYouShown = false;
+        lurkerOverrideState.lurkerUsernames = [];
+
+        // Clear "7" and all 7-variants (77, 777, etc.) from sentiment tracking when lurker override becomes active
+        Object.keys(sentimentState.items).forEach(term => {
+            if (/^7+$/.test(term)) {
+                delete sentimentState.items[term];
+                delete sentimentState.displayTimes[term];
+                delete sentimentState.maxValueTimes[term];
+            }
+        });
+        // Update sentiment display after clearing
+        updateSentimentDisplay(config);
+
+        // Broadcast activation
+        broadcastLurkerOverrideUpdate(config);
+
+        // Set timeout to deactivate
+        if (lurkerOverrideState.displayTimeout) {
+            clearTimeout(lurkerOverrideState.displayTimeout);
+        }
+
+        lurkerOverrideState.displayTimeout = setTimeout(() => {
+            deactivateLurkerOverride();
+        }, lurkerConfig.displayDuration || 5000);
+    }
+
+    function deactivateLurkerOverride() {
+        lurkerOverrideState.isActive = false;
+        lurkerOverrideState.thankYouShown = false;
+        lurkerOverrideState.lurkerUsernames = [];
+
+        if (lurkerOverrideState.displayTimeout) {
+            clearTimeout(lurkerOverrideState.displayTimeout);
+            lurkerOverrideState.displayTimeout = null;
+        }
+
+        // Broadcast deactivation
+        const config = getUnifiedPollConfig();
+        broadcastLurkerOverrideUpdate(config);
+    }
+
+    function broadcastLurkerOverrideUpdate(config) {
+        if (!broadcastToPopouts) return;
+
+        const lurkerConfig = config.numbersActivation?.lurkerOverride;
+
+        broadcastToPopouts({
+            type: 'LURKER_OVERRIDE_UPDATE',
+            data: {
+                isActive: lurkerOverrideState.isActive,
+                thankYouShown: lurkerOverrideState.thankYouShown,
+                lurkerUsernames: lurkerOverrideState.lurkerUsernames,
+                animationDuration: lurkerConfig?.animationDuration || 1000
+            }
+        });
+    }
+
+    function getLurkerOverrideState() {
+        const config = getUnifiedPollConfig();
+        const lurkerConfig = config.numbersActivation?.lurkerOverride;
+
+        return {
+            isActive: lurkerOverrideState.isActive,
+            thankYouShown: lurkerOverrideState.thankYouShown,
+            lurkerUsernames: lurkerOverrideState.lurkerUsernames,
+            animationDuration: lurkerConfig?.animationDuration || 1000
+        };
+    }
+
 
     // Export functions for use by background script
     global.UnifiedPolling = {
@@ -1288,9 +1463,10 @@
         processUnifiedMessage,
         getUnifiedPollState,
         getSentimentState,
+        getLurkerOverrideState,
         clearPollData,
         endPollManually, // Manual poll ending
-        
+
         // For testing/debugging
         getUnifiedPollConfig,
         categorizeMessage,

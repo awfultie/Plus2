@@ -271,10 +271,19 @@ class UnifiedPollingDisplayComponent {
      * Render active Numbers poll
      */
     renderActiveNumbers(counts, contentElement) {
+        // Check if simplified view is enabled
+        const simplifiedView = this.settings.polling?.unifiedPolling?.numbers?.simplifiedView || false;
+
+        if (simplifiedView) {
+            // Simplified view: show only average and top value
+            this.renderSimplifiedActiveNumbers(counts, contentElement);
+            return;
+        }
+
         // Apply outlier filtering
         const filteredData = this.filterOutliersForDisplay(counts);
         const entries = Object.entries(filteredData);
-        
+
         if (entries.length === 0) {
             contentElement.innerHTML = '<div style="text-align: center; opacity: 0.7;">Waiting for numbers...</div>';
             return;
@@ -296,6 +305,54 @@ class UnifiedPollingDisplayComponent {
         }
 
         this.renderBarChart(displayData, contentElement);
+    }
+
+    /**
+     * Render simplified active numbers poll - only average and top
+     */
+    renderSimplifiedActiveNumbers(counts, contentElement) {
+        const numbers = [];
+        let total = 0;
+
+        Object.entries(counts).forEach(([key, count]) => {
+            const num = parseInt(key, 10);
+            if (!isNaN(num)) {
+                for (let i = 0; i < count; i++) {
+                    numbers.push(num);
+                    total++;
+                }
+            }
+        });
+
+        if (numbers.length === 0) {
+            contentElement.innerHTML = '<div style="text-align: center; opacity: 0.7;">Waiting for numbers...</div>';
+            return;
+        }
+
+        // Calculate average
+        const average = (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(1);
+
+        // Find mode (most common number)
+        const frequency = {};
+        numbers.forEach(num => frequency[num] = (frequency[num] || 0) + 1);
+        const maxFreq = Math.max(...Object.values(frequency));
+        const mode = Object.keys(frequency).filter(num => frequency[num] === maxFreq).map(Number);
+        const modeText = mode.join(', ');
+
+        // Display simplified stats
+        contentElement.innerHTML = `
+            <div style="padding: 12px; text-align: center; min-width: 200px;">
+                <div style="font-size: 16px; margin-bottom: 8px; color: #fff;">
+                    <strong>Average:</strong> ${average}
+                </div>
+                <div style="font-size: 16px; margin-bottom: 8px; color: #fff;">
+                    <strong>Top:</strong> ${modeText}
+                </div>
+                <div style="font-size: 12px; color: #ccc; margin-top: 8px;">
+                    Total: ${total} votes
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -365,16 +422,42 @@ class UnifiedPollingDisplayComponent {
      * Render concluded Numbers poll with statistics
      */
     renderConcludedNumbers(results, titleElement, contentElement) {
-        
+        // Check if simplified view is enabled
+        const simplifiedView = this.settings.polling?.unifiedPolling?.numbers?.simplifiedView || false;
+
         // Clear the content element to show only results
         contentElement.innerHTML = '';
-        
+
         // If we got computed results (has average), use them
         if (results.average !== undefined) {
-            titleElement.textContent = `Average: ${results.average}`;
-            
             const modeText = Array.isArray(results.mode) ? results.mode.join(', ') : results.mode;
-            
+            const outlierInfo = results.outliersRemoved > 0 ? ` | Outliers: ${results.outliersRemoved}` : '';
+
+            if (simplifiedView) {
+                // Simplified view for concluded poll
+                titleElement.textContent = '';
+                contentElement.innerHTML = `
+                    <div style="padding: 12px; text-align: center; min-width: 200px;">
+                        <div style="font-size: 18px; margin-bottom: 10px; color: #4CAF50; font-weight: bold;">
+                            Final Results
+                        </div>
+                        <div style="font-size: 16px; margin-bottom: 8px; color: #fff;">
+                            <strong>Average:</strong> ${results.average}
+                        </div>
+                        <div style="font-size: 16px; margin-bottom: 8px; color: #fff;">
+                            <strong>Top:</strong> ${modeText}
+                        </div>
+                        <div style="font-size: 12px; color: #ccc; margin-top: 8px;">
+                            Total: ${results.totalVotes} votes${outlierInfo}
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Full view for concluded poll
+            titleElement.textContent = `Average: ${results.average}`;
+
             // Create histogram from results
             let histogramHtml = '';
             if (results.histogram && results.histogram.length > 0) {
@@ -392,9 +475,7 @@ class UnifiedPollingDisplayComponent {
                     `;
                 }).join('');
             }
-            
-            const outlierInfo = results.outliersRemoved > 0 ? ` | Outliers: ${results.outliersRemoved}` : '';
-            
+
             contentElement.innerHTML = `
                 <div style="font-size: 12px; margin-bottom: 8px; color: #ccc; text-align: center;">Average: ${results.average} Top: ${modeText}</div>
                 <div style="font-size: 12px;">${histogramHtml}</div>
@@ -404,7 +485,7 @@ class UnifiedPollingDisplayComponent {
             // We got raw counts, compute statistics on the fly
             const numbers = [];
             let total = 0;
-            
+
             Object.entries(results).forEach(([key, count]) => {
                 const num = parseInt(key, 10);
                 if (!isNaN(num)) {
@@ -414,17 +495,17 @@ class UnifiedPollingDisplayComponent {
                     }
                 }
             });
-            
+
             if (numbers.length === 0) {
                 contentElement.innerHTML = '<div style="text-align: center; opacity: 0.7;">No valid numbers</div>';
                 return;
             }
-            
+
             // Apply outlier filtering (similar to active numbers)
             const filteredData = this.filterOutliersForDisplay(results);
             const originalTotal = total;
             const outliersRemoved = originalTotal - Object.values(filteredData).reduce((sum, count) => sum + count, 0);
-            
+
             // Calculate statistics from filtered data
             const filteredNumbers = [];
             let filteredTotal = 0;
@@ -437,31 +518,55 @@ class UnifiedPollingDisplayComponent {
                     }
                 }
             });
-            
+
             const average = filteredNumbers.reduce((a, b) => a + b, 0) / filteredNumbers.length;
             const sorted = [...filteredNumbers].sort((a, b) => a - b);
-            const median = sorted.length % 2 === 0 
+            const median = sorted.length % 2 === 0
                 ? (sorted[Math.floor(sorted.length / 2) - 1] + sorted[Math.floor(sorted.length / 2)]) / 2
                 : sorted[Math.floor(sorted.length / 2)];
-                
+
             // Find mode (most common number)
             const frequency = {};
             filteredNumbers.forEach(num => frequency[num] = (frequency[num] || 0) + 1);
             const maxFreq = Math.max(...Object.values(frequency));
             const mode = Object.keys(frequency).filter(num => frequency[num] === maxFreq).map(Number);
-            
+
             const modeText = mode.join(', ');
-            
+
+            if (simplifiedView) {
+                // Simplified view for concluded poll (raw counts)
+                const outlierInfo = outliersRemoved > 0 ? ` | Outliers: ${outliersRemoved}` : '';
+                titleElement.textContent = '';
+                contentElement.innerHTML = `
+                    <div style="padding: 12px; text-align: center; min-width: 200px;">
+                        <div style="font-size: 18px; margin-bottom: 10px; color: #4CAF50; font-weight: bold;">
+                            Final Results
+                        </div>
+                        <div style="font-size: 16px; margin-bottom: 8px; color: #fff;">
+                            <strong>Average:</strong> ${average.toFixed(1)}
+                        </div>
+                        <div style="font-size: 16px; margin-bottom: 8px; color: #fff;">
+                            <strong>Top:</strong> ${modeText}
+                        </div>
+                        <div style="font-size: 12px; color: #ccc; margin-top: 8px;">
+                            Total: ${filteredTotal} votes${outlierInfo}
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Full view for concluded poll (raw counts)
             // Consolidate title to show "Average: x Top: y" format
             titleElement.textContent = `Average: ${average.toFixed(1)} Top: ${modeText}`;
-            
+
             // Prepare data for bar chart
             const entries = Object.entries(filteredData);
             let displayData;
-            
+
             // Get configurable display limit (same as active numbers)
             const maxDisplay = this.settings.polling?.unifiedPolling?.numbers?.maxDisplay || 10;
-            
+
             // Determine if we need binning: show individual numbers when unique values <= maxDisplay, otherwise bin
             if (entries.length <= maxDisplay) {
                 // Show individual numbers
@@ -472,27 +577,27 @@ class UnifiedPollingDisplayComponent {
                 // Bin the numbers using maxDisplay as the number of bins
                 displayData = this.createBins(filteredData, maxDisplay);
             }
-            
+
             // Create container for stats and bars
             const statsDiv = document.createElement('div');
             statsDiv.style.cssText = 'padding: 4px; max-width: 100%; box-sizing: border-box;';
-            
+
             // Add bars container
             const barsContainer = document.createElement('div');
-            
+
             // Add single totals footer (keep only the one with outlier info)
-            const footerText = outliersRemoved > 0 
+            const footerText = outliersRemoved > 0
                 ? `Total: ${filteredTotal} votes | Outliers removed: ${outliersRemoved}`
                 : `Total: ${filteredTotal} votes`;
             const statsFooter = document.createElement('div');
             statsFooter.style.cssText = 'font-size: 10px; margin-top: 5px; color: #ccc; text-align: center;';
             statsFooter.textContent = footerText;
-            
+
             // Assemble the display (removed statsHeader with duplicate stats)
             statsDiv.appendChild(barsContainer);
             statsDiv.appendChild(statsFooter);
             contentElement.appendChild(statsDiv);
-            
+
             // Render the bar chart
             this.renderBarChart(displayData, barsContainer, { showPercentages: true, total: filteredTotal, hideTotal: true });
         }
@@ -566,7 +671,9 @@ class UnifiedPollingDisplayComponent {
         if (winner[0] && typeof winner[0] === 'object' && (winner[0].src || winner[0].url)) {
             const imgSrc = winner[0].src || winner[0].url;
             const imgAlt = winner[0].alt || winner[0].name || 'emote';
-            winnerDisplay = `<img src="${imgSrc}" alt="${imgAlt}" style="height: 24px; width: auto; vertical-align: middle;">`;
+            const isWide = winner[0].isWide || false;
+            const widthStyle = isWide ? 'width: 48px;' : 'width: auto;';
+            winnerDisplay = `<img src="${imgSrc}" alt="${imgAlt}" style="height: 24px; ${widthStyle} vertical-align: middle;">`;
         } else {
             const textValue = typeof winner[0] === 'object' ? (winner[0].alt || winner[0].name || winner[0].toString()) : String(winner[0]);
             winnerDisplay = textValue.charAt(0).toUpperCase() + textValue.slice(1);
@@ -1115,11 +1222,14 @@ class UnifiedPollingDisplayComponent {
             
             // Create display label
             let displayLabel;
-            if (value && typeof value === 'object' && (value.src || value.url)) {
+            const hasEmoteImage = value && typeof value === 'object' && (value.src || value.url);
+            if (hasEmoteImage) {
                 const imgSrc = value.src || value.url;
                 const imgAlt = value.alt || value.name || 'emote';
                 const labelHeight = this.settings.polling?.unifiedPolling?.sentiment?.labelHeight || 18;
-                displayLabel = `<img src="${imgSrc}" alt="${imgAlt}" style="height: ${labelHeight}px; width: auto; vertical-align: middle;" onerror="this.style.display='none';this.nextSibling.style.display='inline'"><span style="display:none">${imgAlt}</span>`;
+
+                // Always use height constraint and let width be auto - we'll measure actual size after load
+                displayLabel = `<img src="${imgSrc}" alt="${imgAlt}" class="sentiment-emote-img" style="height: ${labelHeight}px; width: auto; max-width: none; vertical-align: middle;" onerror="this.style.display='none';this.nextSibling.style.display='inline'"><span style="display:none">${imgAlt}</span>`;
             } else {
                 const textValue = typeof value === 'object' ? (value.alt || value.name || value.toString()) : String(value);
                 displayLabel = textValue.charAt(0).toUpperCase() + textValue.slice(1);
@@ -1130,7 +1240,7 @@ class UnifiedPollingDisplayComponent {
             const labelHeight = this.settings.polling?.unifiedPolling?.sentiment?.labelHeight || 18;
             const gaugeHeight = Math.max(20, labelHeight + 2);
             const fontSize = Math.max(9, Math.floor(gaugeHeight * 0.55));
-            
+
             if (displayLabel && !displayLabel.includes('<img')) {
                 // Create temporary element to measure text width
                 const tempElement = document.createElement('div');
@@ -1139,11 +1249,12 @@ class UnifiedPollingDisplayComponent {
                 document.body.appendChild(tempElement);
                 labelWidthPx = tempElement.offsetWidth;
                 document.body.removeChild(tempElement);
-            } else if (displayLabel && displayLabel.includes('<img')) {
-                // For emotes, estimate width based on height + some padding
-                labelWidthPx = labelHeight + 12; // Height + padding
+            } else if (hasEmoteImage) {
+                // For emotes, we can't accurately predict width until image loads
+                // Start with a minimum width and we'll adjust after image loads
+                labelWidthPx = 30; // Minimum starting width
             }
-            
+
             // Use the maximum of fill width and label width for gauge-bar
             const gaugeBarWidthPx = Math.max(fillWidthPx, labelWidthPx);
             
@@ -1186,8 +1297,39 @@ class UnifiedPollingDisplayComponent {
                 const labelElement = gaugeElement.querySelector('.gauge-label');
                 if (labelElement) {
                     labelElement.innerHTML = displayLabel;
+
+                    // Add image load handler for emotes in reused gauges
+                    if (hasEmoteImage) {
+                        const img = labelElement.querySelector('.sentiment-emote-img');
+                        if (img) {
+                            const adjustGaugeWidth = () => {
+                                const imgWidth = img.offsetWidth;
+                                const gaugeBar = gaugeElement.querySelector('.gauge-bar');
+                                const gaugeFill = gaugeElement.querySelector('.gauge-fill');
+
+                                if (gaugeBar && imgWidth > 0) {
+                                    const minWidth = imgWidth + 12;
+                                    const currentBarWidth = parseFloat(gaugeBar.style.width);
+
+                                    if (minWidth > currentBarWidth) {
+                                        gaugeBar.style.width = `${minWidth}px`;
+                                        if (gaugeFill) {
+                                            const currentFillWidth = parseFloat(gaugeFill.style.width);
+                                            gaugeFill.style.width = `${Math.max(currentFillWidth, minWidth)}px`;
+                                        }
+                                    }
+                                }
+                            };
+
+                            if (img.complete && img.naturalWidth > 0) {
+                                adjustGaugeWidth();
+                            } else {
+                                img.addEventListener('load', adjustGaugeWidth, { once: true });
+                            }
+                        }
+                    }
                 }
-                
+
                 // Ensure proper order by moving to correct position
                 // Only move if the element is not already in the correct position
                 const currentPosition = Array.from(contentElement.children).indexOf(gaugeElement);
@@ -1291,6 +1433,45 @@ class UnifiedPollingDisplayComponent {
                 }
                 
                 usedGauges.add(gaugeElement);
+
+                // Add image load handler to adjust gauge width after emote loads
+                if (hasEmoteImage) {
+                    const img = gaugeElement.querySelector('.sentiment-emote-img');
+                    if (img) {
+                        const adjustGaugeWidth = () => {
+                            // Measure actual rendered width of the image
+                            const imgWidth = img.offsetWidth;
+                            const gaugeBar = gaugeElement.querySelector('.gauge-bar');
+                            const gaugeFill = gaugeElement.querySelector('.gauge-fill');
+
+                            if (gaugeBar && imgWidth > 0) {
+                                // Add padding to account for gauge styling
+                                const minWidth = imgWidth + 12;
+                                const currentBarWidth = parseFloat(gaugeBar.style.width);
+
+                                // Only expand if image is wider than current width
+                                if (minWidth > currentBarWidth) {
+                                    gaugeBar.style.width = `${minWidth}px`;
+
+                                    // Also update fill width to maintain proportion
+                                    if (gaugeFill) {
+                                        const currentFillWidth = parseFloat(gaugeFill.style.width);
+                                        gaugeFill.style.width = `${Math.max(currentFillWidth, minWidth)}px`;
+                                    }
+                                }
+                            }
+                        };
+
+                        // Adjust when image loads
+                        if (img.complete && img.naturalWidth > 0) {
+                            // Image already loaded
+                            adjustGaugeWidth();
+                        } else {
+                            // Wait for image to load
+                            img.addEventListener('load', adjustGaugeWidth, { once: true });
+                        }
+                    }
+                }
             }
             } catch (error) {
                 console.error(`[Unified Poll Display] Error processing item ${index + 1}:`, error);
@@ -1488,10 +1669,10 @@ class UnifiedPollingDisplayComponent {
         
         // If container exists but anchor point changed, remove and recreate
         if (sentimentContainer) {
-            const isCurrentlyFixed = sentimentContainer.style.position === 'fixed';
-            const shouldBeFixed = anchorPoint === 'bottom';
-            
-            if (isCurrentlyFixed !== shouldBeFixed) {
+            // Both top and bottom now use fixed positioning, so check the actual anchor point instead
+            const currentAnchor = sentimentContainer.style.top !== '' ? 'top' : 'bottom';
+
+            if (currentAnchor !== anchorPoint) {
                 sentimentContainer.remove();
                 sentimentContainer = null;
             }
@@ -1504,9 +1685,15 @@ class UnifiedPollingDisplayComponent {
             // Position sentiment container based on anchor point
             if (anchorPoint === 'bottom') {
                 // For bottom anchoring, create a fixed positioned container
+                // Check if scrolling messages container is visible
+                const scrollingContainer = document.getElementById('scrollingMessagesContainer');
+                const scrollingHeight = scrollingContainer && parseFloat(scrollingContainer.style.height) > 0
+                    ? parseFloat(scrollingContainer.style.height) : 0;
+                const bottomOffset = scrollingHeight > 0 ? scrollingHeight + 10 : 10;
+
                 sentimentContainer.style.cssText = `
                     position: fixed;
-                    bottom: 10px;
+                    bottom: ${bottomOffset}px;
                     left: 10px;
                     right: 10px;
                     z-index: 100;
@@ -1516,21 +1703,38 @@ class UnifiedPollingDisplayComponent {
                     max-height: calc(100vh - 20px);
                     overflow: hidden;
                     pointer-events: none;
+                    transition: bottom 0.2s ease-in-out;
                 `;
                 // Append to body for fixed positioning
                 document.body.appendChild(sentimentContainer);
             } else {
-                // For top anchoring, normal flow within content element
+                // For top anchoring, use same fixed positioning but anchor to top
                 sentimentContainer.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    left: 10px;
+                    right: 10px;
+                    z-index: 100;
                     display: flex;
                     flex-direction: column;
-                    margin-top: ${hasYesNoPoll ? '10px' : '0px'};
+                    justify-content: flex-start;
+                    max-height: calc(100vh - 20px);
+                    overflow: hidden;
+                    pointer-events: none;
                 `;
-                contentElement.appendChild(sentimentContainer);
+                // Append to body for fixed positioning
+                document.body.appendChild(sentimentContainer);
             }
         } else if (anchorPoint === 'top') {
-            // Update margin for existing top-anchored container
-            sentimentContainer.style.marginTop = hasYesNoPoll ? '10px' : '0px';
+            // Top anchoring is now fixed, no margin updates needed
+            // Container is already fixed to top: 10px
+        } else if (anchorPoint === 'bottom') {
+            // Update bottom position for existing bottom-anchored container based on scrolling messages
+            const scrollingContainer = document.getElementById('scrollingMessagesContainer');
+            const scrollingHeight = scrollingContainer && parseFloat(scrollingContainer.style.height) > 0
+                ? parseFloat(scrollingContainer.style.height) : 0;
+            const bottomOffset = scrollingHeight > 0 ? scrollingHeight + 10 : 10;
+            sentimentContainer.style.bottom = `${bottomOffset}px`;
         }
         
         // Check if sentiment data is empty or all items filtered out

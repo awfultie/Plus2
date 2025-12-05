@@ -744,7 +744,21 @@ const FORM_ELEMENT_PATHS = {
     'enableModPostReplyHighlight': 'features.enableModPostReplyHighlight',
     'modPostApprovedUsers': 'features.modPostApprovedUsers',
     'enableReplyTooltip': 'features.enableReplyTooltip',
-    
+    'scrollingMessagesMode': 'features.scrollingMessages.mode',
+    'scrollingMessagesBackgroundColor': 'features.scrollingMessages.backgroundColor',
+    'scrollingMessagesBackgroundAlpha': 'features.scrollingMessages.backgroundAlpha',
+    'scrollingMessagesSpeed': 'features.scrollingMessages.speed',
+    'scrollingMessagesAutoQueueMinLength': 'features.scrollingMessages.autoQueueMinLength',
+    'scrollingMessagesSpeedMultiplierEnabled': 'features.scrollingMessages.speedMultiplierEnabled',
+    'scrollingMessagesSpeedMultiplierPerMessage': 'features.scrollingMessages.speedMultiplierPerMessage',
+    'scrollingMessagesDirection': 'features.scrollingMessages.direction',
+    'scrollingMessagesFadeOutEnabled': 'features.scrollingMessages.fadeOutEnabled',
+    'scrollingMessagesFadeOutDuration': 'features.scrollingMessages.fadeOutDuration',
+    'scrollingMessagesFontSize': 'features.scrollingMessages.fontSize',
+    'scrollingMessagesVerticalMaxHeight': 'features.scrollingMessages.verticalMaxHeight',
+    'scrollingMessagesVerticalMaxMessages': 'features.scrollingMessages.verticalMaxMessages',
+    'scrollingMessagesVerticalMaxWidth': 'features.scrollingMessages.verticalMaxWidth',
+
     // Styling
     'messageBGColor': 'styling.messageBGColor',
     'paragraphTextColor': 'styling.paragraphTextColor',
@@ -829,7 +843,12 @@ const FORM_ELEMENT_PATHS = {
     'unifiedPollingNumbersMaxDigits': 'polling.unifiedPolling.numbers.maxDigits',
     'unifiedPollingNumbersMaxBins': 'polling.unifiedPolling.numbers.maxBins',
     'unifiedPollingNumbersMinWidth': 'polling.unifiedPolling.numbers.minWidth',
-    
+    'unifiedPollingNumbersSimplifiedView': 'polling.unifiedPolling.numbers.simplifiedView',
+    'unifiedPollingNumbersLurkerOverrideEnabled': 'polling.unifiedPolling.numbers.lurkerOverride.enabled',
+    'unifiedPollingNumbersLurkerOverrideThreshold': 'polling.unifiedPolling.numbers.lurkerOverride.threshold',
+    'unifiedPollingNumbersLurkerOverrideDisplayDuration': 'polling.unifiedPolling.numbers.lurkerOverride.displayDuration',
+    'unifiedPollingNumbersLurkerOverrideAnimationDuration': 'polling.unifiedPolling.numbers.lurkerOverride.animationDuration',
+
     // Letters Polling
     'unifiedPollingLettersEnabled': 'polling.unifiedPolling.letters.enabled',
     'unifiedPollingLettersThreshold': 'polling.unifiedPolling.letters.activationThreshold',
@@ -846,6 +865,7 @@ const FORM_ELEMENT_PATHS = {
     'unifiedPollingSentimentAutoFitWidth': 'polling.unifiedPolling.sentiment.autoFitWidth',
     'unifiedPollingSentimentLabelHeight': 'polling.unifiedPolling.sentiment.labelHeight',
     'unifiedPollingSentimentMaxGaugeValue': 'polling.unifiedPolling.sentiment.maxGaugeValue',
+    'unifiedPollingSentimentMaxMessageLength': 'polling.unifiedPolling.sentiment.maxMessageLength',
     'unifiedPollingSentimentMinimumDisplayTime': 'polling.unifiedPolling.sentiment.minimumDisplayTime',
     'unifiedPollingSentimentDecayInterval': 'polling.unifiedPolling.sentiment.decayInterval',
     'unifiedPollingSentimentDecayAmount': 'polling.unifiedPolling.sentiment.decayAmount',

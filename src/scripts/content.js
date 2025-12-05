@@ -92,11 +92,18 @@
                     }
                 }
 
+                // Detect wide emotes from 7TV
+                const isWide = img.classList.contains('seventv-chat-emote') &&
+                              (img.classList.contains('seventv-chat-emote--wide') ||
+                               img.dataset.width === '2' ||
+                               img.dataset.flags?.includes('WIDE'));
+
                 return {
                     alt: img.alt || '',
                     src: src,
                     // Add 7TV-specific metadata for better emote handling
                     is7TV: img.classList.contains('seventv-chat-emote'),
+                    isWide: isWide,
                     className: img.className || ''
                 };
             });
@@ -155,9 +162,15 @@
         const selectors = getCurrentSelectors();
         const targetNode = document.querySelector(selectors.chatContainer);
         if (targetNode) {
-            observer.observe(targetNode, { childList: true, subtree: platform.isTwitch });
             // Add UI elements (highlight buttons) to existing messages without triggering polling/tracking
             targetNode.querySelectorAll(selectors.chatMessage).forEach(addUIOnlyToMessage);
+
+            // Start the observer AFTER processing existing messages
+            observer.observe(targetNode, { childList: true, subtree: platform.isTwitch });
+
+            // Notify background that observer has started - from this point forward,
+            // all messages are truly new and can be auto-queued for scrolling
+            sendToBackground('CHAT_OBSERVER_STARTED', {});
         } else {
             setTimeout(startObserver, 2000);
         }

@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'panel-general': 'general-subsection',
             'panel-popout': 'popout-subsection',
             'panel-unified-polling': 'polling-subsection',
+            'panel-scrolling-messages': 'scrolling-messages-subsection',
             'panel-tracking': 'tracking-subsection',
             'panel-streamview': 'streamview-subsection'
           };
@@ -113,8 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Find which section this panel belongs to and expand it
       const sectionMapping = {
         'panel-general': 'general-subsection',
-        'panel-popout': 'popout-subsection', 
+        'panel-popout': 'popout-subsection',
         'panel-unified-polling': 'polling-subsection',
+        'panel-scrolling-messages': 'scrolling-messages-subsection',
         'panel-tracking': 'tracking-subsection',
         'panel-streamview': 'streamview-subsection'
       };
@@ -144,6 +146,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const chromaKeyColorInput = document.getElementById('chromaKeyColor');
   const messageBGColorInput = document.getElementById('messageBGColor');
   const appendMessagesInput = document.getElementById('appendMessages');
+  const scrollingMessagesEnabledInput = document.getElementById('scrollingMessagesEnabled');
+  const scrollingMessagesBackgroundColorInput = document.getElementById('scrollingMessagesBackgroundColor');
+  const scrollingMessagesBackgroundAlphaInput = document.getElementById('scrollingMessagesBackgroundAlpha');
+  const scrollingMessagesBackgroundAlphaValue = document.getElementById('scrollingMessagesBackgroundAlphaValue');
+  const scrollingMessagesSpeedInput = document.getElementById('scrollingMessagesSpeed');
   // Legacy message counter form elements removed - functionality replaced by unified polling
   const decayIntervalInput = document.getElementById('decayInterval');
   const decayAmountInput = document.getElementById('decayAmount');
@@ -216,7 +223,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const unifiedPollingNumbersThresholdInput = document.getElementById('unifiedPollingNumbersThreshold');
   const unifiedPollingNumbersMaxDisplayInput = document.getElementById('unifiedPollingNumbersMaxDisplay');
   const unifiedPollingNumbersMaxDigitsInput = document.getElementById('unifiedPollingNumbersMaxDigits');
-  
+  const unifiedPollingNumbersLurkerOverrideEnabledInput = document.getElementById('unifiedPollingNumbersLurkerOverrideEnabled');
+  const unifiedPollingNumbersLurkerOverrideThresholdInput = document.getElementById('unifiedPollingNumbersLurkerOverrideThreshold');
+  const unifiedPollingNumbersLurkerOverrideDisplayDurationInput = document.getElementById('unifiedPollingNumbersLurkerOverrideDisplayDuration');
+  const unifiedPollingNumbersLurkerOverrideAnimationDurationInput = document.getElementById('unifiedPollingNumbersLurkerOverrideAnimationDuration');
+
   const unifiedPollingLettersEnabledInput = document.getElementById('unifiedPollingLettersEnabled');
   const unifiedPollingLettersThresholdInput = document.getElementById('unifiedPollingLettersThreshold');
   const unifiedPollingLettersIndividualThresholdInput = document.getElementById('unifiedPollingLettersIndividualThreshold');
@@ -469,6 +480,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (previewLeaderboardList && leaderboardTextColor) previewLeaderboardList.style.color = leaderboardTextColor;
     if (leaderboardPreviewSectionBackground && chromaKey) leaderboardPreviewSectionBackground.style.backgroundColor = chromaKey;
+
+    // Update scrolling messages alpha display value
+    const scrollingAlpha = options.features?.scrollingMessages?.backgroundAlpha;
+    if (scrollingMessagesBackgroundAlphaValue && scrollingAlpha !== undefined) {
+      scrollingMessagesBackgroundAlphaValue.textContent = parseFloat(scrollingAlpha).toFixed(2);
+    }
   }
 
   // --- Nested Structure Helpers ---
@@ -929,6 +946,13 @@ document.addEventListener('DOMContentLoaded', () => {
   enable7TVCompatInput.addEventListener('change', handleCompatibilityToggles);
   // Legacy enableCountingInput event listener removed - functionality replaced by unified polling
   enableUnifiedPollingInput.addEventListener('change', () => toggleSection(enableUnifiedPollingInput, unifiedPollingOptionsContainer));
+
+  // Scrolling messages alpha value display update
+  if (scrollingMessagesBackgroundAlphaInput && scrollingMessagesBackgroundAlphaValue) {
+    scrollingMessagesBackgroundAlphaInput.addEventListener('input', () => {
+      scrollingMessagesBackgroundAlphaValue.textContent = parseFloat(scrollingMessagesBackgroundAlphaInput.value).toFixed(2);
+    });
+  }
   enableHighlightTrackingInput.addEventListener('change', () => {
       toggleSection(enableHighlightTrackingInput, highlightTrackingOptionsContainer);
       // If tracking is disabled, leaderboard must also be disabled

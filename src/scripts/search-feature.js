@@ -117,9 +117,20 @@ class SearchFeature {
         clonedNode.setAttribute('data-plus2-readded', 'true');
         clonedNode.style.display = '';
 
+        // Preserve the timestamp from original if it exists (prevents re-counting if somehow processed)
+        // This is a safety measure - the main protection is the data-plus2-readded flag
+        const chatMessage = clonedNode.querySelector(this.adapter.selectors.chatMessage);
+        if (chatMessage) {
+            const originalChatMessage = originalNode.querySelector(this.adapter.selectors.chatMessage);
+            const originalTimestamp = originalChatMessage?.getAttribute('data-plus2-timestamp');
+            if (originalTimestamp) {
+                chatMessage.setAttribute('data-plus2-timestamp', originalTimestamp);
+            }
+        }
+
         // Find the correct insertion point (after existing re-added messages but before live messages)
         let insertionPoint = chatContainer.firstChild;
-        
+
         // Skip past any existing re-added messages to maintain chronological order
         while (insertionPoint && insertionPoint.hasAttribute && insertionPoint.hasAttribute('data-plus2-readded')) {
             insertionPoint = insertionPoint.nextSibling;
@@ -164,6 +175,17 @@ class SearchFeature {
                     const clonedNode = originalNode.cloneNode(true);
                     clonedNode.setAttribute('data-plus2-readded', 'true');
                     clonedNode.style.display = '';
+
+                    // Preserve the timestamp from original if it exists (prevents re-counting)
+                    const chatMessage = clonedNode.querySelector(this.adapter.selectors.chatMessage);
+                    if (chatMessage) {
+                        const originalChatMessage = originalNode.querySelector(this.adapter.selectors.chatMessage);
+                        const originalTimestamp = originalChatMessage?.getAttribute('data-plus2-timestamp');
+                        if (originalTimestamp) {
+                            chatMessage.setAttribute('data-plus2-timestamp', originalTimestamp);
+                        }
+                    }
+
                     matchingCachedNodes.push(clonedNode);
                 }
             }

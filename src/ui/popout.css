@@ -16,6 +16,11 @@
     box-sizing: border-box;
 }
 
+/* Scrolling message items for vertical scrolling mode */
+.scrolling-message-item {
+    padding: 1px 0;
+}
+
 /* This targets the .plus2-popout-message-entry div inside the above div */
 .plus2-popout-message-entry {
     padding: 10px;
@@ -54,6 +59,7 @@
 .plus2-popout-message-body .text-fragment,
 .plus2-popout-message-body .mention-fragment {
     vertical-align: middle;
+    font-variant-emoji: normal; /* Prevent emoji variants for numbers */
 }
 
 .plus2-popout-message-body .link-fragment {
@@ -98,9 +104,8 @@
     width: auto;
 }
 
-/* Ensure emojis are rendered properly */
+/* Ensure consistent text rendering */
 .plus2-popout-message-body {
-    font-variant-emoji: emoji;
     text-rendering: optimizeSpeed;
 }
 
@@ -120,4 +125,40 @@
 .plus2-mod-post span:first-child {
     color: var(--plus2-username-color);
     font-weight: bold;
+}
+
+/* --- Lurker Override Animations --- */
+@keyframes lurker-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+@keyframes lurker-flash {
+    0% {
+        opacity: 0;
+        transform: scale(0.5) translateY(20px);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.2) translateY(0);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.lurker-thank-you {
+    animation: lurker-pulse 2s ease-in-out infinite;
+}
+
+.lurker-username {
+    animation: lurker-flash 1s ease-in-out;
+    animation-fill-mode: both;
 }

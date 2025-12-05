@@ -66,12 +66,18 @@
                     const messageElements = extractMessageElements(addedNode);
 
                     if (messageElements.hoverTarget && messageElements.chatMessage) {
-                        // Process message for counting/polling if not re-added
-                        if (!isReAdded) {
+                        // Check if message was already processed (has timestamp marker)
+                        // This prevents re-processing when Twitch's virtualization re-adds old messages
+                        const wasAlreadyProcessed = messageElements.chatMessage.hasAttribute('data-plus2-timestamp');
+
+                        // Process message for counting/polling only if:
+                        // 1. NOT re-added by search feature
+                        // 2. NOT already processed (doesn't have timestamp)
+                        if (!isReAdded && !wasAlreadyProcessed) {
                             processNewChatMessage(messageElements);
                         }
 
-                        // Always add UI elements
+                        // Always add UI elements (even for re-added messages)
                         addUIToMessage(messageElements.hoverTarget);
 
                         // Filter for search if active
@@ -84,6 +90,14 @@
         });
 
         messageObserver.observe(chatContainer, { childList: true, subtree: true });
+
+        // Notify background script that observer has started
+        // This allows background to track when to start auto-queueing messages
+        if (typeof browser !== 'undefined' && browser.runtime?.id) {
+            browser.runtime.sendMessage({
+                type: 'CHAT_OBSERVER_STARTED'
+            }).catch(e => { /* Silently ignore */ });
+        }
     }
 
     function onChatContainerRemoved() {
